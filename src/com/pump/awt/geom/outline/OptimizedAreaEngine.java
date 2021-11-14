@@ -243,6 +243,8 @@ public class OptimizedAreaEngine implements OutlineEngine {
                     }
                 }
             }
+            if (returnValue != null)
+                return returnValue;
         }
         // we shouldn't reach this point
         return (OptimizedOutlineOperation) operations.get(0);
