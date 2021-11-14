@@ -15,7 +15,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 
-public class ClipArtTests {
+public class ClipArtTests extends OutlineTests {
 
     public static final Icon[] ICONS = new Icon[] {
             new Broccoli(),
@@ -49,12 +49,12 @@ public class ClipArtTests {
 
     @Test
     public void testAdd() throws Exception {
-        try(Writer logWriter = TestUtils.createLog("Clip Art Outlines")) {
+        try(Writer logWriter = createLog("Clip Art Outlines")) {
 
             logWriter.write("This table shows how long it takes to create an outline of clip art using different models.\n\n");
 
             StringBuilder sb = new StringBuilder();
-            OutlineEngine[] engines = TestUtils.getEngines();
+            OutlineEngine[] engines = getEngines();
             for(OutlineEngine engine : engines) {
                 sb.append(engine.toString());
                 sb.append("\t");
@@ -91,10 +91,12 @@ public class ClipArtTests {
 
     private void testAdd(OutlineEngine[] engines, Writer logWriter, String name, List<Shape> shapes) throws IOException {
         long baselineTime = -1;
+        Shape baselineShape = null;
 
         StringBuilder sb = new StringBuilder();
         for(OutlineEngine engine : engines) {
             long[] times = new long[5];
+            Outline lastSum = null;
             for (int a = 0; a < times.length; a++) {
                 times[a] = System.currentTimeMillis();
                 Outline sum = new Outline(engine);
@@ -102,6 +104,7 @@ public class ClipArtTests {
                     sum.add(shape);
                 }
                 sum.flush();
+                lastSum = sum;
                 times[a] = System.currentTimeMillis() - times[a];
             }
             Arrays.sort(times);
@@ -110,9 +113,11 @@ public class ClipArtTests {
             sb.append("\t");
             if (baselineTime == -1) {
                 baselineTime = t;
+                baselineShape = lastSum;
             } else {
                 double percent = ((double)t) / ((double) baselineTime) * 100.0;
                 sb.append(DecimalFormat.getInstance().format(percent)+"%\t");
+                testEquals(name, baselineShape, lastSum);
             }
         }
         sb.append(name);

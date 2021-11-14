@@ -1,6 +1,8 @@
 package com.pump.awt.geom.outline;
 
 import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 public class OutlineOperation {
@@ -9,8 +11,8 @@ public class OutlineOperation {
         ADD, SUBTRACT, INTERSECT, XOR
     }
 
-    private final Type type;
-    private final Shape shape;
+    public final Type type;
+    public final Shape shape;
 
     public OutlineOperation(Type type, Shape shape) {
         Objects.requireNonNull(type);
@@ -19,11 +21,8 @@ public class OutlineOperation {
         this.shape = shape;
     }
 
-    public Type getType() {
-        return type;
-    }
-
-    public Shape getShape() {
-        return shape;
+    @Override
+    public String toString() {
+        return "OutlineOperation["+type+"]";
     }
 }

@@ -1,30 +1,30 @@
 This table shows how long it takes to create an outline of clip art using different models.
 
-PlainAreaEngine	Clip Art Name
-290	Broccoli
-758	Cat5
-42	CelticKnot5
-90	EasterEgg
-581	ExitSign
-1793	GardenSign
-45089	GiftBox
-67	Globe3
-19060	IceCream12
-29	JackOLantern
-28	JohnLemon
-200	MotherAndBaby
-2	MRIMachine
-144	MysteriousCube
-21	OrangeJuice
-64	PersonAtComputer
-59	RockingChair
-71	RunningDogRetro
-13	RussianBulldozer
-80	Salad
-18	ShareRoadSign
-21	SpaceTravel
-25	StackOfBooks4
-101	Stew
-712	Students
-3	TeleworkGuy
-331	WellDressedOwl
+PlainAreaEngine	OptimizedAreaEngine	Clip Art Name
+309	34	11.003%	Broccoli
+647	565	87.326%	Cat5
+61	41	67.213%	CelticKnot5
+99	118	119.192%	EasterEgg
+628	226	35.987%	ExitSign
+1806	1695	93.854%	GardenSign
+44979	19404	43.14%	GiftBox
+57	55	96.491%	Globe3
+18548	18431	99.369%	IceCream12
+24	22	91.667%	JackOLantern
+34	29	85.294%	JohnLemon
+215	190	88.372%	MotherAndBaby
+2	1	50%	MRIMachine
+130	69	53.077%	MysteriousCube
+24	15	62.5%	OrangeJuice
+61	40	65.574%	PersonAtComputer
+54	55	101.852%	RockingChair
+69	72	104.348%	RunningDogRetro
+15	11	73.333%	RussianBulldozer
+76	43	56.579%	Salad
+10	0	0%	ShareRoadSign
+20	9	45%	SpaceTravel
+24	24	100%	StackOfBooks4
+101	31	30.693%	Stew
+697	805	115.495%	Students
+3	3	100%	TeleworkGuy
+366	348	95.082%	WellDressedOwl

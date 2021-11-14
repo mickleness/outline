@@ -17,21 +17,21 @@ public class PlainAreaEngine implements OutlineEngine {
         Area area = body == null ? new Area() : new Area(body);
         for(OutlineOperation operation : operationQueue) {
             Area rhs;
-            switch(operation.getType()) {
+            switch(operation.type) {
                 case ADD:
-                    rhs = new Area(operation.getShape());
+                    rhs = new Area(operation.shape);
                     area.add(rhs);
                     break;
                 case SUBTRACT:
-                    rhs = new Area(operation.getShape());
+                    rhs = new Area(operation.shape);
                     area.subtract(rhs);
                     break;
                 case XOR:
-                    rhs = new Area(operation.getShape());
+                    rhs = new Area(operation.shape);
                     area.exclusiveOr(rhs);
                     break;
                 case INTERSECT:
-                    rhs = new Area(operation.getShape());
+                    rhs = new Area(operation.shape);
                     area.intersect(rhs);
                     break;
             }
@@ -42,8 +42,8 @@ public class PlainAreaEngine implements OutlineEngine {
     }
 
     @Override
-    public void prepare(OutlineOperation addOperation) {
-        // intentionally empty
+    public OutlineOperation createOperation(OutlineOperation.Type type, Shape shape) {
+        return new OutlineOperation(type, shape);
     }
 
     @Override

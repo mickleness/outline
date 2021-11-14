@@ -65,36 +65,28 @@ public class Outline implements Shape, Serializable {
     public void add(Shape shape) {
         Objects.requireNonNull(shape);
         synchronized(this) {
-            OutlineOperation addOperation = new OutlineOperation(OutlineOperation.Type.ADD, shape);
-            operationQueue.add(addOperation);
-            getEngine().prepare(addOperation);
+            operationQueue.add(getEngine().createOperation(OutlineOperation.Type.ADD, shape));
         }
     }
 
     public void subtract(Shape shape) {
         Objects.requireNonNull(shape);
         synchronized(this) {
-            OutlineOperation subtractOperation = new OutlineOperation(OutlineOperation.Type.SUBTRACT, shape);
-            operationQueue.add(subtractOperation);
-            getEngine().prepare(subtractOperation);
+            operationQueue.add(getEngine().createOperation(OutlineOperation.Type.SUBTRACT, shape));
         }
     }
 
     public synchronized void intersect(Shape shape) {
         Objects.requireNonNull(shape);
         synchronized(this) {
-            OutlineOperation intersectOperation = new OutlineOperation(OutlineOperation.Type.INTERSECT, shape);
-            operationQueue.add(intersectOperation);
-            getEngine().prepare(intersectOperation);
+            operationQueue.add(getEngine().createOperation(OutlineOperation.Type.INTERSECT, shape));
         }
     }
 
     public synchronized void exclusiveOr(Shape shape) {
         Objects.requireNonNull(shape);
         synchronized(this) {
-            OutlineOperation xorOperation = new OutlineOperation(OutlineOperation.Type.XOR, shape);
-            operationQueue.add(xorOperation);
-            getEngine().prepare(xorOperation);
+            operationQueue.add(getEngine().createOperation(OutlineOperation.Type.XOR, shape));
         }
     }
 
@@ -114,6 +106,7 @@ public class Outline implements Shape, Serializable {
             return;
 
         shape = getEngine().flush(shape, operationQueue);
+        operationQueue.clear();
     }
 
     @Serial
