@@ -43,6 +43,9 @@ public class OptimizedAreaEngine implements OutlineEngine {
     static class OptimizedOutlineOperation extends OutlineOperation {
         static long idCtr = 0;
 
+        /**
+         * Only used for debugging.
+         */
         Collection<String> id = Collections.singleton(Long.toString(idCtr++));
 
         Rectangle2D bounds;
@@ -186,6 +189,11 @@ public class OptimizedAreaEngine implements OutlineEngine {
         return result.isEmpty() ? null : result;
     }
 
+    /**
+     * Sort operations by the largest area to the smallest area. This is based on the operand's bounding box.
+     * Of course it's possible a bounding box could be huge and the actual area is very small, but this is
+     * the best rule of thumb we have so far.
+     */
     static Comparator<OptimizedOutlineOperation> AREA_ORDER_COMPARATOR = new Comparator<OptimizedOutlineOperation>() {
         @Override
         public int compare(OptimizedOutlineOperation o1, OptimizedOutlineOperation o2) {
@@ -199,16 +207,24 @@ public class OptimizedAreaEngine implements OutlineEngine {
         }
     };
 
-    private Area flushAdds(Area result, List<OptimizedOutlineOperation> operationsRun) {
-        List<OptimizedOutlineOperation> linearOperations = removeLinearOperations(operationsRun);
-        result = flushAdds2(result, linearOperations);
-        result = flushAdds2(result, operationsRun);
+    private Area flushAdds(Area result, List<OptimizedOutlineOperation> addOperations) {
+        List<OptimizedOutlineOperation> linearOperations = removeLinearOperations(addOperations);
+
+        // Linear shapes are usually easier to churn through than quadratic & cubic shapes
+        Area polygonShapes = flushAdds2(new Area(), linearOperations);
+        if (!polygonShapes.isEmpty()) {
+            OptimizedOutlineOperation newOp = new OptimizedOutlineOperation(OutlineOperation.Type.ADD, polygonShapes);
+            newOp.populateMetadata();
+            addOperations.add(newOp);
+        }
+
+        result = flushAdds2(result, addOperations);
         return result;
     }
 
-    private List<OptimizedOutlineOperation> removeLinearOperations(List<OptimizedOutlineOperation> operations) {
+    private List<OptimizedOutlineOperation> removeLinearOperations(List<OptimizedOutlineOperation> addOperations) {
         List<OptimizedOutlineOperation> returnValue = null;
-        Iterator<OptimizedOutlineOperation> iter = operations.iterator();
+        Iterator<OptimizedOutlineOperation> iter = addOperations.iterator();
         while (iter.hasNext()) {
             OptimizedOutlineOperation op = iter.next();
             if (op.lineSegments > 0 && op.quadSegments == 0 && op.cubicSegments == 0) {
@@ -223,22 +239,37 @@ public class OptimizedAreaEngine implements OutlineEngine {
         return returnValue;
     }
 
-    private Area flushAdds2(Area result, List<OptimizedOutlineOperation> operationsRun) {
-        class AddRunnable implements Callable<OptimizedOutlineOperation> {
+    /**
+     * This is optimized by:
+     * 1. Using multiple threads if possible. The Area class is not thread-safe, but if you have 100 additions to
+     *    make you can merge each pair of shapes and end up with 50 additions. Then merge each of those pairs to
+     *    get 25 additions, etc. A lot of the hard work in this case can be handled in separate threads.
+     * 2. Merging the largest shapes first, and if our new Area contains the *bounds* of any operand (which
+     *    is guaranteed to be a Rectangle2D): then we can discard that operand. (Sometimes this means we can even
+     *    avoid constructing the operand's Area at all.)
+     *
+     * @param result the Area we're adding everything to.
+     * @param addOperations
+     * @return the new result, which may or may not be the same as the argument.
+     */
+    private Area flushAdds2(Area result, List<OptimizedOutlineOperation> addOperations) {
+        class MergeShapesCallable implements Callable<OptimizedOutlineOperation> {
             OptimizedOutlineOperation op1, op2;
             Area result;
-            public AddRunnable(Area result, OptimizedOutlineOperation op1, OptimizedOutlineOperation op2) {
+            Rectangle2D resultBounds;
+            public MergeShapesCallable(Area result, Rectangle2D resultBounds, OptimizedOutlineOperation op1, OptimizedOutlineOperation op2) {
                 this.op1 = op1;
                 this.op2 = op2;
                 this.result = result;
+                this.resultBounds = resultBounds;
             }
 
             @Override
             public OptimizedOutlineOperation call() {
-                if (result.getBounds2D().contains(op1.bounds) && result.contains(op1.bounds)) {
+                if (resultBounds.contains(op1.bounds) && result.contains(op1.bounds)) {
                     op1 = null;
                 }
-                if (result.getBounds2D().contains(op2.bounds) && result.contains(op2.bounds)) {
+                if (resultBounds.contains(op2.bounds) && result.contains(op2.bounds)) {
                     op2 = null;
                 }
 
@@ -259,18 +290,24 @@ public class OptimizedAreaEngine implements OutlineEngine {
             }
         }
 
-        Collections.sort(operationsRun, AREA_ORDER_COMPARATOR);
+        Collections.sort(addOperations, AREA_ORDER_COMPARATOR);
 
         List<Future<OptimizedOutlineOperation>> futures = new LinkedList<>();
-        while(!operationsRun.isEmpty()) {
-            OptimizedOutlineOperation op = operationsRun.remove(0);
+        while(!addOperations.isEmpty()) {
+            // we only change result on this thread here:
+            OptimizedOutlineOperation op = addOperations.remove(0);
             if (result.isEmpty()) {
+                // a very small optimization:
+                // calling Area.add(..) ALWAYS fires off some complex calculations. If the LHS
+                // Area starts out empty: there's no need to calculate anything.
                 result = new Area(op.shape);
             } else {
                 result.add(new Area(op.shape));
             }
+            Rectangle2D resultBounds = result.getBounds2D();
 
-            Iterator<OptimizedOutlineOperation> iter = operationsRun.iterator();
+            // but everything else we can spin off into worker threads in a divide-and-conquer approach:
+            Iterator<OptimizedOutlineOperation> iter = addOperations.iterator();
             while(iter.hasNext() && futures.size() < workerThreadCount * 2) {
                 OptimizedOutlineOperation op1 = iter.next();
                 iter.remove();
@@ -278,14 +315,16 @@ public class OptimizedAreaEngine implements OutlineEngine {
                 if (iter.hasNext()) {
                     op2 = iter.next();
                     iter.remove();
-                    futures.add(executor.submit(new AddRunnable(result, op1, op2)));
+                    futures.add(executor.submit(new MergeShapesCallable(result, resultBounds, op1, op2)));
                 } else {
                     futures.add(new InlineExecutor.FinishedFuture<>(op1));
                 }
             }
 
-            operationsRun.addAll(flushFutures(futures));
-            Collections.sort(operationsRun, AREA_ORDER_COMPARATOR);
+            addOperations.addAll(flushFutures(futures));
+
+            // now with some newly merged shapes: identify the new sorted order
+            Collections.sort(addOperations, AREA_ORDER_COMPARATOR);
         }
         return result;
     }
