@@ -96,6 +96,7 @@ public class OutlineTests extends TestCase {
         File file = new File(name+".png");
         try {
             ImageIO.write(bi, "png", file);
+            System.err.println("Wrote "+file.getAbsolutePath());
         } catch(IOException e) {
             e.printStackTrace();
         }

@@ -115,7 +115,7 @@ public class ClipArtTests extends OutlineTests {
             }
 
             logWriter.write("\nSummary execution times:\n");
-            logWriter.write(getSummary(engines, results, false)+"\n\n");
+            logWriter.write(getTotalSummary(engines, results, false)+"\n\n");
 
             logWriter.write("... and here is the same info expressed as percents:\n");
             for(AddResult result : results) {
@@ -123,11 +123,21 @@ public class ClipArtTests extends OutlineTests {
             }
 
             logWriter.write("\nSummary execution times:\n");
-            logWriter.write(getSummary(engines, results, true)+"\n\n");
+            logWriter.write(getTotalSummary(engines, results, true)+"\n");
+            logWriter.write("\nAverage execution percent:\n");
+            logWriter.write(getAverageSummary(engines, results)+"\n\n");
         }
     }
 
-    private String getSummary(OutlineEngine[] engines, List<AddResult> results, boolean asPercent) {
+    /**
+     * Describe the total time it took to execute all tests.
+     *
+     * @param engines
+     * @param results
+     * @param asPercent
+     * @return
+     */
+    private String getTotalSummary(OutlineEngine[] engines, List<AddResult> results, boolean asPercent) {
         Map<OutlineEngine, Double> totalEngineTimes = new HashMap<>();
         long baselineTotalTime = -1;
         StringBuilder sb = new StringBuilder();
@@ -147,6 +157,29 @@ public class ClipArtTests extends OutlineTests {
             } else {
                 sb.append(totalTime+"\t");
             }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Describe the average time it took to execute all tests.
+     *
+     * @param engines
+     * @param results
+     * @return
+     */
+    private String getAverageSummary(OutlineEngine[] engines, List<AddResult> results) {
+        long baselineTotalTime = -1;
+        StringBuilder sb = new StringBuilder();
+        for(OutlineEngine engine : engines) {
+            double avg = 0;
+            for(AddResult addResult : results) {
+                avg += addResult.engineTimes.get(engine) * 100.0 / addResult.baselineTime;
+            }
+            avg = avg / results.size();
+
+            String percent = DecimalFormat.getInstance().format(avg);
+            sb.append(percent+"%\t");
         }
         return sb.toString();
     }
