@@ -1,66 +1,66 @@
 This table shows how long it takes to create an outline of clip art using different models.
 
 PlainAreaEngine	OptimizedAreaEngine	Clip Art Name
-379	39	Broccoli
-604	505	Cat5
-43	40	CelticKnot5
-105	100	EasterEgg
-745	252	ExitSign
-1828	2026	GardenSign
-46393	7656	GiftBox
-56	58	Globe3
-18216	8773	IceCream12
-22	20	JackOLantern
-27	21	JohnLemon
-188	160	MotherAndBaby
-2	1	MRIMachine
-116	57	MysteriousCube
-10	8	OrangeJuice
-58	35	PersonAtComputer
-50	51	RockingChair
-64	62	RunningDogRetro
-11	31	RussianBulldozer
-67	33	Salad
-10	0	ShareRoadSign
-19	8	SpaceTravel
-22	21	StackOfBooks4
-94	50	Stew
-695	490	Students
-3	3	TeleworkGuy
-338	367	WellDressedOwl
+232	28	Broccoli
+430	369	Cat5
+324	282	CelticKnot5 x 10
+331	313	EasterEgg x 4
+527	217	ExitSign
+1714	1924	GardenSign
+41435	7444	GiftBox
+134	230	Globe3 x 5
+17196	8069	IceCream12
+1058	984	JackOLantern x 50
+1324	1036	JohnLemon x 50
+184	158	MotherAndBaby
+163	136	MRIMachine x 100
+114	55	MysteriousCube
+969	670	OrangeJuice x 100
+270	168	PersonAtComputer x 5
+248	248	RockingChair x 5
+306	304	RunningDogRetro x 5
+102	281	RussianBulldozer x 10
+267	132	Salad x 4
+981	20	ShareRoadSign x 100
+904	373	SpaceTravel x 50
+212	209	StackOfBooks4 x 10
+90	50	Stew
+635	444	Students
+263	269	TeleworkGuy x 100
+313	339	WellDressedOwl
 
 Summary execution times:
-70165	20867	
+70726	24752	
 
 ... and here is the same info expressed as percents:
-100%	10.29%	Broccoli
-100%	83.609%	Cat5
-100%	93.023%	CelticKnot5
-100%	95.238%	EasterEgg
-100%	33.826%	ExitSign
-100%	110.832%	GardenSign
-100%	16.502%	GiftBox
-100%	103.571%	Globe3
-100%	48.161%	IceCream12
-100%	90.909%	JackOLantern
-100%	77.778%	JohnLemon
-100%	85.106%	MotherAndBaby
-100%	50%	MRIMachine
-100%	49.138%	MysteriousCube
-100%	80%	OrangeJuice
-100%	60.345%	PersonAtComputer
-100%	102%	RockingChair
-100%	96.875%	RunningDogRetro
-100%	281.818%	RussianBulldozer
-100%	49.254%	Salad
-100%	0%	ShareRoadSign
-100%	42.105%	SpaceTravel
-100%	95.455%	StackOfBooks4
-100%	53.191%	Stew
-100%	70.504%	Students
-100%	100%	TeleworkGuy
-100%	108.58%	WellDressedOwl
+100%	12.069%	Broccoli
+100%	85.814%	Cat5
+100%	87.037%	CelticKnot5 x 10
+100%	94.562%	EasterEgg x 4
+100%	41.176%	ExitSign
+100%	112.252%	GardenSign
+100%	17.965%	GiftBox
+100%	171.642%	Globe3 x 5
+100%	46.924%	IceCream12
+100%	93.006%	JackOLantern x 50
+100%	78.248%	JohnLemon x 50
+100%	85.87%	MotherAndBaby
+100%	83.436%	MRIMachine x 100
+100%	48.246%	MysteriousCube
+100%	69.143%	OrangeJuice x 100
+100%	62.222%	PersonAtComputer x 5
+100%	100%	RockingChair x 5
+100%	99.346%	RunningDogRetro x 5
+100%	275.49%	RussianBulldozer x 10
+100%	49.438%	Salad x 4
+100%	2.039%	ShareRoadSign x 100
+100%	41.261%	SpaceTravel x 50
+100%	98.585%	StackOfBooks4 x 10
+100%	55.556%	Stew
+100%	69.921%	Students
+100%	102.281%	TeleworkGuy x 100
+100%	108.307%	WellDressedOwl
 
 Summary execution times:
-100%	29.74%	
+100%	34.997%	
 

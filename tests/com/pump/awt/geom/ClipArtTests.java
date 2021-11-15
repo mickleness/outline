@@ -15,34 +15,59 @@ import java.util.List;
 
 public class ClipArtTests extends OutlineTests {
 
-    public static final Icon[] ICONS = new Icon[] {
-            new Broccoli(),
-            new Cat5(),
-            new CelticKnot5(),
-            new EasterEgg(),
-            new ExitSign(),
-            new GardenSign(),
-            new GiftBox(),
-            new Globe3(),
-            new IceCream12(),
-            new JackOLantern(),
-            new JohnLemon(),
-            new MotherAndBaby(),
-            new MRIMachine(),
-            new MysteriousCube(),
-            new OrangeJuice(),
-            new PersonAtComputer(),
-            new RockingChair(),
-            new RunningDogRetro(),
-            new RussianBulldozer(),
-            new Salad(),
-            new ShareRoadSign(),
-            new SpaceTravel(),
-            new StackOfBooks4(),
-            new Stew(),
-            new Students(),
-            new TeleworkGuy(),
-            new WellDressedOwl()
+    static class ClipArtTest {
+        Icon icon;
+        String name;
+
+        /**
+         * The number of times we should process a test in a sample.
+         * By default this is 1. But some pieces of clip art are so simple
+         * that we want to process them 5, 20, or 100 times in a sample.
+         * This is a subjective number. My broad goal is for no test to
+         * complete in under 10ms, or ideally event 50ms. Measure the time
+         * it takes for sample to complete in inherently an imprecise
+         * science, but I at least want a few significant digits in my
+         * baseline sample lengths.
+         */
+        int loops;
+
+        ClipArtTest(Icon icon, int loops) {
+            this.icon = icon;
+            this.loops = loops;
+            name = icon.getClass().getSimpleName();
+            if (loops > 1)
+                name += " x "+loops;
+        }
+    }
+
+    public static final ClipArtTest[] IMAGES = new ClipArtTest[] {
+            new ClipArtTest(new Broccoli(), 1),
+            new ClipArtTest(new Cat5(), 1),
+            new ClipArtTest(new CelticKnot5(), 10),
+            new ClipArtTest(new EasterEgg(), 4),
+            new ClipArtTest(new ExitSign(), 1),
+            new ClipArtTest(new GardenSign(), 1),
+            new ClipArtTest(new GiftBox(), 1),
+            new ClipArtTest(new Globe3(), 5),
+            new ClipArtTest(new IceCream12(), 1),
+            new ClipArtTest(new JackOLantern(), 50),
+            new ClipArtTest(new JohnLemon(), 50),
+            new ClipArtTest(new MotherAndBaby(), 1),
+            new ClipArtTest(new MRIMachine(), 100),
+            new ClipArtTest(new MysteriousCube(), 1),
+            new ClipArtTest(new OrangeJuice(), 100),
+            new ClipArtTest(new PersonAtComputer(), 5),
+            new ClipArtTest(new RockingChair(), 5),
+            new ClipArtTest(new RunningDogRetro(), 5),
+            new ClipArtTest(new RussianBulldozer(), 10),
+            new ClipArtTest(new Salad(), 4),
+            new ClipArtTest(new ShareRoadSign(), 100),
+            new ClipArtTest(new SpaceTravel(), 50),
+            new ClipArtTest(new StackOfBooks4(), 10),
+            new ClipArtTest(new Stew(), 1),
+            new ClipArtTest(new Students(), 1),
+            new ClipArtTest(new TeleworkGuy(), 100),
+            new ClipArtTest(new WellDressedOwl(), 1)
     };
 
     @Test
@@ -61,8 +86,9 @@ public class ClipArtTests extends OutlineTests {
             sb.append("Clip Art Name");
             logWriter.write(sb+"\n");
 
-            for(Icon icon : ICONS) {
+            for(ClipArtTest clipArt : IMAGES) {
                 List<Shape> shapes = new LinkedList<>();
+                Icon icon = clipArt.icon;
                 BufferedImage bi = new BufferedImage(icon.getIconWidth(), icon.getIconHeight(), BufferedImage.TYPE_INT_ARGB);
                 Graphics2D g = bi.createGraphics();
                 g = new ShapeHarvesterGraphics2D(g, shapes);
@@ -80,7 +106,7 @@ public class ClipArtTests extends OutlineTests {
                 }
                 g.dispose();
 
-                AddResult result = testAdd(engines, icon.getClass().getSimpleName(), shapes);
+                AddResult result = testAdd(engines, clipArt, shapes);
                 logWriter.write(result.toString(false)+"\n");
                 results.add(result);
 
@@ -172,8 +198,8 @@ public class ClipArtTests extends OutlineTests {
         }
     }
 
-    private AddResult testAdd(OutlineEngine[] engines, String name, List<Shape> shapes) throws IOException {
-        AddResult result = new AddResult(name);
+    private AddResult testAdd(OutlineEngine[] engines, ClipArtTest clipArt, List<Shape> shapes) throws IOException {
+        AddResult result = new AddResult(clipArt.name);
 
         for(OutlineEngine engine : engines) {
             // collect more samples for the baseline just to be extra cautious
@@ -182,21 +208,26 @@ public class ClipArtTests extends OutlineTests {
             long[] times = new long[sampleCount];
             Outline lastSum = null;
             for (int a = 0; a < times.length; a++) {
+                long totalTime = 0;
+                for(int loopIndex = 0; loopIndex < clipArt.loops; loopIndex++) {
+                    // try and get GC churn out of the way before our timer:
+                    System.gc();
+                    System.runFinalization();
+                    System.gc();
+                    System.runFinalization();
 
-                // try and get GC churn out of the way before our test:
-                System.gc();
-                System.runFinalization();
-                System.gc();
-                System.runFinalization();
+                    long startTime = System.currentTimeMillis();
+                    Outline sum = new Outline(engine);
+                    for (Shape shape : shapes) {
+                        sum.add(shape);
+                    }
+                    sum.flush();
+                    long elapsedTime = System.currentTimeMillis() - startTime;
 
-                times[a] = System.currentTimeMillis();
-                Outline sum = new Outline(engine);
-                for(Shape shape : shapes) {
-                    sum.add(shape);
+                    lastSum = sum;
+                    totalTime += elapsedTime;
                 }
-                sum.flush();
-                lastSum = sum;
-                times[a] = System.currentTimeMillis() - times[a];
+                times[a] = totalTime;
             }
             Arrays.sort(times);
             long medianTime = times[times.length/2];
@@ -205,7 +236,7 @@ public class ClipArtTests extends OutlineTests {
                 result.setBaseline(engine, lastSum, medianTime);
             } else {
                 result.addEngineTime(engine, medianTime);
-                testEquals(name, result.baselineShape, lastSum);
+                testEquals(clipArt.name, result.baselineShape, lastSum);
             }
         }
         return result;
