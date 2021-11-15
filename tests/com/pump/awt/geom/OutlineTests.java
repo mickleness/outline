@@ -28,7 +28,7 @@ public class OutlineTests extends TestCase {
     }
 
     public OutlineEngine[] getEngines() {
-        return new OutlineEngine[] { new PlainAreaEngine(), new OptimizedAreaEngine(1) };
+        return new OutlineEngine[] { new PlainAreaEngine(), new OptimizedAreaEngine(1), new OptimizedAreaEngine(4) };
     }
 
     public void testEquals(String name, Shape expectedShape, Outline actualShape) {
