@@ -10,10 +10,8 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.Writer;
 import java.text.DecimalFormat;
-import java.util.Arrays;
-import java.util.LinkedList;
+import java.util.*;
 import java.util.List;
-import java.util.Random;
 
 public class ClipArtTests extends OutlineTests {
 
@@ -49,6 +47,7 @@ public class ClipArtTests extends OutlineTests {
 
     @Test
     public void testAdd() throws Exception {
+        List<AddResult> results = new LinkedList<>();
         try(Writer logWriter = createLog("Clip Art Outlines")) {
 
             logWriter.write("This table shows how long it takes to create an outline of clip art using different models.\n\n");
@@ -81,23 +80,115 @@ public class ClipArtTests extends OutlineTests {
                 }
                 g.dispose();
 
-                testAdd(engines, logWriter, icon.getClass().getSimpleName(), shapes);
+                AddResult result = testAdd(engines, icon.getClass().getSimpleName(), shapes);
+                logWriter.write(result.toString(false)+"\n");
+                results.add(result);
 
                 // to visually inspect the clip art:
                 // ImageIO.write(bi, "png", new File("clipart-"+icon.getClass().getSimpleName()+".png"));
             }
+
+            logWriter.write("\nSummary execution times:\n");
+            logWriter.write(getSummary(engines, results, false)+"\n\n");
+
+            logWriter.write("... and here is the same info expressed as percents:\n");
+            for(AddResult result : results) {
+                logWriter.write(result.toString(true) + "\n");
+            }
+
+            logWriter.write("\nSummary execution times:\n");
+            logWriter.write(getSummary(engines, results, true)+"\n\n");
         }
     }
 
-    private void testAdd(OutlineEngine[] engines, Writer logWriter, String name, List<Shape> shapes) throws IOException {
-        long baselineTime = -1;
-        Shape baselineShape = null;
-
+    private String getSummary(OutlineEngine[] engines, List<AddResult> results, boolean asPercent) {
+        Map<OutlineEngine, Double> totalEngineTimes = new HashMap<>();
+        long baselineTotalTime = -1;
         StringBuilder sb = new StringBuilder();
         for(OutlineEngine engine : engines) {
-            long[] times = new long[5];
+            long totalTime = 0;
+            for(AddResult addResult : results) {
+                totalTime += addResult.engineTimes.get(engine);
+            }
+
+            if (baselineTotalTime == -1) {
+                baselineTotalTime = totalTime;
+            }
+            if (asPercent) {
+                double p = ((double)totalTime) / ((double)baselineTotalTime) * 100.0;
+                String percent = DecimalFormat.getInstance().format(p);
+                sb.append(percent+"%\t");
+            } else {
+                sb.append(totalTime+"\t");
+            }
+        }
+        return sb.toString();
+    }
+
+    class AddResult {
+        Outline baselineShape;
+        long baselineTime;
+        LinkedHashMap<OutlineEngine, Long> engineTimes = new LinkedHashMap<>();
+        String testName;
+
+        public AddResult(String testName) {
+            this.testName = testName;
+        }
+
+        @Override
+        public String toString() {
+            return toString(false);
+        }
+
+        public String toString(boolean asPercent) {
+            StringBuilder sb = new StringBuilder();
+
+            Iterator<Long> timeIter = engineTimes.values().iterator();
+            while (timeIter.hasNext()) {
+                Long engineTime = timeIter.next();
+                if(asPercent) {
+                    double percent = engineTime.doubleValue() / ((double) baselineTime) * 100.0;
+                    sb.append(DecimalFormat.getInstance().format(percent) + "%\t");
+                } else {
+                    sb.append(engineTime.longValue() + "\t");
+                }
+            }
+            sb.append(testName);
+            return sb.toString();
+        }
+
+        public void setBaseline(OutlineEngine baselineEngine, Outline baselineShape, long baselineTime) {
+            this.baselineShape = baselineShape;
+            this.baselineTime = baselineTime;
+            engineTimes.put(baselineEngine, baselineTime);
+        }
+
+        public boolean isBaselineDefined() {
+            return baselineShape != null;
+        }
+
+        public void addEngineTime(OutlineEngine engine, long medianTime) {
+            engineTimes.put(engine, medianTime);
+        }
+    }
+
+    private AddResult testAdd(OutlineEngine[] engines, String name, List<Shape> shapes) throws IOException {
+        AddResult result = new AddResult(name);
+
+        for(OutlineEngine engine : engines) {
+            // collect more samples for the baseline just to be extra cautious
+            int sampleCount = result.isBaselineDefined() ? 5 : 10;
+
+            long[] times = new long[sampleCount];
             Outline lastSum = null;
             for (int a = 0; a < times.length; a++) {
+
+                // try and get GC churn out of the way before our test:
+                System.gc();
+                System.runFinalization();
+                System.gc();
+                System.runFinalization();
+
                 times[a] = System.currentTimeMillis();
                 Outline sum = new Outline(engine);
                 for(Shape shape : shapes) {
@@ -108,19 +199,15 @@ public class ClipArtTests extends OutlineTests {
                 times[a] = System.currentTimeMillis() - times[a];
             }
             Arrays.sort(times);
-            long t = times[times.length/2];
-            sb.append(t);
-            sb.append("\t");
-            if (baselineTime == -1) {
-                baselineTime = t;
-                baselineShape = lastSum;
+            long medianTime = times[times.length/2];
+
+            if (!result.isBaselineDefined()) {
+                result.setBaseline(engine, lastSum, medianTime);
             } else {
-                double percent = ((double)t) / ((double) baselineTime) * 100.0;
-                sb.append(DecimalFormat.getInstance().format(percent)+"%\t");
-                testEquals(name, baselineShape, lastSum);
+                result.addEngineTime(engine, medianTime);
+                testEquals(name, result.baselineShape, lastSum);
             }
         }
-        sb.append(name);
-        logWriter.write(sb+"\n");
+        return result;
     }
 }

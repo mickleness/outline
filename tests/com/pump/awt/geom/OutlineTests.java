@@ -74,7 +74,15 @@ public class OutlineTests extends TestCase {
                 for (int x = 0; x < w; x++) {
                     int argb1 = row1[x];
                     int argb2 = row2[x];
-                    assertEquals(x + ", " + y, Integer.toHexString(argb1), Integer.toHexString(argb2));
+                    int rgb1 = argb1 & 0xffffff;
+                    int rgb2 = argb2 & 0xffffff;
+                    assertEquals(x + ", " + y, Integer.toHexString(rgb1), Integer.toHexString(rgb2));
+
+                    int alpha1 = (argb1 >> 24) & 0xff;
+                    int alpha2 = (argb2 >> 24) & 0xff;
+                    if (Math.abs(alpha1 - alpha2) > 10) {
+                        fail(x + ", " + y+" alpha1 = "+Integer.toHexString(alpha1)+", alpha2 = "+Integer.toHexString(alpha2));
+                    }
                 }
             }
         } catch(Throwable t) {
