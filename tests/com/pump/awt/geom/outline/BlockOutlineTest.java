@@ -30,15 +30,24 @@ public class BlockOutlineTest extends TestCase {
                 }
             }
         }
+        int ctr = 0;
         for(Rectangle r1 : rects) {
             for(Rectangle r2 : rects) {
                 for(Rectangle r3 : rects) {
                     for(Rectangle r4 : rects) {
-                        testAddContains(r1, r2, r3, r4);
+                        ctr++;
+
+                        try {
+                            testAddContains(r1, r2, r3, r4);
+                        } catch(RuntimeException | Error e) {
+                            System.err.println("ctr = "+ctr+"\n"+r1+"\n"+r2+"\n"+r3+"\n"+r4);
+                            throw e;
+                        }
                     }
                 }
             }
         }
+        System.out.println("Processed "+ctr+" combinations");
     }
 
     private void testAddContains(Rectangle... rects) {
@@ -63,7 +72,27 @@ public class BlockOutlineTest extends TestCase {
 
         for(int y = 0; y<matrix.length; y++) {
             for (int x = 0; x < matrix.length; x++) {
-                assertEquals("x = "+x+", y = "+y+", rects = "+sb, matrix[y][x], outline.contains(x, y));
+                try {
+                    assertEquals("x = " + x + ", y = " + y + ", rects = " + sb, matrix[y][x], outline.contains(x, y));
+                } catch(RuntimeException | Error e) {
+
+                    String str = "-------\n";
+                    for(int y1 = 0; y1<matrix.length; y1++) {
+                        str += "|";
+                        for(int x1 = 0; x1<matrix.length; x1++) {
+                            if (matrix[y1][x1]) {
+                                str += "X";
+                            } else {
+                                str += " ";
+                            }
+                        }
+                        str += "|\n";
+                    }
+                    str+="-------";
+
+                    System.err.println(str);
+                    throw e;
+                }
             }
         }
     }

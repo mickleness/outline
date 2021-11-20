@@ -1,14 +1,16 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.util.Range;
+
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.io.IOException;
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.*;
 
 /**
  * This is a shape composed of rectangles.
@@ -20,61 +22,73 @@ import java.util.TreeSet;
  */
 public class BlockOutline implements Shape {
 
-    static class NumberLineMask {
-        protected final TreeMap<Integer, Boolean> masks = new TreeMap<>();
+    static class NumberLineMask<T extends Number> {
+        static class EmptyNumberLineMaskException extends RuntimeException {}
+
+        static Comparator<Range<Integer>> MIN_COMPARATOR = new Comparator<Range<Integer>>() {
+            @Override
+            public int compare(Range<Integer> o1, Range<Integer> o2) {
+                return o1.getMin().compareTo(o2.getMin());
+            }
+        };
+
+        protected final TreeSet<Range<Integer>> masks = new TreeSet<>(MIN_COMPARATOR);
 
         public NumberLineMask() {
         }
 
         @Override
+        public String toString() {
+            return masks.toString();
+        }
+
+        @Override
         public NumberLineMask clone() {
             NumberLineMask copy = new NumberLineMask();
-            copy.masks.putAll(masks);
+            copy.masks.addAll(masks);
             return copy;
         }
 
         public boolean contains(int x) {
-            Map.Entry<Integer, Boolean> entry = masks.floorEntry(x);
-            if (entry == null)
+            Range<Integer> floor = masks.floor(new Range<Integer>(x, true, x, true));
+            if (floor == null)
                 return false;
-            return entry.getValue();
+            return floor.contains(x);
         }
 
-        public void addRun(int x1, int x2) {
-            Boolean lastValue = contains(x1 - 1);
-            if (!contains(x2))
-                masks.put(x2, Boolean.FALSE);
-            masks.put(x1, Boolean.TRUE);
+        public void addRange(final int x1,final int x2) {
+            Range<Integer> newRange = new Range(x1, true, x2, false);
 
-            // TODO: we could consolidate these two iterators:
-
-            Iterator<Map.Entry<Integer, Boolean>> iter = masks.tailMap(x1).entrySet().iterator();
-            while (iter.hasNext()) {
-                Map.Entry<Integer, Boolean> entry = iter.next();
-                if (entry.getKey().intValue() >= x2) {
-                    break;
-                }
-                entry.setValue(Boolean.TRUE);
-            }
-
-            iter = masks.tailMap(x1).entrySet().iterator();
-            while (iter.hasNext()) {
-                Map.Entry<Integer, Boolean> entry = iter.next();
-                Boolean currentValue = entry.getValue();
-                if (lastValue.equals(currentValue)) {
+            Iterator<Range<Integer>> iter = masks.iterator();
+            int newMin = x1;
+            int newMax = x2;
+            while(iter.hasNext()) {
+                Range<Integer> existingRange = iter.next();
+                if (newRange.intersects(existingRange) ||
+                        (existingRange.getMax().equals(x1) && (existingRange.isMaxInclusive() || newRange.isMinInclusive()))) {
+                    newMin = Math.min(existingRange.getMin(), newMin);
+                    newMax = Math.max(existingRange.getMax(), newMax);
                     iter.remove();
                 }
-                lastValue = currentValue;
             }
+
+            masks.add(new Range<Integer>(newMin, true, newMax, false));
         }
 
         public int getMin() {
-            return masks.firstKey().intValue();
+            if (masks.isEmpty())
+                throw new EmptyNumberLineMaskException();
+            return masks.first().getMin();
         }
 
-
         public int getMax() {
-            return masks.lastKey().intValue() - 1;
+            if (masks.isEmpty())
+                throw new EmptyNumberLineMaskException();
+            return masks.last().getMax();
+        }
+
+        public boolean isEmpty() {
+            return masks.isEmpty();
         }
     }
 
@@ -140,7 +154,7 @@ public class BlockOutline implements Shape {
         for(Map.Entry<Integer, NumberLineMask> entry : rows.tailMap(r.y).entrySet()) {
             if (entry.getKey() == r.y + r.height)
                 break;
-            entry.getValue().addRun(r.x, r.x + r.width);
+            entry.getValue().addRange(r.x, r.x + r.width);
         }
 
         // TODO: collapse
