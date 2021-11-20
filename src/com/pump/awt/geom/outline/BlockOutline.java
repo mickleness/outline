@@ -1,5 +1,6 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.math.NumberLineMask;
 import com.pump.util.Range;
 
 import java.awt.*;
@@ -21,77 +22,6 @@ import java.util.*;
  * </p>
  */
 public class BlockOutline implements Shape {
-
-    static class NumberLineMask<T extends Number> {
-        static class EmptyNumberLineMaskException extends RuntimeException {}
-
-        static Comparator<Range<Integer>> MIN_COMPARATOR = new Comparator<Range<Integer>>() {
-            @Override
-            public int compare(Range<Integer> o1, Range<Integer> o2) {
-                return o1.getMin().compareTo(o2.getMin());
-            }
-        };
-
-        protected final TreeSet<Range<Integer>> masks = new TreeSet<>(MIN_COMPARATOR);
-
-        public NumberLineMask() {
-        }
-
-        @Override
-        public String toString() {
-            return masks.toString();
-        }
-
-        @Override
-        public NumberLineMask clone() {
-            NumberLineMask copy = new NumberLineMask();
-            copy.masks.addAll(masks);
-            return copy;
-        }
-
-        public boolean contains(int x) {
-            Range<Integer> floor = masks.floor(new Range<Integer>(x, true, x, true));
-            if (floor == null)
-                return false;
-            return floor.contains(x);
-        }
-
-        public void addRange(final int x1,final int x2) {
-            Range<Integer> newRange = new Range(x1, true, x2, false);
-
-            Iterator<Range<Integer>> iter = masks.iterator();
-            int newMin = x1;
-            int newMax = x2;
-            while(iter.hasNext()) {
-                Range<Integer> existingRange = iter.next();
-                if (newRange.intersects(existingRange) ||
-                        (existingRange.getMax().equals(x1) && (existingRange.isMaxInclusive() || newRange.isMinInclusive()))) {
-                    newMin = Math.min(existingRange.getMin(), newMin);
-                    newMax = Math.max(existingRange.getMax(), newMax);
-                    iter.remove();
-                }
-            }
-
-            masks.add(new Range<Integer>(newMin, true, newMax, false));
-        }
-
-        public int getMin() {
-            if (masks.isEmpty())
-                throw new EmptyNumberLineMaskException();
-            return masks.first().getMin();
-        }
-
-        public int getMax() {
-            if (masks.isEmpty())
-                throw new EmptyNumberLineMaskException();
-            return masks.last().getMax();
-        }
-
-        public boolean isEmpty() {
-            return masks.isEmpty();
-        }
-    }
-
 
     class PixelMaskIterator implements PathIterator {
 
@@ -123,7 +53,7 @@ public class BlockOutline implements Shape {
         }
     }
 
-    protected final TreeMap<Integer, NumberLineMask> rows = new TreeMap<>();
+    protected final TreeMap<Integer, NumberLineMask<Integer>> rows = new TreeMap<>();
 
     public BlockOutline() {
         rows.put(0, new NumberLineMask());
@@ -135,7 +65,7 @@ public class BlockOutline implements Shape {
     }
 
     private void ensureRow(int y) {
-        Map.Entry<Integer, NumberLineMask> nearestRow = rows.floorEntry(y);
+        Map.Entry<Integer, NumberLineMask<Integer>> nearestRow = rows.floorEntry(y);
         if (nearestRow.getKey().intValue() == y)
             return;
         NumberLineMask newRow = nearestRow.getValue().clone();
@@ -151,7 +81,7 @@ public class BlockOutline implements Shape {
         ensureRow(r.y);
         ensureRow(r.y + r.height);
 
-        for(Map.Entry<Integer, NumberLineMask> entry : rows.tailMap(r.y).entrySet()) {
+        for(Map.Entry<Integer, NumberLineMask<Integer>> entry : rows.tailMap(r.y).entrySet()) {
             if (entry.getKey() == r.y + r.height)
                 break;
             entry.getValue().addRange(r.x, r.x + r.width);
@@ -170,16 +100,16 @@ public class BlockOutline implements Shape {
         int y1 = 0;
         int x2 = 0;
         int y2 = 0;
-        boolean empty = true;
-        for(Map.Entry<Integer, NumberLineMask> rowEntry : rows.entrySet()) {
-            NumberLineMask row = rowEntry.getValue();
-            if (empty) {
-                empty = false;
+        boolean started = false;
+        for(Map.Entry<Integer, NumberLineMask<Integer>> rowEntry : rows.entrySet()) {
+            NumberLineMask<Integer> row = rowEntry.getValue();
+            if (!started) {
+                started = true;
                 y1 = rowEntry.getKey().intValue();
                 x1 = row.getMin();
                 x2 = row.getMax();
             }
-            if (!row.masks.isEmpty()) {
+            if (!row.isEmpty()) {
                 x1 = Math.min(x1, rowEntry.getValue().getMin());
                 x2 = Math.min(x2, rowEntry.getValue().getMax());
             }
@@ -199,7 +129,7 @@ public class BlockOutline implements Shape {
         int xi = (int) (Math.round(x) + .5);
         int yi = (int) (Math.round(y) + .5);
 
-        Map.Entry<Integer, NumberLineMask> floorRow = rows.floorEntry(yi);
+        Map.Entry<Integer, NumberLineMask<Integer>> floorRow = rows.floorEntry(yi);
         if (floorRow == null)
             return false;
         return floorRow.getValue().contains(xi);
