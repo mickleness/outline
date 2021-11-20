@@ -144,22 +144,31 @@ public class RangeTest extends TestCase {
         assertEquals(expectedValue, r2.intersects(r1));
     }
 
-    public void testSortOrder() {
-        Range<Integer> r1 = new Range<>(0, false, 3, true);
-        Range<Integer> r2 = new Range<>(0, true, 3, true);
-        Range<Integer> r3 = new Range<>(1, false, 3, true);
-        Range<Integer> r4 = new Range<>(1, true, 3, true);
+    public void testContains_edgeOfExclusiveBounds() {
+        Range<Integer> r = new Range(3, false, 5, false);
 
-        TreeSet<Range<Integer>> sortedSet = new TreeSet<>();
-        sortedSet.add(r1);
-        sortedSet.add(r2);
-        sortedSet.add(r3);
-        sortedSet.add(r4);
+        assertEquals(false, r.contains(3));
+        assertEquals(false, r.contains(5));
 
-        Range<Integer>[] array = sortedSet.toArray(new Range[0]);
-        assertEquals(r1, array[0]);
-        assertEquals(r2, array[1]);
-        assertEquals(r3, array[2]);
-        assertEquals(r4, array[3]);
+        assertEquals(false, r.contains(3, false, 3, false));
+        assertEquals(false, r.contains(5, false, 5, false));
+    }
+
+    public void testIntersects_edgeOfExclusiveBounds() {
+        Range<Integer> r = new Range<>(3, false, 5, false);
+
+        assertEquals(false, r.intersects(1, true, 3, false));
+        assertEquals(false, r.intersects(5, false, 8, true));
+
+        assertEquals(false, r.intersects(3, false, 3, false));
+        assertEquals(false, r.intersects(5, false, 5, false));
+
+        r = new Range<>(3, true, 5, true);
+
+        assertEquals(true, r.intersects(3, false, 3, false));
+        assertEquals(true, r.intersects(5, false, 5, false));
+
+        assertEquals(true, r.intersects(3, true, 3, true));
+        assertEquals(true, r.intersects(5, true, 5, true));
     }
 }

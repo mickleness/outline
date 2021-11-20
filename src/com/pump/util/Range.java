@@ -74,17 +74,31 @@ public class Range<T extends Comparable> implements Serializable {
      * Return true if this Range contains the argument
      */
     public boolean contains(Range<T> other) {
-        int k = min.compareTo(other.min);
+        return contains(other.getMin(), other.isMinInclusive(), other.getMax(), other.isMaxInclusive());
+    }
+
+    /**
+     * Return true if this Range contains the arguments.
+     */
+    public boolean contains(T otherX1, boolean otherMinInclusive,
+                            T otherX2, boolean otherMaxInclusive) {
+        int k = min.compareTo(otherX1);
         if (k == 0) {
-            if (!minInclusive && other.minInclusive)
+            if (otherX1.equals(otherX2)) {
+                return minInclusive;
+            }
+            if (!minInclusive && otherMinInclusive)
                 return false;
         } else if(k > 0) {
             return false;
         }
 
-        k = max.compareTo(other.max);
+        k = max.compareTo(otherX2);
         if (k == 0) {
-            return maxInclusive || !other.maxInclusive;
+            if (otherX1.equals(otherX2)) {
+                return maxInclusive;
+            }
+            return maxInclusive || !otherMaxInclusive;
         } else return k >= 0;
     }
 
@@ -92,15 +106,27 @@ public class Range<T extends Comparable> implements Serializable {
      * Return true if this Range intersects the argument.
      */
     public boolean intersects(Range<T> other) {
-        int k = min.compareTo(other.max);
+        return intersects(other.getMin(), other.isMinInclusive(), other.getMax(), other.isMaxInclusive());
+    }
+
+    /**
+     * Return true if this Range intersects the arguments.
+     */
+    public boolean intersects(T otherX1, boolean otherMinInclusive,
+                            T otherX2, boolean otherMaxInclusive) {
+        int k = min.compareTo(otherX2);
         if (k == 0) {
-            return minInclusive && other.maxInclusive;
+            if (otherX1.equals(otherX2))
+                return minInclusive;
+            return minInclusive && otherMaxInclusive;
         } else if (k > 0)
             return false;
 
-        k = max.compareTo(other.min);
+        k = max.compareTo(otherX1);
         if (k == 0) {
-            return maxInclusive && other.minInclusive;
+            if (otherX1.equals(otherX2))
+                return maxInclusive;
+            return maxInclusive && otherMinInclusive;
         } else return k >= 0;
     }
 
@@ -130,20 +156,24 @@ public class Range<T extends Comparable> implements Serializable {
         return min.hashCode() ^ max.hashCode();
     }
 
+    public boolean equals(T x1, boolean minInclusive, T x2, boolean maxInclusive) {
+        if (!x1.equals(this.min))
+            return false;
+        if (!x2.equals(this.max))
+            return false;
+        if (minInclusive != this.minInclusive)
+            return false;
+        if (maxInclusive != this.maxInclusive)
+            return false;
+        return true;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof Range))
             return false;
         Range<T> other = (Range<T>) obj;
-        if (!min.equals(other.min))
-            return false;
-        if (!max.equals(other.max))
-            return false;
-        if (minInclusive != other.minInclusive)
-            return false;
-        if (maxInclusive != other.maxInclusive)
-            return false;
-        return true;
+        return equals(other.min, other.minInclusive, other.max, other.maxInclusive);
     }
 
     /**
