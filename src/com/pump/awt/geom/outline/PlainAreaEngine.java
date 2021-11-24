@@ -13,7 +13,7 @@ import java.util.List;
 public class PlainAreaEngine implements OutlineEngine {
 
     @Override
-    public Shape flush(Shape body, List<OutlineOperation> operationQueue) {
+    public Area flush(Shape body, List<OutlineOperation> operationQueue) {
         Area area = body == null ? new Area() : new Area(body);
         for(OutlineOperation operation : operationQueue) {
             Area rhs;
