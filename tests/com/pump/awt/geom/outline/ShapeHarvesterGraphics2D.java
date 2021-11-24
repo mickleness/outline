@@ -1,4 +1,4 @@
-package com.pump.awt.geom;
+package com.pump.awt.geom.outline;
 
 import java.awt.*;
 import java.awt.font.FontRenderContext;

@@ -1,4 +1,4 @@
-package com.pump.awt.geom.clipart;
+package com.pump.awt.geom.outline.clipart;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;

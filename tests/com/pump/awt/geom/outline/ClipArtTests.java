@@ -1,7 +1,6 @@
-package com.pump.awt.geom;
+package com.pump.awt.geom.outline;
 
-import com.pump.awt.geom.clipart.*;
-import com.pump.awt.geom.outline.OutlineEngine;
+import com.pump.awt.geom.outline.clipart.*;
 import org.junit.Test;
 
 import javax.swing.*;
