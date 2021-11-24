@@ -1,8 +1,4 @@
-package com.pump.awt.geom;
-
-import com.pump.awt.geom.outline.OutlineEngine;
-import com.pump.awt.geom.outline.OutlineOperation;
-import com.pump.awt.geom.outline.PlainAreaEngine;
+package com.pump.awt.geom.outline;
 
 import java.awt.*;
 import java.awt.geom.*;
@@ -33,10 +29,10 @@ public class Outline implements Shape, Serializable {
         return DEFAULT_ENGINE;
     }
 
-    private transient OutlineEngine engine;
-    private transient List<OutlineOperation> operationQueue = new LinkedList<>();
+    protected transient OutlineEngine engine;
+    protected transient List<OutlineOperation> operationQueue = new LinkedList<>();
 
-    private Shape shape;
+    protected Shape shape;
 
     public Outline(OutlineEngine engine) {
         setEngine(engine);

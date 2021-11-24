@@ -1,6 +1,7 @@
-package com.pump.awt.geom;
+package com.pump.awt.geom.outline;
 
 import com.pump.awt.geom.outline.OptimizedAreaEngine;
+import com.pump.awt.geom.outline.Outline;
 import com.pump.awt.geom.outline.OutlineEngine;
 import com.pump.awt.geom.outline.PlainAreaEngine;
 import junit.framework.TestCase;
@@ -32,16 +33,17 @@ public class OutlineTests extends TestCase {
     }
 
     public void testEquals(String name, Shape expectedShape, Outline actualShape) {
-        BufferedImage expectedImage = createImage(expectedShape);
-        BufferedImage actualImage = createImage(actualShape);
+        Rectangle r = expectedShape.getBounds();
+        r.add(actualShape.getBounds());
+        BufferedImage expectedImage = createImage(expectedShape, r);
+        BufferedImage actualImage = createImage(actualShape, r);
         assertImageEquals(name, expectedImage, actualImage);
     }
 
-    private BufferedImage createImage(Shape shape) {
-        Rectangle bounds = shape.getBounds();
+    protected BufferedImage createImage(Shape shape, Rectangle bounds) {
         try {
-            int w = Math.min(1000, bounds.width);
-            int h = Math.min(1000, bounds.height);
+            int w = Math.max(100, Math.min(1000, bounds.width));
+            int h = Math.max(100, Math.min(1000, bounds.height));
             BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = bi.createGraphics();
             if (w != bounds.width || h != bounds.height)
@@ -80,7 +82,7 @@ public class OutlineTests extends TestCase {
 
                     int alpha1 = (argb1 >> 24) & 0xff;
                     int alpha2 = (argb2 >> 24) & 0xff;
-                    if (Math.abs(alpha1 - alpha2) > 10) {
+                    if (Math.abs(alpha1 - alpha2) > 20) {
                         fail(x + ", " + y+" alpha1 = "+Integer.toHexString(alpha1)+", alpha2 = "+Integer.toHexString(alpha2));
                     }
                 }
@@ -92,7 +94,7 @@ public class OutlineTests extends TestCase {
         }
     }
 
-    private void writeImage(String name, BufferedImage bi) {
+    protected void writeImage(String name, BufferedImage bi) {
         File file = new File(name+".png");
         try {
             ImageIO.write(bi, "png", file);
