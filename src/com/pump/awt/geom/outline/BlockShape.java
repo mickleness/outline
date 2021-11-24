@@ -21,7 +21,7 @@ import java.util.*;
  * uses horizontal or vertical lines.)
  * </p>
  */
-public class BlockOutline implements Shape {
+public class BlockShape implements Shape {
 
     class PixelMaskIterator implements PathIterator {
 
@@ -55,7 +55,7 @@ public class BlockOutline implements Shape {
 
     protected final TreeMap<Integer, NumberLineMask<Integer>> rows = new TreeMap<>();
 
-    public BlockOutline() {
+    public BlockShape() {
         rows.put(0, new NumberLineMask());
     }
 
@@ -84,7 +84,7 @@ public class BlockOutline implements Shape {
         for(Map.Entry<Integer, NumberLineMask<Integer>> entry : rows.tailMap(r.y).entrySet()) {
             if (entry.getKey() == r.y + r.height)
                 break;
-            entry.getValue().addRange(r.x, r.x + r.width);
+            entry.getValue().add(r.x, r.x + r.width);
         }
 
         // TODO: collapse

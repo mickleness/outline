@@ -1,6 +1,5 @@
 package com.pump.awt.geom.outline;
 
-import com.pump.awt.geom.outline.BlockOutline;
 import junit.framework.TestCase;
 import org.junit.Test;
 
@@ -8,11 +7,11 @@ import java.awt.*;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 
-public class BlockOutlineTest extends TestCase {
+public class BlockShapeTest extends TestCase {
 
     @Test
     public void testEmptyContains() {
-        BlockOutline mask = new BlockOutline();
+        BlockShape mask = new BlockShape();
         assertFalse(mask.contains(0, 0));
     }
 
@@ -64,7 +63,7 @@ public class BlockOutlineTest extends TestCase {
 
         StringBuilder sb = new StringBuilder();
 
-        BlockOutline outline = new BlockOutline();
+        BlockShape outline = new BlockShape();
         for(Rectangle rect : rects) {
             sb.append(rect+" ");
             outline.add(rect);
