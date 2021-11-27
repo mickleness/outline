@@ -56,7 +56,7 @@ public class BlockShape implements Shape {
     protected final TreeMap<Integer, NumberLineMask<Integer>> rows = new TreeMap<>();
 
     public BlockShape() {
-        rows.put(0, new NumberLineMask());
+        rows.put(0, new NumberLineMask.Integer());
     }
 
     public void add(int x, int y, int width, int height) {

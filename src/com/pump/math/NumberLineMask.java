@@ -13,9 +13,34 @@ import java.util.*;
  * This object is not thread safe.
  * </p>
  */
-public class NumberLineMask<T extends Comparable> implements Serializable {
+public abstract class NumberLineMask<T extends Comparable> implements Serializable {
 
     static class EmptyNumberLineMaskException extends RuntimeException {}
+
+    public static class Integer extends NumberLineMask<java.lang.Integer> {
+
+        public Integer() {}
+
+        public Integer(Integer integer) {
+            super(integer);
+        }
+
+        @Override
+        public NumberLineMask.Integer clone() { {
+            return new NumberLineMask.Integer(this);
+        }
+        }
+
+        @Override
+        protected Range<java.lang.Integer> createRange(java.lang.Integer x1, java.lang.Integer x2) {
+            return new Range.Integer(x1, x2);
+        }
+
+        @Override
+        protected NumberLineMask.Integer createNumberLineMask() {
+            return new Integer();
+        }
+    }
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -24,6 +49,11 @@ public class NumberLineMask<T extends Comparable> implements Serializable {
 
     public NumberLineMask() {
         initialize();
+    }
+
+    public NumberLineMask(NumberLineMask<T> maskToCopy) {
+        initialize();
+        ranges.putAll(maskToCopy.ranges);
     }
 
     protected void initialize() {
@@ -36,11 +66,7 @@ public class NumberLineMask<T extends Comparable> implements Serializable {
     }
 
     @Override
-    public NumberLineMask<T> clone() {
-        NumberLineMask<T> copy = new NumberLineMask<>();
-        copy.ranges.putAll(ranges);
-        return copy;
-    }
+    public abstract NumberLineMask<T> clone();
 
     /**
      * Return true if the argument is contained inside this NumberLine.
@@ -54,83 +80,70 @@ public class NumberLineMask<T extends Comparable> implements Serializable {
     }
 
     /**
-     * Add a range that includes the min and excludes the max.
-     *
-     * @return true if a change occurred, false if the argument was already part of this mask.
+     * Return true if the argument is contained inside this NumberLine.
      */
-    public boolean add(T x1,T x2) {
-        return add(x1, true, x2, false);
+    public boolean contains(Range<T> x) {
+        Map.Entry<T, Range<T>> floorEntry = ranges.floorEntry(x.min);
+        Range<T> range = floorEntry == null ? null : floorEntry.getValue();
+        if (range == null)
+            return false;
+        return range.contains(x);
     }
 
     /**
      * @return true if a change occurred, false if the argument was already part of this mask.
      */
-    public boolean add(T x1, boolean minInclusive, T x2, boolean maxInclusive) {
-        Map.Entry<T, Range<T>> floorEntry = ranges.floorEntry(x1);
-        T floorKey = floorEntry == null ? null : floorEntry.getKey();
+    public boolean add(T x1, T x2) {
+        boolean returnValue = false;
 
-        if (floorEntry != null && floorEntry.getValue().equals(x1, minInclusive, x2, maxInclusive))
-            return false;
+        boolean repeat = true;
+        while (repeat) {
+            repeat = false;
 
-        Map.Entry<T, Range<T>> ceilingEntry = ranges.ceilingEntry(x2);
+            Map.Entry<T, Range<T>> floorEntry = ranges.floorEntry(x1);
+            Map.Entry<T, Range<T>> ceilingEntry = ranges.ceilingEntry(x2);
 
-        Iterator<Map.Entry<T, Range<T>>> iter;
-        if (floorKey != null) {
-            iter = ranges.tailMap(floorKey, true).entrySet().iterator();
-        } else {
-            iter = ranges.entrySet().iterator();
-        }
+            Iterator<Map.Entry<T, Range<T>>> iter;
+            if (floorEntry != null) {
+                iter = ranges.tailMap(floorEntry.getKey(), true).entrySet().iterator();
+            } else {
+                iter = ranges.entrySet().iterator();
+            }
 
-        while (iter.hasNext()) {
-            Map.Entry<T, Range<T>> entry = iter.next();
-            Range<T> existingRange = entry.getValue();
-            if (existingRange.contains(x1, minInclusive, x2, maxInclusive)) {
-                return false;
-            } else if(x1.equals(x2)) {
-                if (existingRange.getMin().equals(x1)) {
+            while (iter.hasNext()) {
+                Map.Entry<T, Range<T>> entry = iter.next();
+                Range<T> existingRange = entry.getValue();
+                if (existingRange.contains(x1, x2)) {
+                    return returnValue;
+                } else if(existingRange.intersects(x1, x2)) {
+                    returnValue = true;
                     iter.remove();
-                    return add(x1, true, existingRange.getMax(), existingRange.isMaxInclusive());
-                } else if (existingRange.getMax().equals(x1)) {
-                    iter.remove();
-                    return add(existingRange.getMin(), existingRange.isMinInclusive(), x2, true);
+                    if (x1.compareTo(existingRange.min) > 0)
+                        x1 = existingRange.min;
+                    if (existingRange.max.compareTo(x2) > 0)
+                        x2 = existingRange.max;
+                    repeat = true;
                 }
-            } else if (existingRange.intersects(x1, minInclusive, x2, maxInclusive)) {
-                if (existingRange.getMin().compareTo(x1) < 0) {
-                    x1 = existingRange.getMin();
-                    minInclusive = existingRange.isMinInclusive();
-                }
-                if (existingRange.getMax().compareTo(x2) > 0) {
-                    x2 = existingRange.getMax();
-                    maxInclusive = existingRange.isMaxInclusive();
-                }
-                iter.remove();
-            } else if (existingRange.getMax().equals(x1)) {
-                if(existingRange.isMaxInclusive() || minInclusive) {
-                    x1 = existingRange.getMin();
-                    minInclusive = existingRange.isMinInclusive();
-                    iter.remove();
-                }
-            } else if (existingRange.getMin().equals(x2)) {
-                if (existingRange.isMinInclusive() || maxInclusive) {
-                    x2 = existingRange.getMax();
-                    maxInclusive = existingRange.isMaxInclusive();
-                    iter.remove();
+                if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
+                    break;
                 }
             }
-            if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
-                break;
-            }
-        }
 
-        ranges.put(x1, new Range<T>(x1, minInclusive, x2, maxInclusive));
-        return true;
+            ranges.put(x1, createRange(x1, x2));
+            return true;
+        }
+        return returnValue;
     }
+
+    protected abstract Range<T> createRange(T x1, T x2);
+
+    protected abstract NumberLineMask<T> createNumberLineMask();
 
     /**
      * @return true if a change occurred, false if the argument was already part of this mask.
      */
     public boolean add(Range<T> newRange) {
-        return add(newRange.getMin(), newRange.isMinInclusive(), newRange.getMax(), newRange.isMaxInclusive());
+        return add(newRange.min, newRange.max);
     }
 
     /**
@@ -139,134 +152,91 @@ public class NumberLineMask<T extends Comparable> implements Serializable {
     public boolean add(NumberLineMask<T> other) {
         boolean returnValue = false;
         for(Range<T> range : other.getRanges()) {
-            if (add(range.getMin(), range.isMinInclusive(), range.getMax(), range.isMaxInclusive()))
+            if (add(range.min, range.max))
                 returnValue = true;
         }
         return returnValue;
     }
 
-    /**
-     * @return true if a change occurred, false if the argument was already not a part of this mask.
-     */
-    public boolean subtract(Range<T> removedRange) {
-        return subtract(removedRange.getMin(), removedRange.isMinInclusive(), removedRange.getMax(), removedRange.isMaxInclusive());
-    }
-
-    /**
-     * Subtract a range that includes the min and excludes the max.
-     *
-     * @return true if a change occurred, false if the argument was already not a part of this mask.
-     */
-    public boolean subtract(T min, T max) {
-        return subtract(min, true, max, false);
+    public boolean subtract(T x1, T x2) {
+        return subtract(createRange(x1, x2));
     }
 
     /**
      * @return true if a change occurred, false if the argument was already not a part of this mask.
      */
-    public boolean subtract(T x1, boolean minInclusive, T x2, boolean maxInclusive) {
-        Map.Entry<T, Range<T>> floorEntry = ranges.floorEntry(x1);
-        T floorKey = floorEntry == null ? null : floorEntry.getKey();
-
-        Range<T> replacementFloor;
+    public boolean subtract(final Range<T> range) {
         boolean returnValue = false;
 
-        Iterator<Map.Entry<T, Range<T>>> iter;
-        if (floorKey != null) {
-            boolean removeFloor;
-            if (!floorEntry.getValue().intersects(x1, minInclusive, x2, maxInclusive)) {
-                removeFloor = false;
-                replacementFloor = null;
+        boolean repeat = true;
+        while (repeat) {
+            repeat = false;
+
+            Map.Entry<T, Range<T>> floorEntry = ranges.floorEntry(range.min);
+            Map.Entry<T, Range<T>> ceilingEntry = ranges.ceilingEntry(range.max);
+
+            Iterator<Map.Entry<T, Range<T>>> iter;
+            if (floorEntry != null) {
+                iter = ranges.tailMap(floorEntry.getKey(), true).entrySet().iterator();
             } else {
-                int k1 = floorEntry.getValue().getMax().compareTo(x1);
-                if (k1 == 0) {
-                    if (floorEntry.getValue().isMaxInclusive() && minInclusive) {
-                        replacementFloor = new Range<T>(floorEntry.getValue().getMin(),
-                                floorEntry.getValue().isMinInclusive(), floorEntry.getValue().getMax(), false);
-                        removeFloor = true;
-                    } else {
-                        replacementFloor = null;
-                        removeFloor = false;
-                    }
-                } else {
-                    int k2 = floorEntry.getValue().getMin().compareTo(x1);
-                    if (k2 == 0) {
-                        if (floorEntry.getValue().isMinInclusive() && !minInclusive) {
-                            replacementFloor = new Range<T>(floorEntry.getValue().getMin(),
-                                    false, floorEntry.getValue().getMin(), false);
-                            removeFloor = true;
+                iter = ranges.entrySet().iterator();
+            }
+
+            while (iter.hasNext()) {
+                Map.Entry<T, Range<T>> entry = iter.next();
+                Range<T> existingRange = entry.getValue();
+                boolean addLeftEdge = false;
+                boolean addRightEdge = false;
+                try {
+                    if (range.contains(existingRange)) {
+                        iter.remove();
+                        returnValue = true;
+                        repeat = true;
+                        break;
+                    } else if (existingRange.contains(range)) {
+                        iter.remove();
+                        if (range.min.equals(existingRange.min)) {
+                            if (range.max.equals(existingRange.max)) {
+                                // this should be covered above by 'range.contains(existingRange)'
+                            } else {
+                                addRightEdge = true;
+                            }
+                        } else if (range.max.equals(existingRange.max)) {
+                            addLeftEdge = true;
                         } else {
-                            replacementFloor = null;
-                            removeFloor = true;
+                            addLeftEdge = true;
+                            addRightEdge = true;
                         }
-                    } else {
-                        // k1 and k2 should always be negative, since it is a "floor":
-                        replacementFloor = new Range<T>(floorEntry.getValue().getMin(),
-                                floorEntry.getValue().isMinInclusive(), x1, !minInclusive);
-                        removeFloor = true;
+                        return true;
+                    } else if (existingRange.contains(range.min)) {
+                        iter.remove();
+                        returnValue = true;
+                        addLeftEdge = true;
+                        repeat = true;
+                        break;
+                    } else if (existingRange.contains(range.max)) {
+                        iter.remove();
+                        returnValue = true;
+                        addRightEdge = true;
+                        repeat = true;
+                        break;
+                    }
+                } finally {
+                    if (addLeftEdge) {
+                        T prev = range.getPreviousValue();
+                        ranges.put(existingRange.min, createRange(existingRange.min, prev));
+                    }
+                    if (addRightEdge) {
+                        T next = range.getNextValue();
+                        ranges.put(next, createRange(next, existingRange.max));
                     }
                 }
-            }
-            iter = ranges.tailMap(floorKey, true).entrySet().iterator();
-            iter.next();
-            if(removeFloor) {
-                returnValue = true;
-                iter.remove();
-            }
-        } else {
-            iter = ranges.entrySet().iterator();
-            replacementFloor = null;
-        }
 
-        Range<T> replacementCeiling = null;
-        while (iter.hasNext()) {
-            Map.Entry<T, Range<T>> entry = iter.next();
-            int k = x2.compareTo(entry.getValue().getMax());
-            if (k > 0) {
-                iter.remove();
-                returnValue = true;
-            } else if (k == 0) {
-                if (entry.getValue().isMaxInclusive() && !maxInclusive) {
-                    iter.remove();
-                    replacementCeiling = new Range<>(entry.getValue().getMax(), false,
-                            entry.getValue().getMax(), false);
-                    break;
-                } else {
-                    iter.remove();
+                if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
                     break;
                 }
-            } else {
-                int k2 = x2.compareTo(entry.getValue().getMin());
-                if (k2 < 0) {
-                    // we're all done
-                    break;
-                } else if (k2 == 0) {
-                    if (maxInclusive) {
-                        if (entry.getValue().isMinInclusive()) {
-                            iter.remove();
-                            replacementCeiling = new Range<>(entry.getValue().getMin(), false, entry.getValue().getMax(), entry.getValue().isMaxInclusive());
-                        } else {
-                            return false;
-                        }
-                    } else {
-                        // do nothing
-                    }
-                } else {
-                    iter.remove();
-                    replacementCeiling = new Range<>(x2, !maxInclusive, entry.getValue().getMax(), entry.getValue().isMaxInclusive());
-                }
             }
         }
-
-        if (replacementFloor != null) {
-            returnValue = true;
-            ranges.put(replacementFloor.getMin(), replacementFloor);
-        }
-        if (replacementCeiling != null) {
-            returnValue = true;
-            ranges.put(replacementCeiling.getMin(), replacementCeiling);
-        }
-
         return returnValue;
     }
 
@@ -276,10 +246,39 @@ public class NumberLineMask<T extends Comparable> implements Serializable {
     public boolean subtract(NumberLineMask<T> other) {
         boolean returnValue = false;
         for(Range<T> range : other.getRanges()) {
-            if (subtract(range.getMin(), range.isMinInclusive(), range.getMax(), range.isMaxInclusive()))
+            if (subtract(range.min, range.max))
                 returnValue = true;
         }
         return returnValue;
+    }
+
+    /**
+     * @return true if a change occurred, false if clipping to the argument makes no difference.
+     */
+    public boolean clip(Range<T> range) {
+        return clip(range.min, range.max);
+    }
+
+    /**
+     * @return true if a change occurred, false if clipping to the argument makes no difference.
+     */
+    public boolean clip(T x1, T x2) {
+        NumberLineMask<T> scratch = createNumberLineMask();
+        scratch.add(x1, x2);
+        return clip(scratch);
+    }
+
+    public boolean clip(NumberLineMask<T> other) {
+        T minA = ranges.firstEntry().getValue().min;
+        T minB = other.ranges.firstEntry().getValue().min;
+        T maxA = ranges.lastEntry().getValue().max;
+        T maxB = other.ranges.lastEntry().getValue().max;
+        T min = minA.compareTo(minB) < 0 ? minA : minB;
+        T max = maxA.compareTo(maxB) > 0 ? maxA : maxB;
+        NumberLineMask<T> scratch = createNumberLineMask();
+        scratch.add(min, max);
+        scratch.subtract(other);
+        return subtract(scratch);
     }
 
     /**
@@ -291,7 +290,7 @@ public class NumberLineMask<T extends Comparable> implements Serializable {
     public T getMin() {
         if (ranges.isEmpty())
             throw new EmptyNumberLineMaskException();
-        return ranges.firstEntry().getValue().getMin();
+        return ranges.firstEntry().getValue().min;
     }
 
     /**
@@ -303,7 +302,7 @@ public class NumberLineMask<T extends Comparable> implements Serializable {
     public T getMax() {
         if (ranges.isEmpty())
             throw new EmptyNumberLineMaskException();
-        return ranges.lastEntry().getValue().getMax();
+        return ranges.lastEntry().getValue().max;
     }
 
     /**
@@ -344,7 +343,7 @@ public class NumberLineMask<T extends Comparable> implements Serializable {
         if (internalVersion == 0) {
             Range[] array = (Range[]) in.readObject();
             for(Range range : array) {
-                ranges.put( (T) range.getMin(), range);
+                ranges.put( (T) range.min, range);
             }
         } else {
             throw new IOException("Unsupported internal version: "+internalVersion);
