@@ -83,13 +83,13 @@ public abstract class Range<T extends Comparable> implements Serializable {
     public boolean intersects(T otherX1, T otherX2) {
         int k = min.compareTo(otherX2);
         if (k == 0) {
-            return true;
+            return false;
         } else if (k > 0)
             return false;
 
         k = max.compareTo(otherX1);
         if (k == 0) {
-            return true;
+            return false;
         } else return k >= 0;
     }
 

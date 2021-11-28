@@ -46,15 +46,15 @@ public class RangeTest extends TestCase {
         assertIntersects(true, r5_10, new Range.Integer(2,11));
         assertIntersects(true, r5_10, new Range.Integer(7,14));
 
-        assertIntersects(true, r5_10, new Range.Integer(2,5));
-        assertIntersects(true, r5_10, new Range.Integer(10,16));
+        assertIntersects(false, r5_10, new Range.Integer(2,5));
+        assertIntersects(false, r5_10, new Range.Integer(10,16));
 
         assertIntersects(false, r5_10, new Range.Integer(12,14));
         assertIntersects(false, r5_10, new Range.Integer(2,4));
 
         assertIntersects(true, r5_10, new Range.Integer(5, 6));
         assertIntersects(true, r5_10, new Range.Integer(7, 8));
-        assertIntersects(true, r5_10, new Range.Integer(10, 11));
+        assertIntersects(true, r5_10, new Range.Integer(9, 10));
 
         assertIntersects(false, r5_10, new Range.Integer(4, 5));
         assertIntersects(false, r5_10, new Range.Integer(10, 11));

@@ -13,7 +13,7 @@ public class BoxShapeTests extends TestCase {
     }
 
     /**
-     * This creates the same outline 4 different ways and makes sure the
+     * This creates the same outline a few different ways and makes sure the
      * resulting BoxShape is always the same.
      */
     public void testAddEqualsContains() {
@@ -22,35 +22,119 @@ public class BoxShapeTests extends TestCase {
         b1.add(1, 1, 3, 3);
 
         BoxShape b2 = new BoxShape();
-        b2.add(0, 0, 1, 1);
-        b2.add(1, 0, 1, 1);
-        b2.add(2, 0, 1, 1);
-
-        b2.add(0, 1, 1, 1);
-        b2.add(1, 1, 1, 1);
-        b2.add(2, 1, 1, 1);
-        b2.add(3, 1, 1, 1);
-
-        b2.add(0, 2, 1, 1);
-        b2.add(1, 2, 1, 1);
-        b2.add(2, 2, 1, 1);
-        b2.add(3, 2, 1, 1);
-
-        b2.add(1, 3, 1, 1);
-        b2.add(2, 3, 1, 1);
-        b2.add(3, 3, 1, 1);
+        b2.add(0, 0, 3, 1);
+        b2.add(0, 1, 4, 2);
+        b2.add(1, 3, 3, 1);
 
         BoxShape b3 = new BoxShape();
-        b3.add(0, 0, 3, 1);
-        b3.add(0, 1, 4, 2);
-        b3.add(1, 3, 3, 1);
+        b3.add(0, 0, 1, 3);
+        b3.add(1, 0, 2, 4);
+        b3.add(3, 1, 1, 3);
 
+        // one px at a time, horizontally, left-to-right
         BoxShape b4 = new BoxShape();
-        b4.add(0, 0, 1, 3);
-        b4.add(1, 0, 2, 4);
-        b4.add(3, 1, 1, 3);
+        b4.add(0, 0, 1, 1);
+        b4.add(1, 0, 1, 1);
+        b4.add(2, 0, 1, 1);
 
-        testEqualsContains(b1, b2, b3, b4);
+        b4.add(0, 1, 1, 1);
+        b4.add(1, 1, 1, 1);
+        b4.add(2, 1, 1, 1);
+        b4.add(3, 1, 1, 1);
+
+        b4.add(0, 2, 1, 1);
+        b4.add(1, 2, 1, 1);
+        b4.add(2, 2, 1, 1);
+        b4.add(3, 2, 1, 1);
+
+        b4.add(1, 3, 1, 1);
+        b4.add(2, 3, 1, 1);
+        b4.add(3, 3, 1, 1);
+
+        // one px at a time, horizontally, right-to-left
+        BoxShape b5 = new BoxShape();
+        b5.add(2, 0, 1, 1);
+        b5.add(1, 0, 1, 1);
+        b5.add(0, 0, 1, 1);
+
+        b5.add(3, 1, 1, 1);
+        b5.add(2, 1, 1, 1);
+        b5.add(1, 1, 1, 1);
+        b5.add(0, 1, 1, 1);
+
+        b5.add(3, 2, 1, 1);
+        b5.add(2, 2, 1, 1);
+        b5.add(1, 2, 1, 1);
+        b5.add(0, 2, 1, 1);
+
+        b5.add(3, 3, 1, 1);
+        b5.add(2, 3, 1, 1);
+        b5.add(1, 3, 1, 1);
+
+        // one px at a time, vertically, top-to-bottom
+        BoxShape b6 = new BoxShape();
+        b6.add(0, 0, 1, 1);
+        b6.add(0, 1, 1, 1);
+        b6.add(0, 2, 1, 1);
+
+        b6.add(1, 0, 1, 1);
+        b6.add(1, 1, 1, 1);
+        b6.add(1, 2, 1, 1);
+        b6.add(1, 3, 1, 1);
+
+        b6.add(2, 0, 1, 1);
+        b6.add(2, 1, 1, 1);
+        b6.add(2, 2, 1, 1);
+        b6.add(2, 3, 1, 1);
+
+        b6.add(3, 1, 1, 1);
+        b6.add(3, 2, 1, 1);
+        b6.add(3, 3, 1, 1);
+
+        // one px at a time, vertically, bottom-to-top
+        BoxShape b7 = new BoxShape();
+        b7.add(0, 2, 1, 1);
+        b7.add(0, 1, 1, 1);
+        b7.add(0, 0, 1, 1);
+
+        b7.add(1, 3, 1, 1);
+        b7.add(1, 2, 1, 1);
+        b7.add(1, 1, 1, 1);
+        b7.add(1, 0, 1, 1);
+
+        b7.add(2, 3, 1, 1);
+        b7.add(2, 2, 1, 1);
+        b7.add(2, 1, 1, 1);
+        b7.add(2, 0, 1, 1);
+
+        b7.add(3, 3, 1, 1);
+        b7.add(3, 2, 1, 1);
+        b7.add(3, 1, 1, 1);
+
+        // one px at a time, randomly:
+        BoxShape b8 = new BoxShape();
+        b8.add(2, 1, 1, 1);
+        b8.add(1, 2, 1, 1);
+        b8.add(1, 1, 1, 1);
+        b8.add(0, 2, 1, 1);
+        b8.add(1, 0, 1, 1);
+        b8.add(3, 3, 1, 1);
+        b8.add(0, 0, 1, 1);
+        b8.add(1, 3, 1, 1);
+        b8.add(2, 0, 1, 1);
+        b8.add(2, 3, 1, 1);
+        b8.add(2, 2, 1, 1);
+        b8.add(3, 1, 1, 1);
+        b8.add(0, 1, 1, 1);
+        b8.add(3, 2, 1, 1);
+
+        BoxShape b9 = new BoxShape();
+        b9.add(1, 1, 3, 3);
+        b9.add(0, 0, 2, 2);
+        b9.add(1, 0, 2, 2);
+        b9.add(0, 1, 2, 2);
+
+        testEqualsContains(b1, b2, b3, b4, b5, b6, b7, b8, b9);
     }
 
     /**
@@ -99,6 +183,10 @@ public class BoxShapeTests extends TestCase {
                     System.err.println(str[a]);
                     System.err.println("b = "+b);
                     System.err.println(str[b]);
+                    boolean b1 = boxShapes[a].equals(boxShapes[b]);
+                    boolean b2 = boxShapes[b].equals(boxShapes[a]);
+                    boxShapes[a].equals(boxShapes[b]);
+                    boxShapes[b].equals(boxShapes[a]);
                     throw e;
                 }
             }

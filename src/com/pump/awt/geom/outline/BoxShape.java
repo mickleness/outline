@@ -133,7 +133,7 @@ public class BoxShape implements Shape, Serializable {
             }
             if (!row.isEmpty()) {
                 x1 = Math.min(x1, rowEntry.getValue().getMin());
-                x2 = Math.min(x2, rowEntry.getValue().getMax());
+                x2 = Math.max(x2, rowEntry.getValue().getMax());
             }
             y2 = rowEntry.getKey().intValue();
         }

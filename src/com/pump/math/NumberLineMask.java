@@ -115,7 +115,9 @@ public abstract class NumberLineMask<T extends Comparable> implements Serializab
                 Range<T> existingRange = entry.getValue();
                 if (existingRange.contains(x1, x2)) {
                     return returnValue;
-                } else if(existingRange.intersects(x1, x2)) {
+                } else if (existingRange.intersects(x1, x2) ||
+                        x1.equals(existingRange.max) ||
+                        x2.equals(existingRange.min)) {
                     returnValue = true;
                     iter.remove();
                     if (x1.compareTo(existingRange.min) > 0)
