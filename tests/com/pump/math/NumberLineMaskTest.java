@@ -3,15 +3,11 @@ package com.pump.math;
 import com.pump.util.Range;
 import junit.framework.TestCase;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-
 public class NumberLineMaskTest extends TestCase {
 
     public void testBasics() {
         NumberLineMask<Integer> m = new NumberLineMask.Integer();
-        assertEquals(true, m.isEmpty());
+        assertTrue(m.isEmpty());
 
         try {
             m.getMin();
@@ -28,17 +24,17 @@ public class NumberLineMaskTest extends TestCase {
         }
 
         m.add(0, 1);
-        assertEquals(false, m.isEmpty());
+        assertFalse(m.isEmpty());
 
         assertEquals(Integer.valueOf(0), m.getMin());
         assertEquals(Integer.valueOf(1), m.getMax());
 
-        assertEquals(true, m.contains(0));
-        assertEquals(true, m.contains(1));
+        assertTrue(m.contains(0));
+        assertFalse(m.contains(1));
 
         m.clear();
 
-        assertEquals(true, m.isEmpty());
+        assertTrue(m.isEmpty());
     }
 
     public void testAdd_1() {
@@ -166,12 +162,14 @@ public class NumberLineMaskTest extends TestCase {
 
     public void testAdd_14() {
         NumberLineMask<Integer> m = new NumberLineMask.Integer();
-        assertTrue(m.add(1, 1));
-        assertTrue(m.add(3, 3));
-        assertTrue(m.add(5, 5));
+        try {
+            assertTrue(m.add(1, 1));
+            fail();
+        } catch(IllegalArgumentException e) {
+            // pass
+        }
 
-        // a fringe case, but it should be false:
-        assertFalse(m.add(3, 3));
+        assertFalse(m.contains(1));
     }
 
     public void testSubtract_1() {
@@ -193,7 +191,7 @@ public class NumberLineMaskTest extends TestCase {
         NumberLineMask<Integer> l1 = new NumberLineMask.Integer();
         assertTrue(l1.add(0, 10));
         assertTrue(l1.subtract(5, 15));
-        assertEquals(new Range.Integer(0, 4), l1.getRanges()[0]);
+        assertEquals(new Range.Integer(0, 5), l1.getRanges()[0]);
 
         assertTrue(l1.contains(4));
         assertFalse(l1.contains(5));
@@ -246,9 +244,9 @@ public class NumberLineMaskTest extends TestCase {
 
         NumberLineMask<Integer> l1 = new NumberLineMask.Integer();
         assertTrue(l1.add(20, 30));
-        assertTrue(l1.subtract(30, 40));
+        assertFalse(l1.subtract(30, 40));
         assertEquals(1, l1.getRanges().length);
-        assertEquals(new Range.Integer(20, 29), l1.getRanges()[0]);
+        assertEquals(new Range.Integer(20, 30), l1.getRanges()[0]);
     }
 
     public void testSubtract_8() {
@@ -256,7 +254,12 @@ public class NumberLineMaskTest extends TestCase {
 
         NumberLineMask<Integer> l1 = new NumberLineMask.Integer();
         assertTrue(l1.add(20, 40));
-        assertTrue(l1.subtract(0, 20));
+        assertFalse(l1.subtract(0, 20));
+        assertEquals(new Range.Integer(20, 40), l1.getRanges()[0]);
+
+        l1.clear();
+        assertTrue(l1.add(20, 40));
+        assertTrue(l1.subtract(0, 21));
         assertEquals(new Range.Integer(21, 40), l1.getRanges()[0]);
     }
 
@@ -264,21 +267,21 @@ public class NumberLineMaskTest extends TestCase {
         NumberLineMask<Integer> l1 = new NumberLineMask.Integer();
         assertTrue(l1.add(20, 40));
         assertTrue(l1.subtract(10, 30));
-        assertEquals(new Range.Integer(31, 40), l1.getRanges()[0]);
+        assertEquals(new Range.Integer(30, 40), l1.getRanges()[0]);
     }
 
     public void testSubtract_10() {
         NumberLineMask<Integer> l1 = new NumberLineMask.Integer();
         assertTrue(l1.add(20, 40));
         assertTrue(l1.subtract(10, 50));
-        assertEquals(true, l1.isEmpty());
+        assertTrue(l1.isEmpty());
     }
 
     public void testSubtract_11() {
         NumberLineMask<Integer> l1 = new NumberLineMask.Integer();
         assertTrue(l1.add(20, 40));
         assertTrue(l1.subtract(30, 50));
-        assertEquals(new Range.Integer(20, 29), l1.getRanges()[0]);
+        assertEquals(new Range.Integer(20, 30), l1.getRanges()[0]);
     }
 
     public void testSubtract_12() {
@@ -286,8 +289,8 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue(l1.add(0, 15));
         assertTrue(l1.add(20, 40));
         assertTrue(l1.subtract(10, 30));
-        assertEquals(new Range.Integer(0, 9), l1.getRanges()[0]);
-        assertEquals(new Range.Integer(31, 40), l1.getRanges()[1]);
+        assertEquals(new Range.Integer(0, 10), l1.getRanges()[0]);
+        assertEquals(new Range.Integer(30, 40), l1.getRanges()[1]);
     }
 
     public void testSubtract_13() {
@@ -301,9 +304,9 @@ public class NumberLineMaskTest extends TestCase {
         l2.add(9, 10);
 
         assertTrue(l1.subtract(l2));
-        assertEquals(new Range.Integer(2, 2), l1.getRanges()[0]);
+        assertEquals(new Range.Integer(1, 2), l1.getRanges()[0]);
         assertEquals(new Range.Integer(4, 6), l1.getRanges()[1]);
-        assertEquals(new Range.Integer(8, 8), l1.getRanges()[2]);
+        assertEquals(new Range.Integer(8, 9), l1.getRanges()[2]);
     }
 
     public void testSubtract_14() {
@@ -314,7 +317,7 @@ public class NumberLineMaskTest extends TestCase {
         l2.add(0, 1);
 
         assertTrue(l1.subtract(l2));
-        assertEquals(new Range.Integer(2, 10), l1.getRanges()[0]);
+        assertEquals(new Range.Integer(1, 10), l1.getRanges()[0]);
     }
 
     public void testSubtract_15() {
@@ -325,7 +328,7 @@ public class NumberLineMaskTest extends TestCase {
         l2.add(9, 10);
 
         assertTrue(l1.subtract(l2));
-        assertEquals(new Range.Integer(0, 8), l1.getRanges()[0]);
+        assertEquals(new Range.Integer(0, 9), l1.getRanges()[0]);
     }
 
     public void testClip_1() {
@@ -340,7 +343,8 @@ public class NumberLineMaskTest extends TestCase {
         assertEquals(new Range.Integer(8,9), l1.getRanges()[2]);
     }
 
-    private void testIntegerMask(NumberLineMask<Integer> mask, Range... expectedRanges) {
+    @SafeVarargs
+    private void testIntegerMask(NumberLineMask<Integer> mask, Range<Integer>... expectedRanges) {
         Range<Integer>[] actualRanges = mask.getRanges();
         assertEquals(expectedRanges.length, actualRanges.length);
         for(int a = 0; a < expectedRanges.length; a++) {

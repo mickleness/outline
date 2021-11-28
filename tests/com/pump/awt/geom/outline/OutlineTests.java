@@ -11,7 +11,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 
-public class OutlineTests extends TestCase {
+public abstract class OutlineTests extends TestCase {
 
     public Writer createLog(String name) throws FileNotFoundException {if (name.contains("/") || name.contains("\\"))
         throw new IllegalArgumentException("illegal name = "+name);

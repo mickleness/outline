@@ -7,6 +7,11 @@ import java.io.Serializable;
 /**
  * An immutable range of values. For example: this could be a range of Doubles, Integers, BigDecimals,
  * Strings, etc. The boundaries are inclusive.
+ * <p>
+ * The smaller bound (the minimum) is inclusive, and the maximum is exclusive. So a range from 0-2 would include 0 and
+ * 1 but not 2. (The goal is to model how graphics are rendered, so if you imagine a java.awt.Rectangle defined
+ * as <code>new Rectangle(0, 0, 2, 2)</code>: we would fill in the first pixel and the second pixel but not the third.)
+ * </p>
  */
 public abstract class Range<T extends Comparable> implements Serializable {
 
@@ -37,6 +42,8 @@ public abstract class Range<T extends Comparable> implements Serializable {
      */
     public Range(T min, T max) {
         int k = min.compareTo(max);
+        if (k == 0)
+            throw new IllegalArgumentException(min+" = "+max);
         if (k > 0)
             throw new IllegalArgumentException(min+" > "+max);
         this.min = min;
@@ -95,7 +102,7 @@ public abstract class Range<T extends Comparable> implements Serializable {
             return false;
 
         k = max.compareTo(number);
-        return k >= 0;
+        return k > 0;
     }
 
     @Override
@@ -131,7 +138,7 @@ public abstract class Range<T extends Comparable> implements Serializable {
         sb.append(min);
         sb.append(',');
         sb.append(max);
-        sb.append(']');
+        sb.append(')');
         return sb.toString();
     }
 

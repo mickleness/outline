@@ -7,14 +7,15 @@ public class RangeTest extends TestCase {
     Range<Integer> r5_10 = new Range.Integer(5, 10);
 
     public void testToString() {
-        assertEquals("[5,10]", r5_10.toString());
+        assertEquals("[5,10)", r5_10.toString());
     }
 
     public void testContainsElement() {
         assertFalse(r5_10.contains(4));
         assertTrue(r5_10.contains(5));
         assertTrue(r5_10.contains(7));
-        assertTrue(r5_10.contains(10));
+        assertTrue(r5_10.contains(9));
+        assertFalse(r5_10.contains(10));
         assertFalse(r5_10.contains(11));
     }
 
@@ -51,12 +52,12 @@ public class RangeTest extends TestCase {
         assertIntersects(false, r5_10, new Range.Integer(12,14));
         assertIntersects(false, r5_10, new Range.Integer(2,4));
 
-        assertIntersects(true, r5_10, new Range.Integer(5, 5));
-        assertIntersects(true, r5_10, new Range.Integer(7, 7));
-        assertIntersects(true, r5_10, new Range.Integer(10, 10));
+        assertIntersects(true, r5_10, new Range.Integer(5, 6));
+        assertIntersects(true, r5_10, new Range.Integer(7, 8));
+        assertIntersects(true, r5_10, new Range.Integer(10, 11));
 
-        assertIntersects(false, r5_10, new Range.Integer(4, 4));
-        assertIntersects(false, r5_10, new Range.Integer(11, 11));
+        assertIntersects(false, r5_10, new Range.Integer(4, 5));
+        assertIntersects(false, r5_10, new Range.Integer(10, 11));
     }
 
     /**
