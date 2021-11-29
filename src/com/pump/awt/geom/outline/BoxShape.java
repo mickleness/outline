@@ -1,15 +1,12 @@
 package com.pump.awt.geom.outline;
 
 import com.pump.math.NumberLineMask;
-import com.pump.util.Range;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
-import java.io.IOException;
-import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
 
@@ -22,6 +19,31 @@ import java.util.*;
  * </p>
  */
 public class BoxShape implements Shape, Serializable {
+
+    private enum Operation {
+        ADD() {
+            @Override
+            public boolean execute(NumberLineMask<Integer> mask, int x1, int x2) {
+                return mask.add(x1, x2);
+            }
+        },
+
+        SUBTRACT() {
+            @Override
+            public boolean execute(NumberLineMask<Integer> mask, int x1, int x2) {
+                return mask.subtract(x1, x2);
+            }
+        },
+
+        CLIP() {
+            @Override
+            public boolean execute(NumberLineMask<Integer> mask, int x1, int x2) {
+                return mask.clip(x1, x2);
+            }
+        };
+
+        public abstract boolean execute(NumberLineMask<Integer> mask, int x1, int x2);
+    }
 
     class PixelMaskIterator implements PathIterator {
 
@@ -59,19 +81,71 @@ public class BoxShape implements Shape, Serializable {
         rows.put(0, new NumberLineMask.Integer());
     }
 
+    private void ensureRow(int y) {
+        Map.Entry<Integer, NumberLineMask<Integer>> nearestRow = rows.floorEntry(y);
+        if (nearestRow == null) {
+            NumberLineMask newRow = new NumberLineMask.Integer();
+            rows.put(y, newRow);
+        } else if (nearestRow.getKey().intValue() == y) {
+            return;
+        } else {
+            NumberLineMask newRow = nearestRow.getValue().clone();
+            rows.put(y, newRow);
+        }
+    }
+
     public boolean add(Rectangle r) {
         return add(r.x, r.y, r.width, r.height);
     }
 
-    private void ensureRow(int y) {
-        Map.Entry<Integer, NumberLineMask<Integer>> nearestRow = rows.floorEntry(y);
-        if (nearestRow.getKey().intValue() == y)
-            return;
-        NumberLineMask newRow = nearestRow.getValue().clone();
-        rows.put(y, newRow);
+    public boolean add(int x, int y, int width, int height) {
+        return performOperation(Operation.ADD, x, y, width, height);
     }
 
-    public boolean add(int x, int y, int width, int height) {
+    public boolean subtract(Rectangle r) {
+        return subtract(r.x, r.y, r.width, r.height);
+    }
+
+    public boolean subtract(int x, int y, int width, int height) {
+        return performOperation(Operation.SUBTRACT, x, y, width, height);
+    }
+
+    public boolean clip(Rectangle r) {
+        return clip(r.x, r.y, r.width, r.height);
+    }
+
+    public boolean clip(int x, int y, int width, int height) {
+        boolean returnValue = performOperation(Operation.CLIP, x, y, width, height);
+
+        // TODO: consolidate iterators. For this operation we probably
+        // need to iterate over all rows (the top and bottom rows need
+        // removing, and the middle rows need to be clipped).
+
+        // drop rows above & below our clipped rect:
+        Iterator<Map.Entry<Integer, NumberLineMask<Integer>>> iter = rows.entrySet().iterator();
+        while (iter.hasNext()) {
+            Map.Entry<Integer, NumberLineMask<Integer>> entry = iter.next();
+            if (entry.getKey() == y)
+                break;
+            iter.remove();
+            returnValue = true;
+        }
+
+        iter = rows.descendingMap().entrySet().iterator();
+        while (iter.hasNext()) {
+            Map.Entry<Integer, NumberLineMask<Integer>> entry = iter.next();
+            if (entry.getKey() < y + height)
+                break;
+            iter.remove();
+            returnValue = true;
+        }
+
+        rows.put(y + height, new NumberLineMask.Integer());
+
+        return returnValue;
+    }
+
+    private boolean performOperation(Operation op, int x, int y, int width, int height) {
         if (width < 0 || height < 0)
             throw new IllegalArgumentException("x = "+x+", y = "+y+", width = "+width+", height = "+height);
         if (width == 0 || height == 0)
@@ -84,7 +158,7 @@ public class BoxShape implements Shape, Serializable {
         for(Map.Entry<Integer, NumberLineMask<Integer>> entry : rows.tailMap(y).entrySet()) {
             if (entry.getKey() == y + height)
                 break;
-            if (entry.getValue().add(x, x + width))
+            if (op.execute(entry.getValue(), x, x + width))
                 returnValue = true;
         }
 
@@ -102,6 +176,13 @@ public class BoxShape implements Shape, Serializable {
         }
         Map.Entry<Integer, NumberLineMask<Integer>> entry = iter.hasNext() ? iter.next() : null;
         NumberLineMask<Integer> lastRowMask = entry == null ? null : entry.getValue();
+
+        while (iter.hasNext() && lastRowMask != null && lastRowMask.isEmpty()) {
+            iter.remove();
+            entry = iter.hasNext() ? iter.next() : null;
+            lastRowMask = entry == null ? null : entry.getValue();
+        }
+
         while (iter.hasNext()) {
             entry = iter.next();
             NumberLineMask<Integer> currentRowMask = entry.getValue();

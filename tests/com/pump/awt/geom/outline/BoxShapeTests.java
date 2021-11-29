@@ -16,125 +16,167 @@ public class BoxShapeTests extends TestCase {
      * This creates the same outline a few different ways and makes sure the
      * resulting BoxShape is always the same.
      */
-    public void testAddEqualsContains() {
+    public void testEqualsContains_1() {
+        BoxShape b0 = new BoxShape();
+        b0.add(0, 0, 3, 3);
+        b0.add(1, 1, 3, 3);
+
         BoxShape b1 = new BoxShape();
-        b1.add(0, 0, 3, 3);
-        b1.add(1, 1, 3, 3);
+        b1.add(0, 0, 3, 1);
+        b1.add(0, 1, 4, 2);
+        b1.add(1, 3, 3, 1);
 
         BoxShape b2 = new BoxShape();
-        b2.add(0, 0, 3, 1);
-        b2.add(0, 1, 4, 2);
-        b2.add(1, 3, 3, 1);
-
-        BoxShape b3 = new BoxShape();
-        b3.add(0, 0, 1, 3);
-        b3.add(1, 0, 2, 4);
-        b3.add(3, 1, 1, 3);
+        b2.add(0, 0, 1, 3);
+        b2.add(1, 0, 2, 4);
+        b2.add(3, 1, 1, 3);
 
         // one px at a time, horizontally, left-to-right
-        BoxShape b4 = new BoxShape();
-        b4.add(0, 0, 1, 1);
-        b4.add(1, 0, 1, 1);
-        b4.add(2, 0, 1, 1);
+        BoxShape b3 = new BoxShape();
+        b3.add(0, 0, 1, 1);
+        b3.add(1, 0, 1, 1);
+        b3.add(2, 0, 1, 1);
 
-        b4.add(0, 1, 1, 1);
-        b4.add(1, 1, 1, 1);
-        b4.add(2, 1, 1, 1);
-        b4.add(3, 1, 1, 1);
+        b3.add(0, 1, 1, 1);
+        b3.add(1, 1, 1, 1);
+        b3.add(2, 1, 1, 1);
+        b3.add(3, 1, 1, 1);
 
-        b4.add(0, 2, 1, 1);
-        b4.add(1, 2, 1, 1);
-        b4.add(2, 2, 1, 1);
-        b4.add(3, 2, 1, 1);
+        b3.add(0, 2, 1, 1);
+        b3.add(1, 2, 1, 1);
+        b3.add(2, 2, 1, 1);
+        b3.add(3, 2, 1, 1);
 
-        b4.add(1, 3, 1, 1);
-        b4.add(2, 3, 1, 1);
-        b4.add(3, 3, 1, 1);
+        b3.add(1, 3, 1, 1);
+        b3.add(2, 3, 1, 1);
+        b3.add(3, 3, 1, 1);
 
         // one px at a time, horizontally, right-to-left
-        BoxShape b5 = new BoxShape();
-        b5.add(2, 0, 1, 1);
-        b5.add(1, 0, 1, 1);
-        b5.add(0, 0, 1, 1);
+        BoxShape b4 = new BoxShape();
+        b4.add(2, 0, 1, 1);
+        b4.add(1, 0, 1, 1);
+        b4.add(0, 0, 1, 1);
 
-        b5.add(3, 1, 1, 1);
-        b5.add(2, 1, 1, 1);
-        b5.add(1, 1, 1, 1);
-        b5.add(0, 1, 1, 1);
+        b4.add(3, 1, 1, 1);
+        b4.add(2, 1, 1, 1);
+        b4.add(1, 1, 1, 1);
+        b4.add(0, 1, 1, 1);
 
-        b5.add(3, 2, 1, 1);
-        b5.add(2, 2, 1, 1);
-        b5.add(1, 2, 1, 1);
-        b5.add(0, 2, 1, 1);
+        b4.add(3, 2, 1, 1);
+        b4.add(2, 2, 1, 1);
+        b4.add(1, 2, 1, 1);
+        b4.add(0, 2, 1, 1);
 
-        b5.add(3, 3, 1, 1);
-        b5.add(2, 3, 1, 1);
-        b5.add(1, 3, 1, 1);
+        b4.add(3, 3, 1, 1);
+        b4.add(2, 3, 1, 1);
+        b4.add(1, 3, 1, 1);
 
         // one px at a time, vertically, top-to-bottom
-        BoxShape b6 = new BoxShape();
-        b6.add(0, 0, 1, 1);
-        b6.add(0, 1, 1, 1);
-        b6.add(0, 2, 1, 1);
+        BoxShape b5 = new BoxShape();
+        b5.add(0, 0, 1, 1);
+        b5.add(0, 1, 1, 1);
+        b5.add(0, 2, 1, 1);
 
-        b6.add(1, 0, 1, 1);
-        b6.add(1, 1, 1, 1);
-        b6.add(1, 2, 1, 1);
-        b6.add(1, 3, 1, 1);
+        b5.add(1, 0, 1, 1);
+        b5.add(1, 1, 1, 1);
+        b5.add(1, 2, 1, 1);
+        b5.add(1, 3, 1, 1);
 
-        b6.add(2, 0, 1, 1);
-        b6.add(2, 1, 1, 1);
-        b6.add(2, 2, 1, 1);
-        b6.add(2, 3, 1, 1);
+        b5.add(2, 0, 1, 1);
+        b5.add(2, 1, 1, 1);
+        b5.add(2, 2, 1, 1);
+        b5.add(2, 3, 1, 1);
 
-        b6.add(3, 1, 1, 1);
-        b6.add(3, 2, 1, 1);
-        b6.add(3, 3, 1, 1);
+        b5.add(3, 1, 1, 1);
+        b5.add(3, 2, 1, 1);
+        b5.add(3, 3, 1, 1);
 
         // one px at a time, vertically, bottom-to-top
-        BoxShape b7 = new BoxShape();
-        b7.add(0, 2, 1, 1);
-        b7.add(0, 1, 1, 1);
-        b7.add(0, 0, 1, 1);
+        BoxShape b6 = new BoxShape();
+        b6.add(0, 2, 1, 1);
+        b6.add(0, 1, 1, 1);
+        b6.add(0, 0, 1, 1);
 
-        b7.add(1, 3, 1, 1);
-        b7.add(1, 2, 1, 1);
-        b7.add(1, 1, 1, 1);
-        b7.add(1, 0, 1, 1);
+        b6.add(1, 3, 1, 1);
+        b6.add(1, 2, 1, 1);
+        b6.add(1, 1, 1, 1);
+        b6.add(1, 0, 1, 1);
 
-        b7.add(2, 3, 1, 1);
-        b7.add(2, 2, 1, 1);
-        b7.add(2, 1, 1, 1);
-        b7.add(2, 0, 1, 1);
+        b6.add(2, 3, 1, 1);
+        b6.add(2, 2, 1, 1);
+        b6.add(2, 1, 1, 1);
+        b6.add(2, 0, 1, 1);
 
-        b7.add(3, 3, 1, 1);
-        b7.add(3, 2, 1, 1);
-        b7.add(3, 1, 1, 1);
+        b6.add(3, 3, 1, 1);
+        b6.add(3, 2, 1, 1);
+        b6.add(3, 1, 1, 1);
 
         // one px at a time, randomly:
+        BoxShape b7 = new BoxShape();
+        b7.add(2, 1, 1, 1);
+        b7.add(1, 2, 1, 1);
+        b7.add(1, 1, 1, 1);
+        b7.add(0, 2, 1, 1);
+        b7.add(1, 0, 1, 1);
+        b7.add(3, 3, 1, 1);
+        b7.add(0, 0, 1, 1);
+        b7.add(1, 3, 1, 1);
+        b7.add(2, 0, 1, 1);
+        b7.add(2, 3, 1, 1);
+        b7.add(2, 2, 1, 1);
+        b7.add(3, 1, 1, 1);
+        b7.add(0, 1, 1, 1);
+        b7.add(3, 2, 1, 1);
+
         BoxShape b8 = new BoxShape();
-        b8.add(2, 1, 1, 1);
-        b8.add(1, 2, 1, 1);
-        b8.add(1, 1, 1, 1);
-        b8.add(0, 2, 1, 1);
-        b8.add(1, 0, 1, 1);
-        b8.add(3, 3, 1, 1);
-        b8.add(0, 0, 1, 1);
-        b8.add(1, 3, 1, 1);
-        b8.add(2, 0, 1, 1);
-        b8.add(2, 3, 1, 1);
-        b8.add(2, 2, 1, 1);
-        b8.add(3, 1, 1, 1);
-        b8.add(0, 1, 1, 1);
-        b8.add(3, 2, 1, 1);
+        b8.add(1, 1, 3, 3);
+        b8.add(0, 0, 2, 2);
+        b8.add(1, 0, 2, 2);
+        b8.add(0, 1, 2, 2);
 
         BoxShape b9 = new BoxShape();
-        b9.add(1, 1, 3, 3);
-        b9.add(0, 0, 2, 2);
-        b9.add(1, 0, 2, 2);
-        b9.add(0, 1, 2, 2);
+        b9.add(0, 0, 4, 4);
+        b9.subtract(3, 0, 1, 1);
+        b9.subtract(0,3, 1, 1);
 
-        testEqualsContains(b1, b2, b3, b4, b5, b6, b7, b8, b9);
+        BoxShape b10 = new BoxShape();
+        b10.add(0, 0, 4, 4);
+        b10.subtract(3, -1, 2, 2);
+        b10.subtract(-1,3, 2, 2);
+
+        BoxShape b11 = new BoxShape();
+        b11.add(-1, -1, 4, 4);
+        b11.add(1, 1, 4, 4);
+        b11.clip(0,0,4,4);
+
+        testEqualsContains(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11);
+    }
+
+    /**
+     * This creates 3 concentric rectangles a couple of different ways.
+     */
+    public void testEqualsContains_2() {
+        BoxShape b0 = new BoxShape();
+        b0.add(0,0,10,10);
+        b0.subtract(1,1,8,8);
+        b0.add(2,2,6,6);
+        b0.subtract(3,3,4,4);
+        b0.add(4,4,2,2);
+
+        BoxShape b1 = new BoxShape();
+        b1.add(0,0,10,1);
+        b1.add(0,0,1,10);
+        b1.add(0,9,10,1);
+        b1.add(9,0,1,10);
+
+        b1.add(2,2,6,1);
+        b1.add(2,2,1,6);
+        b1.add(2,7,6,1);
+        b1.add(7,2,1,6);
+
+        b1.add(4,4,2,2);
+
+        testEqualsContains(b0, b1);
     }
 
     /**
