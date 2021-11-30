@@ -217,18 +217,11 @@ public class RectangleMaskTests extends TestCase {
                         fail("Two or more RectangleMasks that were expected to be the same had different results for #contains(x,y)");
                     }
                     assertEquals(rMasks[a], rMasks[b]);
-                    // TODO:
-//                    assertTrue(rMasks[a].intersects(rMasks[b]));
-//                    assertTrue(rMasks[a].contains(rMasks[b]));
                 } catch(Error | RuntimeException e) {
                     System.err.println("a = "+a);
                     System.err.println(str[a]);
                     System.err.println("b = "+b);
                     System.err.println(str[b]);
-                    boolean b1 = rMasks[a].equals(rMasks[b]);
-                    boolean b2 = rMasks[b].equals(rMasks[a]);
-                    rMasks[a].equals(rMasks[b]);
-                    rMasks[b].equals(rMasks[a]);
                     throw e;
                 }
             }
