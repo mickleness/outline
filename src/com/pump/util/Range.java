@@ -20,16 +20,6 @@ public abstract class Range<T extends Comparable> implements Serializable {
         public Integer(java.lang.Integer min, java.lang.Integer max) {
             super(min, max);
         }
-
-        @Override
-        public java.lang.Integer getPreviousValue() {
-            return min - 1;
-        }
-
-        @Override
-        public java.lang.Integer getNextValue() {
-            return max + 1;
-        }
     }
 
     @Serial
@@ -159,14 +149,4 @@ public abstract class Range<T extends Comparable> implements Serializable {
             throw new IOException("Unsupported internal version: "+internalVersion);
         }
     }
-
-    /**
-     * Return the value immediately before this range.
-     */
-    public abstract T getPreviousValue();
-
-    /**
-     * Return the value immediately after this range.
-     */
-    public abstract T getNextValue();
 }

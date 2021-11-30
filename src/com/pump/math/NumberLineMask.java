@@ -83,11 +83,47 @@ public abstract class NumberLineMask<T extends Comparable> implements Serializab
      * Return true if the argument is contained inside this NumberLine.
      */
     public boolean contains(Range<T> x) {
-        Map.Entry<T, Range<T>> floorEntry = ranges.floorEntry(x.min);
+        return contains(x.min, x.max);
+    }
+
+    /**
+     * Return true if the argument is contained inside this NumberLine.
+     */
+    public boolean contains(T min, T max) {
+        Map.Entry<T, Range<T>> floorEntry = ranges.floorEntry(min);
         Range<T> range = floorEntry == null ? null : floorEntry.getValue();
         if (range == null)
             return false;
-        return range.contains(x);
+        return range.contains(min, max);
+    }
+
+    /**
+     * Return true if the argument intersects this NumberLine.
+     */
+    public boolean intersects(Range<T> x) {
+        return intersects(x.min, x.max);
+    }
+
+    /**
+     * Return true if the argument intersects this NumberLine.
+     */
+    public boolean intersects(T min, T max) {
+        Map.Entry<T, Range<T>> floorEntry = ranges.floorEntry(min);
+
+        Iterator<Range<T>> iter;
+        if (floorEntry == null) {
+            iter = ranges.values().iterator();
+        } else {
+            iter = ranges.tailMap(floorEntry.getKey()).values().iterator();
+        }
+        while (iter.hasNext()) {
+            Range range = iter.next();
+            if (range.intersects(min, max))
+                return true;
+            if (range.max.compareTo(max) > 0)
+                break;
+        }
+        return false;
     }
 
     /**

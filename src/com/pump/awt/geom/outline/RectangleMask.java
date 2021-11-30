@@ -11,14 +11,14 @@ import java.io.Serializable;
 import java.util.*;
 
 /**
- * This is a shape composed of rectangles.
+ * This is a composition of rectangles.
  * <p>
  * The Area class can (in rare cases) throw memory errors or take an excessively long time to compute
- * seemingly simple operations. This object represents shapes using only horizontal and vertical
+ * seemingly simple operations. This object represents shape data using only horizontal and vertical
  * lines; as a result it is more reliable.
  * </p>
  */
-public class BoxShape implements Shape, Serializable {
+public class RectangleMask implements Shape, Serializable {
 
     private enum Operation {
         ADD() {
@@ -77,7 +77,7 @@ public class BoxShape implements Shape, Serializable {
 
     protected final TreeMap<Integer, NumberLineMask<Integer>> rows = new TreeMap<>();
 
-    public BoxShape() {
+    public RectangleMask() {
         rows.put(0, new NumberLineMask.Integer());
     }
 
@@ -245,12 +245,11 @@ public class BoxShape implements Shape, Serializable {
 
     @Override
     public boolean intersects(double x, double y, double w, double h) {
-//        BoxShape b = new BoxShape();
-//        b.add(x, y, w, h);
-//        return intersects(b);
-
-        // TODO: implement
-        return false;
+        int x1 = (int) (Math.floor(x) + .5);
+        int y1 = (int) (Math.floor(y) + .5);
+        int x2 = (int) (Math.ceil(x + w) + .5);
+        int y2 = (int) (Math.ceil(y + h) + .5);
+        return intersects(x1, y1, x2 - x1, y2 - y1);
     }
 
     @Override
@@ -260,11 +259,58 @@ public class BoxShape implements Shape, Serializable {
 
     @Override
     public boolean contains(double x, double y, double w, double h) {
-//        BoxShape b = new BoxShape();
-//        b.add(x, y, w, h);
-//        return contains(b);
+        int x1 = (int) (Math.floor(x) + .5);
+        int y1 = (int) (Math.floor(y) + .5);
+        int x2 = (int) (Math.ceil(x + w) + .5);
+        int y2 = (int) (Math.ceil(y + h) + .5);
+        return contains(x1, y1, x2 - x1, y2 - y1);
+    }
 
-        // TODO: implement
+    public boolean contains(int x, int y, int width,int height) {
+        if (width < 0)
+            throw new IllegalArgumentException("width = "+width);
+        if (height < 0)
+            throw new IllegalArgumentException("height = "+height);
+        if (width == 0 || height == 0)
+            return false;
+
+        Integer floorKey = rows.floorKey(y);
+        if (floorKey == null)
+            return false;
+        Iterator<Map.Entry<Integer, NumberLineMask<Integer>>> iter = rows.tailMap(floorKey, true).entrySet().iterator();
+        while (iter.hasNext()) {
+            Map.Entry<Integer, NumberLineMask<Integer>> entry = iter.next();
+            if (entry.getKey().compareTo(y + height) >= 0)
+                return true;
+
+            if (!entry.getValue().contains(x, x + width)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean intersects(int x, int y, int width,int height) {
+        if (width < 0)
+            throw new IllegalArgumentException("width = "+width);
+        if (height < 0)
+            throw new IllegalArgumentException("height = "+height);
+        if (width == 0 || height == 0)
+            return false;
+
+        Integer floorKey = rows.floorKey(y);
+        Iterator<Map.Entry<Integer, NumberLineMask<Integer>>> iter = floorKey == null ?
+                rows.entrySet().iterator() :
+                rows.tailMap(floorKey, true).entrySet().iterator();
+        while (iter.hasNext()) {
+            Map.Entry<Integer, NumberLineMask<Integer>> entry = iter.next();
+            if (entry.getKey().compareTo(y + height) >= 0)
+                return false;
+
+            if (entry.getValue().intersects(x, x + width)) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -314,21 +360,21 @@ public class BoxShape implements Shape, Serializable {
     }
 
     /**
-     * If this returns true then this BoxShape is graphically equivalent to {@link #getBounds2D()}.
+     * If this returns true then this RectangleMask is graphically equivalent to {@link #getBounds2D()}.
      */
     public boolean isRectangle() {
         return toRectangle() != null;
     }
 
     /**
-     * Return true if this BoxShape is equivalent to the rectangle provided.
+     * Return true if this RectangleMask is equivalent to the rectangle provided.
      */
     public boolean isEqual(int x, int y, int width, int height) {
         return isEqual(new Rectangle(x, y, width, height));
     }
 
     /**
-     * Return true if this BoxShape is equivalent to the rectangle provided.
+     * Return true if this RectangleMask is equivalent to the rectangle provided.
      */
     public boolean isEqual(Rectangle r) {
         return r.equals(toRectangle());
@@ -338,8 +384,8 @@ public class BoxShape implements Shape, Serializable {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        BoxShape boxShape = (BoxShape) o;
-        return Objects.equals(rows, boxShape.rows);
+        RectangleMask rMask = (RectangleMask) o;
+        return Objects.equals(rows, rMask.rows);
     }
 
     @Override

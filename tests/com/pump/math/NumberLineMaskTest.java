@@ -351,4 +351,22 @@ public class NumberLineMaskTest extends TestCase {
             assertEquals(expectedRanges[a], actualRanges[a]);
         }
     }
+
+    public void testIntersects() {
+        NumberLineMask<Integer> m = new NumberLineMask.Integer();
+        m.add(0, 3);
+        m.add(6, 9);
+        m.add(12, 15);
+
+        for(int x1 = -5; x1 < 20; x1++) {
+            for(int x2 = x1 + 1; x2 < 20; x2++) {
+                boolean expectedValue = false;
+                for(Range<Integer> range : m.getRanges()) {
+                    if (range.intersects(x1, x2) )
+                        expectedValue = true;
+                }
+                assertEquals(expectedValue, m.intersects(x1, x2));
+            }
+        }
+    }
 }
