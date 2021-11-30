@@ -343,6 +343,23 @@ public class NumberLineMaskTest extends TestCase {
         assertEquals(new Range<>(8, 9), l1.getRanges()[2]);
     }
 
+    /**
+     * Test {@link NumberLineMask#clip(NumberLineMask)} for empty masks
+     */
+    public void testClip_2() {
+        NumberLineMask<Integer> n = new NumberLineMask<>();
+        assertFalse(n.clip(n));
+
+        NumberLineMask<Integer> n2 = new NumberLineMask<>();
+        assertFalse(n.clip(n2));
+
+        n.add(0, 100);
+        assertTrue(n.clip(n2));
+
+        n.add(0, 100);
+        assertFalse(n2.clip(n));
+    }
+
     @SafeVarargs
     private void testIntegerMask(NumberLineMask<Integer> mask, Range<Integer>... expectedRanges) {
         Range<Integer>[] actualRanges = mask.getRanges();

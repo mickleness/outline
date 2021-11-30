@@ -275,6 +275,14 @@ public class NumberLineMask<T extends Comparable> implements Serializable {
     }
 
     public boolean clip(NumberLineMask<T> other) {
+        if (ranges.isEmpty())
+            return false;
+
+        if (other.isEmpty()) {
+            ranges.clear();
+            return true;
+        }
+
         T minA = ranges.firstEntry().getValue().min;
         T minB = other.ranges.firstEntry().getValue().min;
         T maxA = ranges.lastEntry().getValue().max;
