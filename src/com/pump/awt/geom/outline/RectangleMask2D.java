@@ -11,6 +11,11 @@ public class RectangleMask2D extends AbstractRectangleMask<Double, Rectangle2D.D
         super(0.0);
     }
 
+    public RectangleMask2D(Rectangle2D bounds) {
+        this();
+        add(bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight());
+    }
+
     @Override
     protected Double add(Double n1, Double n2) {
         return n1 + n2;
