@@ -33,7 +33,7 @@ public abstract class NumberLineMask<T extends Comparable> implements Serializab
 
         @Override
         public Range<java.lang.Integer> createRange(java.lang.Integer x1, java.lang.Integer x2) {
-            return new Range.Integer(x1, x2);
+            return new Range<>(x1, x2);
         }
 
         @Override

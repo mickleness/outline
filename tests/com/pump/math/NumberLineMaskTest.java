@@ -42,18 +42,18 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue( m.add(0,1) );
         assertTrue( m.add(0,2) );
 
-        testIntegerMask(m, new Range.Integer(0, 2));
+        testIntegerMask(m, new Range<>(0, 2));
 
         // make sure redundant adds don't hurt anything:
 
         assertFalse( m.add(0,1) );
-        testIntegerMask(m, new Range.Integer(0, 2));
+        testIntegerMask(m, new Range<>(0, 2));
 
         assertFalse( m.add(1, 2) );
-        testIntegerMask(m, new Range.Integer(0, 2));
+        testIntegerMask(m, new Range<>(0, 2));
 
         assertFalse( m.add(0, 2) );
-        testIntegerMask(m, new Range.Integer(0, 2));
+        testIntegerMask(m, new Range<>(0, 2));
     }
 
     public void testAdd_2() {
@@ -61,7 +61,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue( m.add(0,1) );
         assertTrue( m.add(0,3) );
 
-        testIntegerMask(m, new Range.Integer(0, 3));
+        testIntegerMask(m, new Range<>(0, 3));
     }
 
     public void testAdd_3() {
@@ -69,7 +69,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue( m.add(0,1) );
         assertTrue( m.add(1,3) );
 
-        testIntegerMask(m, new Range.Integer(0, 3));
+        testIntegerMask(m, new Range<>(0, 3));
     }
 
     public void testAdd_4() {
@@ -77,7 +77,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue( m.add(0,1) );
         assertTrue( m.add(2,3) );
 
-        testIntegerMask(m, new Range.Integer(0, 1), new Range.Integer(2, 3));
+        testIntegerMask(m, new Range<>(0, 1), new Range<>(2, 3));
     }
 
     public void testAdd_5() {
@@ -85,7 +85,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue( m.add(2, 3) );
         assertTrue( m.add(0, 2) );
 
-        testIntegerMask(m, new Range.Integer(0, 3));
+        testIntegerMask(m, new Range<>(0, 3));
     }
 
     public void testAdd_6() {
@@ -93,7 +93,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue( m.add(2, 3) );
         assertTrue( m.add(0, 3) );
 
-        testIntegerMask(m, new Range.Integer(0, 3));
+        testIntegerMask(m, new Range<>(0, 3));
     }
 
     public void testAdd_7() {
@@ -101,7 +101,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue( m.add(2, 3) );
         assertTrue( m.add(0, 1) );
 
-        testIntegerMask(m, new Range.Integer(0, 1), new Range.Integer(2, 3));
+        testIntegerMask(m, new Range<>(0, 1), new Range<>(2, 3));
     }
 
     public void testAdd_8() {
@@ -109,7 +109,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue( m.add(2, 3) );
         assertTrue( m.add(0, 5) );
 
-        testIntegerMask(m, new Range.Integer(0, 5));
+        testIntegerMask(m, new Range<>(0, 5));
     }
 
     public void testAdd_9() {
@@ -117,7 +117,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue( m.add(0, 5) );
         assertFalse( m.add(2, 3) );
 
-        testIntegerMask(m, new Range.Integer(0, 5));
+        testIntegerMask(m, new Range<>(0, 5));
     }
 
     public void testAdd_10() {
@@ -128,26 +128,26 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue( m.add(6, 7) );
         assertTrue( m.add(3, 4) );
 
-        testIntegerMask(m, new Range.Integer(0, 1), new Range.Integer(2,5), new Range.Integer(6,7));
+        testIntegerMask(m, new Range<>(0, 1), new Range<>(2, 5), new Range<>(6, 7));
     }
 
     public void testAdd_11() {
         NumberLineMask<Integer> m = new NumberLineMask.Integer();
         assertTrue( m.add(0, 2) );
         assertFalse( m.add(1, 1) );
-        testIntegerMask(m, new Range.Integer(0, 2));
+        testIntegerMask(m, new Range<>(0, 2));
     }
 
     public void testAdd_12() {
         NumberLineMask<Integer> m = new NumberLineMask.Integer();
         assertTrue(m.add(0, 5));
         assertTrue(m.add(3, 7));
-        testIntegerMask(m, new Range.Integer(0, 7));
+        testIntegerMask(m, new Range<>(0, 7));
 
         m.clear();
         assertTrue(m.add(3, 7));
         assertTrue(m.add(0, 5));
-        testIntegerMask(m, new Range.Integer(0, 7));
+        testIntegerMask(m, new Range<>(0, 7));
     }
 
     public void testAdd_13() {
@@ -157,7 +157,7 @@ public class NumberLineMaskTest extends TestCase {
         assertFalse(m.add(5, 5));
         assertFalse(m.add(6, 6));
         assertFalse(m.add(7, 7));
-        testIntegerMask(m, new Range.Integer(5, 7));
+        testIntegerMask(m, new Range<>(5, 7));
     }
 
     public void testAdd_14() {
@@ -191,7 +191,7 @@ public class NumberLineMaskTest extends TestCase {
         NumberLineMask<Integer> l1 = new NumberLineMask.Integer();
         assertTrue(l1.add(0, 10));
         assertTrue(l1.subtract(5, 15));
-        assertEquals(new Range.Integer(0, 5), l1.getRanges()[0]);
+        assertEquals(new Range<>(0, 5), l1.getRanges()[0]);
 
         assertTrue(l1.contains(4));
         assertFalse(l1.contains(5));
@@ -205,8 +205,8 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue(l1.add(40, 50));
         assertTrue(l1.add(60, 70));
         assertTrue(l1.subtract(15, 55));
-        assertEquals(new Range.Integer(0, 10), l1.getRanges()[0]);
-        assertEquals(new Range.Integer(60, 70), l1.getRanges()[1]);
+        assertEquals(new Range<>(0, 10), l1.getRanges()[0]);
+        assertEquals(new Range<>(60, 70), l1.getRanges()[1]);
     }
 
     public void testSubtract_4() {
@@ -216,7 +216,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue(l1.add(40, 50));
         assertTrue(l1.add(60, 70));
         assertTrue(l1.subtract(15, 55));
-        assertEquals(new Range.Integer(60, 70), l1.getRanges()[0]);
+        assertEquals(new Range<>(60, 70), l1.getRanges()[0]);
     }
 
     public void testSubtract_5() {
@@ -226,7 +226,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue(l1.add(20, 30));
         assertTrue(l1.add(40, 50));
         assertTrue(l1.subtract(15, 55));
-        assertEquals(new Range.Integer(0, 10), l1.getRanges()[0]);
+        assertEquals(new Range<>(0, 10), l1.getRanges()[0]);
     }
 
     public void testSubtract_6() {
@@ -246,7 +246,7 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue(l1.add(20, 30));
         assertFalse(l1.subtract(30, 40));
         assertEquals(1, l1.getRanges().length);
-        assertEquals(new Range.Integer(20, 30), l1.getRanges()[0]);
+        assertEquals(new Range<>(20, 30), l1.getRanges()[0]);
     }
 
     public void testSubtract_8() {
@@ -255,19 +255,19 @@ public class NumberLineMaskTest extends TestCase {
         NumberLineMask<Integer> l1 = new NumberLineMask.Integer();
         assertTrue(l1.add(20, 40));
         assertFalse(l1.subtract(0, 20));
-        assertEquals(new Range.Integer(20, 40), l1.getRanges()[0]);
+        assertEquals(new Range<>(20, 40), l1.getRanges()[0]);
 
         l1.clear();
         assertTrue(l1.add(20, 40));
         assertTrue(l1.subtract(0, 21));
-        assertEquals(new Range.Integer(21, 40), l1.getRanges()[0]);
+        assertEquals(new Range<>(21, 40), l1.getRanges()[0]);
     }
 
     public void testSubtract_9() {
         NumberLineMask<Integer> l1 = new NumberLineMask.Integer();
         assertTrue(l1.add(20, 40));
         assertTrue(l1.subtract(10, 30));
-        assertEquals(new Range.Integer(30, 40), l1.getRanges()[0]);
+        assertEquals(new Range<>(30, 40), l1.getRanges()[0]);
     }
 
     public void testSubtract_10() {
@@ -281,7 +281,7 @@ public class NumberLineMaskTest extends TestCase {
         NumberLineMask<Integer> l1 = new NumberLineMask.Integer();
         assertTrue(l1.add(20, 40));
         assertTrue(l1.subtract(30, 50));
-        assertEquals(new Range.Integer(20, 30), l1.getRanges()[0]);
+        assertEquals(new Range<>(20, 30), l1.getRanges()[0]);
     }
 
     public void testSubtract_12() {
@@ -289,8 +289,8 @@ public class NumberLineMaskTest extends TestCase {
         assertTrue(l1.add(0, 15));
         assertTrue(l1.add(20, 40));
         assertTrue(l1.subtract(10, 30));
-        assertEquals(new Range.Integer(0, 10), l1.getRanges()[0]);
-        assertEquals(new Range.Integer(30, 40), l1.getRanges()[1]);
+        assertEquals(new Range<>(0, 10), l1.getRanges()[0]);
+        assertEquals(new Range<>(30, 40), l1.getRanges()[1]);
     }
 
     public void testSubtract_13() {
@@ -304,9 +304,9 @@ public class NumberLineMaskTest extends TestCase {
         l2.add(9, 10);
 
         assertTrue(l1.subtract(l2));
-        assertEquals(new Range.Integer(1, 2), l1.getRanges()[0]);
-        assertEquals(new Range.Integer(4, 6), l1.getRanges()[1]);
-        assertEquals(new Range.Integer(8, 9), l1.getRanges()[2]);
+        assertEquals(new Range<>(1, 2), l1.getRanges()[0]);
+        assertEquals(new Range<>(4, 6), l1.getRanges()[1]);
+        assertEquals(new Range<>(8, 9), l1.getRanges()[2]);
     }
 
     public void testSubtract_14() {
@@ -317,7 +317,7 @@ public class NumberLineMaskTest extends TestCase {
         l2.add(0, 1);
 
         assertTrue(l1.subtract(l2));
-        assertEquals(new Range.Integer(1, 10), l1.getRanges()[0]);
+        assertEquals(new Range<>(1, 10), l1.getRanges()[0]);
     }
 
     public void testSubtract_15() {
@@ -328,7 +328,7 @@ public class NumberLineMaskTest extends TestCase {
         l2.add(9, 10);
 
         assertTrue(l1.subtract(l2));
-        assertEquals(new Range.Integer(0, 9), l1.getRanges()[0]);
+        assertEquals(new Range<>(0, 9), l1.getRanges()[0]);
     }
 
     public void testClip_1() {
@@ -338,9 +338,9 @@ public class NumberLineMaskTest extends TestCase {
         l1.add(8,10);
         l1.clip(1,9);
         assertEquals(3, l1.getRanges().length);
-        assertEquals(new Range.Integer(1,2), l1.getRanges()[0]);
-        assertEquals(new Range.Integer(4,6), l1.getRanges()[1]);
-        assertEquals(new Range.Integer(8,9), l1.getRanges()[2]);
+        assertEquals(new Range<>(1, 2), l1.getRanges()[0]);
+        assertEquals(new Range<>(4, 6), l1.getRanges()[1]);
+        assertEquals(new Range<>(8, 9), l1.getRanges()[2]);
     }
 
     @SafeVarargs

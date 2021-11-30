@@ -6,21 +6,14 @@ import java.io.Serializable;
 
 /**
  * An immutable range of values. For example: this could be a range of Doubles, Integers, BigDecimals,
- * Strings, etc. The boundaries are inclusive.
+ * Strings, etc.
  * <p>
  * The smaller bound (the minimum) is inclusive, and the maximum is exclusive. So a range from 0-2 would include 0 and
  * 1 but not 2. (The goal is to model how graphics are rendered, so if you imagine a java.awt.Rectangle defined
  * as <code>new Rectangle(0, 0, 2, 2)</code>: we would fill in the first pixel and the second pixel but not the third.)
  * </p>
  */
-public abstract class Range<T extends Comparable> implements Serializable {
-
-    public static class Integer extends Range<java.lang.Integer> {
-
-        public Integer(java.lang.Integer min, java.lang.Integer max) {
-            super(min, max);
-        }
-    }
+public class Range<T extends Comparable> implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;

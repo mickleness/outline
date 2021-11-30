@@ -1,69 +1,69 @@
 This table shows how long it takes to create an outline of clip art using different models.
 
 PlainAreaEngine	OptimizedAreaEngine	OptimizedAreaEngine[4]	Clip Art Name
-321	85	66	Broccoli
-589	347	170	Cat5
-506	212	124	CelticKnot5 x 10
-442	266	258	EasterEgg x 4
-734	267	188	ExitSign
-2286	1803	1575	GardenSign
-49600	10984	3887	GiftBox
-152	141	134	Globe3 x 5
-18520	4155	2361	IceCream12
-1135	1079	1074	JackOLantern x 50
-1491	1006	961	JohnLemon x 50
-198	192	141	MotherAndBaby
-209	103	121	MRIMachine x 100
-131	80	75	MysteriousCube
-1169	885	771	OrangeJuice x 100
-314	198	120	PersonAtComputer x 5
-312	155	166	RockingChair x 5
-331	168	166	RunningDogRetro x 5
-124	73	59	RussianBulldozer x 10
-291	174	153	Salad x 4
-1058	75	91	ShareRoadSign x 100
-1032	814	880	SpaceTravel x 50
-304	356	344	StackOfBooks4 x 10
-122	54	47	Stew
-872	440	315	Students
-363	344	346	TeleworkGuy x 100
-407	281	199	WellDressedOwl
+269	98	61	Broccoli
+614	371	211	Cat5
+477	220	111	CelticKnot5 x 10
+448	273	264	EasterEgg x 4
+752	266	193	ExitSign
+2318	1802	1513	GardenSign
+57752	12681	4477	GiftBox
+171	154	152	Globe3 x 5
+19655	4407	2529	IceCream12
+1214	1113	1174	JackOLantern x 50
+1555	1149	975	JohnLemon x 50
+200	167	138	MotherAndBaby
+220	188	178	MRIMachine x 100
+159	99	92	MysteriousCube
+1414	1014	933	OrangeJuice x 100
+372	189	132	PersonAtComputer x 5
+342	170	169	RockingChair x 5
+416	205	213	RunningDogRetro x 5
+158	94	68	RussianBulldozer x 10
+359	198	162	Salad x 4
+1295	84	98	ShareRoadSign x 100
+1287	910	812	SpaceTravel x 50
+285	361	341	StackOfBooks4 x 10
+122	51	31	Stew
+863	451	290	Students
+407	370	357	TeleworkGuy x 100
+420	278	198	WellDressedOwl
 
 Summary execution times:
-83013	24737	14792	
+93544	27363	15872	
 
 ... and here is the same info expressed as percents:
-100%	26.48%	20.561%	Broccoli
-100%	58.913%	28.862%	Cat5
-100%	41.897%	24.506%	CelticKnot5 x 10
-100%	60.181%	58.371%	EasterEgg x 4
-100%	36.376%	25.613%	ExitSign
-100%	78.871%	68.898%	GardenSign
-100%	22.145%	7.837%	GiftBox
-100%	92.763%	88.158%	Globe3 x 5
-100%	22.435%	12.748%	IceCream12
-100%	95.066%	94.626%	JackOLantern x 50
-100%	67.471%	64.453%	JohnLemon x 50
-100%	96.97%	71.212%	MotherAndBaby
-100%	49.282%	57.895%	MRIMachine x 100
-100%	61.069%	57.252%	MysteriousCube
-100%	75.706%	65.954%	OrangeJuice x 100
-100%	63.057%	38.217%	PersonAtComputer x 5
-100%	49.679%	53.205%	RockingChair x 5
-100%	50.755%	50.151%	RunningDogRetro x 5
-100%	58.871%	47.581%	RussianBulldozer x 10
-100%	59.794%	52.577%	Salad x 4
-100%	7.089%	8.601%	ShareRoadSign x 100
-100%	78.876%	85.271%	SpaceTravel x 50
-100%	117.105%	113.158%	StackOfBooks4 x 10
-100%	44.262%	38.525%	Stew
-100%	50.459%	36.124%	Students
-100%	94.766%	95.317%	TeleworkGuy x 100
-100%	69.042%	48.894%	WellDressedOwl
+100%	36.431%	22.677%	Broccoli
+100%	60.423%	34.365%	Cat5
+100%	46.122%	23.27%	CelticKnot5 x 10
+100%	60.938%	58.929%	EasterEgg x 4
+100%	35.372%	25.665%	ExitSign
+100%	77.739%	65.272%	GardenSign
+100%	21.958%	7.752%	GiftBox
+100%	90.058%	88.889%	Globe3 x 5
+100%	22.422%	12.867%	IceCream12
+100%	91.68%	96.705%	JackOLantern x 50
+100%	73.891%	62.701%	JohnLemon x 50
+100%	83.5%	69%	MotherAndBaby
+100%	85.455%	80.909%	MRIMachine x 100
+100%	62.264%	57.862%	MysteriousCube
+100%	71.711%	65.983%	OrangeJuice x 100
+100%	50.806%	35.484%	PersonAtComputer x 5
+100%	49.708%	49.415%	RockingChair x 5
+100%	49.279%	51.202%	RunningDogRetro x 5
+100%	59.494%	43.038%	RussianBulldozer x 10
+100%	55.153%	45.125%	Salad x 4
+100%	6.486%	7.568%	ShareRoadSign x 100
+100%	70.707%	63.092%	SpaceTravel x 50
+100%	126.667%	119.649%	StackOfBooks4 x 10
+100%	41.803%	25.41%	Stew
+100%	52.26%	33.604%	Students
+100%	90.909%	87.715%	TeleworkGuy x 100
+100%	66.19%	47.143%	WellDressedOwl
 
 Summary execution times:
-100%	29.799%	17.819%	
+100%	29.251%	16.967%	
 
 Average execution percent:
-100%	60.347%	52.391%	
+100%	60.72%	51.159%	
 
