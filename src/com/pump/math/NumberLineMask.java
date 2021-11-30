@@ -13,34 +13,9 @@ import java.util.*;
  * This object is not thread safe.
  * </p>
  */
-public abstract class NumberLineMask<T extends Comparable> implements Serializable {
+public class NumberLineMask<T extends Comparable> implements Serializable {
 
     static class EmptyNumberLineMaskException extends RuntimeException {}
-
-    public static class Integer extends NumberLineMask<java.lang.Integer> {
-
-        public Integer() {}
-
-        public Integer(Integer integer) {
-            super(integer);
-        }
-
-        @Override
-        public NumberLineMask.Integer clone() { {
-            return new NumberLineMask.Integer(this);
-        }
-        }
-
-        @Override
-        public Range<java.lang.Integer> createRange(java.lang.Integer x1, java.lang.Integer x2) {
-            return new Range<>(x1, x2);
-        }
-
-        @Override
-        protected NumberLineMask.Integer createNumberLineMask() {
-            return new Integer();
-        }
-    }
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -64,9 +39,6 @@ public abstract class NumberLineMask<T extends Comparable> implements Serializab
     public String toString() {
         return ranges.values().toString();
     }
-
-    @Override
-    public abstract NumberLineMask<T> clone();
 
     /**
      * Return true if the argument is contained inside this NumberLine.
@@ -167,18 +139,11 @@ public abstract class NumberLineMask<T extends Comparable> implements Serializab
                 }
             }
 
-            ranges.put(x1, createRange(x1, x2));
+            ranges.put(x1, new Range<>(x1, x2));
             return true;
         }
         return returnValue;
     }
-
-    /**
-     * Create a Range object that is compatible with this NumberLineMask.
-     */
-    public abstract Range<T> createRange(T x1, T x2);
-
-    protected abstract NumberLineMask<T> createNumberLineMask();
 
     /**
      * @return true if a change occurred, false if the argument was already part of this mask.
@@ -200,7 +165,7 @@ public abstract class NumberLineMask<T extends Comparable> implements Serializab
     }
 
     public boolean subtract(T x1, T x2) {
-        return subtract(createRange(x1, x2));
+        return subtract(new Range<>(x1, x2));
     }
 
     /**
@@ -266,10 +231,10 @@ public abstract class NumberLineMask<T extends Comparable> implements Serializab
                     }
                 } finally {
                     if (addLeftEdge) {
-                        ranges.put(existingRange.min, createRange(existingRange.min, range.min));
+                        ranges.put(existingRange.min, new Range<>(existingRange.min, range.min));
                     }
                     if (addRightEdge) {
-                        ranges.put(range.max, createRange(range.max, existingRange.max));
+                        ranges.put(range.max, new Range<>(range.max, existingRange.max));
                     }
                 }
 
@@ -304,7 +269,7 @@ public abstract class NumberLineMask<T extends Comparable> implements Serializab
      * @return true if a change occurred, false if clipping to the argument makes no difference.
      */
     public boolean clip(T x1, T x2) {
-        NumberLineMask<T> scratch = createNumberLineMask();
+        NumberLineMask<T> scratch = new NumberLineMask<>();
         scratch.add(x1, x2);
         return clip(scratch);
     }
@@ -316,7 +281,7 @@ public abstract class NumberLineMask<T extends Comparable> implements Serializab
         T maxB = other.ranges.lastEntry().getValue().max;
         T min = minA.compareTo(minB) < 0 ? minA : minB;
         T max = maxA.compareTo(maxB) > 0 ? maxA : maxB;
-        NumberLineMask<T> scratch = createNumberLineMask();
+        NumberLineMask<T> scratch = new NumberLineMask<>();
         scratch.add(min, max);
         scratch.subtract(other);
         return subtract(scratch);

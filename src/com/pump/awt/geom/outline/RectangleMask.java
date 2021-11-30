@@ -78,18 +78,18 @@ public class RectangleMask implements Shape, Serializable {
     protected final TreeMap<Integer, NumberLineMask<Integer>> rows = new TreeMap<>();
 
     public RectangleMask() {
-        rows.put(0, new NumberLineMask.Integer());
+        rows.put(0, new NumberLineMask<>());
     }
 
     private void ensureRow(int y) {
         Map.Entry<Integer, NumberLineMask<Integer>> nearestRow = rows.floorEntry(y);
         if (nearestRow == null) {
-            NumberLineMask newRow = new NumberLineMask.Integer();
+            NumberLineMask newRow = new NumberLineMask<>();
             rows.put(y, newRow);
         } else if (nearestRow.getKey().intValue() == y) {
             return;
         } else {
-            NumberLineMask newRow = nearestRow.getValue().clone();
+            NumberLineMask newRow = new NumberLineMask<>(nearestRow.getValue());
             rows.put(y, newRow);
         }
     }
@@ -140,7 +140,7 @@ public class RectangleMask implements Shape, Serializable {
             returnValue = true;
         }
 
-        rows.put(y + height, new NumberLineMask.Integer());
+        rows.put(y + height, new NumberLineMask<>());
 
         return returnValue;
     }
