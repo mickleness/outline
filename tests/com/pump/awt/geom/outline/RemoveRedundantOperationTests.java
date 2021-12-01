@@ -107,6 +107,23 @@ public class RemoveRedundantOperationTests extends OutlineTests {
     }
 
     /**
+     * This tests a specific failure we observed with random combinations of operations.
+     */
+    public void testClip() {
+        RedundancyTest r = new RedundancyTest("clip test") {
+
+            @Override
+            protected String populate(Outline outline) {
+                outline.add(createSquare(0, 1));
+                outline.intersect(createSquare(0, 1));
+                outline.intersect(createSquare(0, 1));
+                return null;
+            }
+        };
+        r.run();
+    }
+
+    /**
      * Test a wide range of random operations and make sure the results of both engines match.
      * <p>
      * This test isn't interested in performance (many tests will happen to take the same amount of time);

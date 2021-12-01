@@ -76,7 +76,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
         Iterator<Map.Entry<N, NumberLineMask<N>>> iter = rows.entrySet().iterator();
         while (iter.hasNext()) {
             Map.Entry<N, NumberLineMask<N>> entry = iter.next();
-            if (entry.getKey() == y)
+            if (entry.getKey().compareTo(y) >= 0)
                 break;
             iter.remove();
             returnValue = true;
