@@ -206,11 +206,17 @@ public class OptimizedAreaEngine implements OutlineEngine {
             } else {
                 for (OptimizedOutlineOperation op : operationsRun) {
                     if (op.type == OutlineOperation.Type.INTERSECT) {
-                        result.intersect(new Area(op.shape));
+                        if (result != null)
+                            result.intersect(new Area(op.shape));
                     } else if (op.type == OutlineOperation.Type.XOR) {
-                        result.exclusiveOr(new Area(op.shape));
+                        if (result == null) {
+                            result = new Area(op.shape);
+                        } else {
+                            result.exclusiveOr(new Area(op.shape));
+                        }
                     } else if (op.type == OutlineOperation.Type.SUBTRACT) {
-                        result.subtract(new Area(op.shape));
+                        if (result != null)
+                            result.subtract(new Area(op.shape));
                     }
                 }
             }
@@ -418,7 +424,7 @@ public class OptimizedAreaEngine implements OutlineEngine {
         while(!addOperations.isEmpty()) {
             // we only change result on this thread here:
             OptimizedOutlineOperation op = addOperations.remove(0);
-            if (result.isEmpty()) {
+            if (result == null || result.isEmpty()) {
                 // a very small optimization:
                 // calling Area.add(..) ALWAYS fires off some complex calculations. If the LHS
                 // Area starts out empty: there's no need to calculate anything.
@@ -451,7 +457,7 @@ public class OptimizedAreaEngine implements OutlineEngine {
         return result;
     }
 
-    private <T> List<T> flushFutures(List<Future<T>> futures) {
+    protected <T> List<T> flushFutures(List<Future<T>> futures) {
         List<T> returnValue = new ArrayList<>(futures.size());
         Iterator<Future<T>> iter = futures.iterator();
         while(iter.hasNext()) {
