@@ -365,4 +365,17 @@ public class RectangleMaskTests extends TestCase {
         assertEquals(expectedContains, r.contains(x, y, width, height));
         assertEquals(expectedIntersects, r.intersects(x, y, width, height));
     }
+
+    /**
+     * This tests a specific failure observed during randomized tests.
+     * Specifically if collapseRows() purged the new row at y (because it was redundant),
+     * then the resulting mask would appear empty.
+     */
+    public void testClip() {
+        RectangleMask m = new RectangleMask(new Rectangle(200, 149, 90, 90));
+        m.clip(199, 229, 92, 92);
+        assertEquals(2, m.rows.size());
+        assertFalse(m.isEmpty());
+        assertEquals(new Rectangle(200, 229, 90, 10), m.getBounds());
+    }
 }

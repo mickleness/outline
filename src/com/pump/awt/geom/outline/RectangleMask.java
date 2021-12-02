@@ -11,6 +11,11 @@ public class RectangleMask extends AbstractRectangleMask<Integer, Rectangle> {
         super(0);
     }
 
+    public RectangleMask(Rectangle r) {
+        super(0);
+        add(r.x, r.y, r.width, r.height);
+    }
+
     @Override
     protected Integer add(Integer n1, Integer n2) {
         return n1 + n2;

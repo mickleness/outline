@@ -74,13 +74,19 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
 
         // drop rows above & below our clipped rect:
         Iterator<Map.Entry<N, NumberLineMask<N>>> iter = rows.entrySet().iterator();
+        NumberLineMask<N> lastRemovedRow = null;
         while (iter.hasNext()) {
             Map.Entry<N, NumberLineMask<N>> entry = iter.next();
             if (entry.getKey().compareTo(y) >= 0)
                 break;
+            lastRemovedRow = entry.getValue();
             iter.remove();
             returnValue = true;
         }
+
+        // because performOperation ends by collapsing rows, we may not have this row anymore:
+        if (lastRemovedRow != null && rows.get(y) == null)
+            rows.put(y, lastRemovedRow);
 
         N y2 = add(y, height);
         iter = rows.descendingMap().entrySet().iterator();
@@ -92,7 +98,8 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
             returnValue = true;
         }
 
-        rows.put(y2, new NumberLineMask<>());
+        if (!rows.lastEntry().getValue().isEmpty())
+            rows.put(y2, new NumberLineMask<>());
 
         return returnValue;
     }
