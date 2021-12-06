@@ -3,11 +3,9 @@ package com.pump.awt.geom.outline;
 import org.junit.Test;
 
 import java.awt.*;
-import java.awt.geom.Area;
-import java.awt.geom.Ellipse2D;
-import java.awt.geom.Path2D;
-import java.awt.geom.Rectangle2D;
+import java.awt.geom.*;
 import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.*;
 import java.util.List;
 
@@ -33,15 +31,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                         times[b] = System.currentTimeMillis();
                         outline = new Outline(engine);
                         description = populate(outline);
-
-                        // exclusively test removeRedundanciesBasedOnBoundingBoxes method:
-                        if (engine instanceof OptimizedAreaEngine) {
-                            OptimizedAreaEngine opt = (OptimizedAreaEngine) engine;
-                            outline.shape = opt.removeRedundanciesBasedOnBoundingBoxes(null, outline.operationQueue);
-                        }
-                        outline.shape = plainEngine.flush(null, outline.operationQueue);
-                        outline.operationQueue.clear();
-
+                        outline.flush();
                         times[b] = System.currentTimeMillis() - times[b];
                     }
                     Arrays.sort(times);
@@ -55,6 +45,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                         try {
                             testEquals(name, baselineShape, outline);
                         } catch (RuntimeException | Error e) {
+                            System.err.println("engine: " + engine.toString());
                             System.err.println(description);
                             throw e;
                         }
@@ -86,6 +77,15 @@ public class RemoveRedundantOperationTests extends OutlineTests {
             return sb.toString();
         }
 
+        public String toRowString(OutlineEngine[] engines, long[] times) {
+            StringBuilder sb = new StringBuilder();
+            for (int a = 0; a<engines.length; a++) {
+                sb.append(Long.toString(times[a]));
+                sb.append("\t");
+            }
+            return sb.toString();
+        }
+
         public String toHeaderString(OutlineEngine[] engines) {
             StringBuilder sb = new StringBuilder();
             for(OutlineEngine engine : engines) {
@@ -94,6 +94,14 @@ public class RemoveRedundantOperationTests extends OutlineTests {
             }
             return sb.toString();
         }
+
+        public void incrementTimes(long[] totalTimes) {
+            for(int a = 0; a<engines.length; a++) {
+                Long l = timeMap.get(engines[a]);
+                if (l != null)
+                    totalTimes[a] += l.longValue();
+            }
+        }
     }
 
     static OutlineEngine[] engines = null;
@@ -101,7 +109,25 @@ public class RemoveRedundantOperationTests extends OutlineTests {
     @Override
     public OutlineEngine[] getEngines() {
         if (engines == null) {
-            engines = new OutlineEngine[]{new PlainAreaEngine(), new OptimizedAreaEngine(1)};
+            engines = new OutlineEngine[]{new PlainAreaEngine(),
+                    // this engine ONLY evaluates null-ops, just for comparison
+                    new OptimizedAreaEngine(1) {
+                        @Override
+                        public Area flush(Shape body, List<OutlineOperation> operationQueue) {
+                            flushFutures( (List) prepareFutures);
+
+                            Area result = body == null ? new Area() : new Area(body);
+                            result = removeRedundanciesBasedOnBoundingBoxes(result, operationQueue);
+
+                            return new PlainAreaEngine().flush(result, operationQueue);
+                        }
+
+                        @Override
+                        public String toString() {
+                            return "RemoveRedundanciesOnly";
+                        }
+                    },
+                    new OptimizedAreaEngine(1)};
         }
         return engines;
     }
@@ -109,14 +135,51 @@ public class RemoveRedundantOperationTests extends OutlineTests {
     /**
      * This tests a specific failure we observed with random combinations of operations.
      */
-    public void testClip() {
+    public void testClip_1() {
         RedundancyTest r = new RedundancyTest("clip test") {
 
             @Override
             protected String populate(Outline outline) {
-                outline.add(createSquare(0, 1));
-                outline.intersect(createSquare(0, 1));
-                outline.intersect(createSquare(0, 1));
+                outline.add(createPlus(0.8, 0.8));
+                outline.add(createPlus(2.3, 1.1));
+                outline.intersect(createTriangle(2.1, 0.9));
+                outline.intersect(createTriangle(1.9, 0.8));
+                return null;
+            }
+        };
+        r.run();
+    }
+
+    /**
+     * This tests a specific failure we observed with random combinations of operations.
+     */
+    public void testClip_2() {
+        RedundancyTest r = new RedundancyTest("clip test 2") {
+
+            @Override
+            protected String populate(Outline outline) {
+                outline.add(createPlus(0.8, 0.8));
+                outline.add(createPlus(2.3, 1.1));
+                outline.intersect(createTriangle(2.1, 0.9));
+                outline.intersect(createTriangle(1.9, 0.8));
+                return null;
+            }
+        };
+        r.run();
+    }
+
+    /**
+     * This tests a specific failure we observed with random combinations of operations.
+     */
+    public void testClip_3() {
+        RedundancyTest r = new RedundancyTest("clip test 3") {
+
+            @Override
+            protected String populate(Outline outline) {
+                outline.add(createTriangle(1.3, 2.3));
+                outline.intersect(createSquare(0.8, 2.1));
+                outline.exclusiveOr(createSquare(1.4, 1.4));
+                outline.intersect(createSquare(1.8, 1.6));
                 return null;
             }
         };
@@ -145,10 +208,10 @@ public class RemoveRedundantOperationTests extends OutlineTests {
             protected String populate(Outline outline) {
                 String returnValue = "";
                 Random random = new Random(randomSeed);
-                for(int a = 0; a<20; a++) {
+                for(int a = 0; a < 4; a++) {
                     String str = "";
-                    int x = random.nextInt(3);
-                    int y = random.nextInt(3);
+                    double x = random.nextInt(3)+ ((double)random.nextInt(10))/10.0;
+                    double y = random.nextInt(3) + ((double)random.nextInt(10))/10.0;
                     OutlineOperation.Type type = OutlineOperation.Type.values()[random.nextInt(OutlineOperation.Type.values().length)];
                     Shape operand = null;
                     switch(random.nextInt(3)) {
@@ -191,13 +254,21 @@ public class RemoveRedundantOperationTests extends OutlineTests {
             }
         }
 
-        for(int a = 0; a < 1000000; a++) {
-            // skip cases that cause OutOfMemoryErrors ( TODO: https://github.com/mickleness/outline/issues/2 )
-            if (a == 64565 || a == 67011 || a == 153537 || a == 184421 || a == 256840 || a == 345497 || a == 507907 )
-                continue;
-
+        long[] totalTimes = new long[getEngines().length];
+        AccuracyTest lastTest = null;
+        long lastOutput = System.currentTimeMillis() + 10000;
+        for(int a = 0; a < 100_000_000; a++) {
             long time = System.currentTimeMillis();
+            if ( time - lastOutput > 10000) {
+                lastOutput = time;
+                System.out.println(lastTest.toRowString(getEngines(), totalTimes)+"\t"+NumberFormat.getInstance().format(a));
+                time = System.currentTimeMillis();
+            }
             AccuracyTest test = new AccuracyTest(a);
+            if (lastTest == null) {
+                System.out.println(test.toHeaderString(getEngines())+"\tSample");
+            }
+            lastTest = test;
             String description = null;
             try {
                 description = test.run();
@@ -206,12 +277,18 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                 throw e;
             } finally {
                 time = System.currentTimeMillis() - time;
+                test.incrementTimes(totalTimes);
                 if (time > 500) {
-                    System.err.println("## test " + a + " took " + time + " ms");
-                    System.err.println(description);
+                    System.out.println("## test " + a + " took " + time + " ms");
+                    System.out.println(description);
+                    System.out.println(test.toHeaderString(getEngines()));
+                    System.out.println(test.toRowString(getEngines()));
                 }
             }
         }
+
+        System.out.println(lastTest.toHeaderString(getEngines()));
+        System.out.println(lastTest.toRowString(getEngines(), totalTimes));
     }
 
     @Test
@@ -300,7 +377,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
      * This contains random cubic data to make it challenging enough for performance gains
      * to become apparent.
      */
-    private Path2D createSquiggle(long randomSeed, int x, int y) {
+    private Path2D createSquiggle(long randomSeed, double x, double y) {
         Random random = new Random(randomSeed);
         Path2D p = new Path2D.Double();
         p.moveTo(x + .9f * random.nextFloat(), y + .9f * random.nextFloat());
@@ -314,15 +391,15 @@ public class RemoveRedundantOperationTests extends OutlineTests {
     }
 
     // this completely envelopes all the other shapes
-    private Rectangle2D createSquare(int x, int y) {
+    private Rectangle2D createSquare(double x, double y) {
         return new Rectangle2D.Double(x - .01, y - .01, .9 + .02, .9 + .02);
     }
 
-    private Ellipse2D createEllipse(int x, int y) {
+    private Ellipse2D createEllipse(double x, double y) {
         return new Ellipse2D.Double(x, y, .9, .9);
     }
 
-    private Path2D createPlus(int x, int y) {
+    private Path2D createPlus(double x, double y) {
         double k = .1;
         Path2D p = new Path2D.Double();
         p.moveTo(x + .9/2 - k, y);
@@ -341,7 +418,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
         return p;
     }
 
-    private Path2D createTriangle(int x, int y) {
+    private Path2D createTriangle(double x, double y) {
         Path2D p = new Path2D.Double();
         p.moveTo(x + .9/2, y);
         p.lineTo(x + .9, y + .9);

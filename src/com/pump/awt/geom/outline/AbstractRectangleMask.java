@@ -24,7 +24,81 @@ import java.util.TreeMap;
 public abstract class AbstractRectangleMask<N extends Comparable, R extends Rectangle2D> implements Serializable {
 
     enum Operation {
-        ADD, SUBTRACT, CLIP
+        ADD, SUBTRACT,
+        CLIP() {
+
+            /**
+             * This operation is unique because it deletes rows above and below the operation.
+             */
+            @Override
+            public <N extends Comparable> boolean finish(TreeMap<N, NumberLineMask<N>> rows, N y1, N y2) {
+                boolean returnValue = false;
+
+                Iterator<Map.Entry<N, NumberLineMask<N>>> iter;
+                iter = rows.entrySet().iterator();
+
+                NumberLineMask<N> prevRowMask = new NumberLineMask<>();
+                while (iter.hasNext()) {
+                    Map.Entry<N, NumberLineMask<N>> entry = iter.next();
+                    if (entry.getKey().compareTo(y1) < 0 || entry.getKey().compareTo(y2) > 0) {
+                        returnValue = true;
+                        iter.remove();
+                    } else if (entry.getKey().compareTo(y2) == 0) {
+                        if (prevRowMask != null && prevRowMask.isEmpty()) {
+                            iter.remove();
+                        } else if (!entry.getValue().isEmpty()) {
+                            entry.getValue().clear();
+                            returnValue = true;
+                        }
+                    } else {
+                        NumberLineMask<N> currentMask = entry.getValue();
+                        if (currentMask.equals(prevRowMask)) {
+                            iter.remove();
+                        }
+                        prevRowMask = currentMask;
+                    }
+                }
+
+                if (!rows.isEmpty() && !rows.lastEntry().getValue().isEmpty()) {
+                    rows.put(y2, new NumberLineMask<>());
+                    returnValue = true;
+                }
+                return returnValue;
+            }
+        };
+
+        public <N extends Comparable> boolean finish(TreeMap<N, NumberLineMask<N>> rows, N y1, N y2) {
+            N k1 = rows.floorKey(y1);
+            N k2 = rows.ceilingKey(y2);
+
+            if (k1 != null) {
+                k1 = rows.lowerKey(k1);
+            }
+
+            if (k2 != null) {
+                N k3 = rows.higherKey(k2);
+                if (k3 != null)
+                    k2 = k3;
+            }
+
+            Iterator<Map.Entry<N, NumberLineMask<N>>> iter;
+            if (k1 == null) {
+                iter = rows.entrySet().iterator();
+            } else {
+                iter = rows.subMap(k1, true, k2, true).entrySet().iterator();
+            }
+
+            NumberLineMask<N> prevRowMask = new NumberLineMask<>();
+            while (iter.hasNext()) {
+                Map.Entry<N, NumberLineMask<N>> entry = iter.next();
+                NumberLineMask<N> currentMask = entry.getValue();
+                if (currentMask.equals(prevRowMask)) {
+                    iter.remove();
+                }
+                prevRowMask = currentMask;
+            }
+            return false;
+        }
     }
 
     protected final TreeMap<N, NumberLineMask<N>> rows = new TreeMap<>();
@@ -66,42 +140,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
     }
 
     public boolean clip(N x, N y, N width, N height) {
-        boolean returnValue = performOperation(Operation.CLIP, x, y, width, height);
-
-        // TODO: consolidate iterators. For this operation we probably
-        // need to iterate over all rows (the top and bottom rows need
-        // removing, and the middle rows need to be clipped).
-
-        // drop rows above & below our clipped rect:
-        Iterator<Map.Entry<N, NumberLineMask<N>>> iter = rows.entrySet().iterator();
-        NumberLineMask<N> lastRemovedRow = null;
-        while (iter.hasNext()) {
-            Map.Entry<N, NumberLineMask<N>> entry = iter.next();
-            if (entry.getKey().compareTo(y) >= 0)
-                break;
-            lastRemovedRow = entry.getValue();
-            iter.remove();
-            returnValue = true;
-        }
-
-        // because performOperation ends by collapsing rows, we may not have this row anymore:
-        if (lastRemovedRow != null && rows.get(y) == null)
-            rows.put(y, lastRemovedRow);
-
-        N y2 = add(y, height);
-        iter = rows.descendingMap().entrySet().iterator();
-        while (iter.hasNext()) {
-            Map.Entry<N, NumberLineMask<N>> entry = iter.next();
-            if (entry.getKey().compareTo(y2) < 0)
-                break;
-            iter.remove();
-            returnValue = true;
-        }
-
-        if (!rows.lastEntry().getValue().isEmpty())
-            rows.put(y2, new NumberLineMask<>());
-
-        return returnValue;
+        return performOperation(Operation.CLIP, x, y, width, height);
     }
 
     protected boolean performOperation(Operation op, N x, N y, N width, N height) {
@@ -131,37 +170,10 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                 returnValue = true;
         }
 
-        // TODO: reinstate collapseRows limits
-        collapseRows(); // y - 1, y + height + 1);
+        if (op.finish(rows, y, y2))
+            returnValue = true;
+
         return returnValue;
-    }
-
-    private void collapseRows() {
-        // N y1, N } y2) {
-//        N floorKey = rows.floorKey(y1);
-        Iterator<Map.Entry<N, NumberLineMask<N>>> iter;
-//        if (floorKey == null) {
-            iter = rows.entrySet().iterator();
-//        } else {
-//            iter = rows.tailMap(floorKey).entrySet().iterator();
-//        }
-        Map.Entry<N, NumberLineMask<N>> entry = iter.hasNext() ? iter.next() : null;
-        NumberLineMask<N> lastRowMask = entry == null ? null : entry.getValue();
-
-        while (iter.hasNext() && lastRowMask != null && lastRowMask.isEmpty()) {
-            iter.remove();
-            entry = iter.hasNext() ? iter.next() : null;
-            lastRowMask = entry == null ? null : entry.getValue();
-        }
-
-        while (iter.hasNext()) {
-            entry = iter.next();
-            NumberLineMask<N> currentRowMask = entry.getValue();
-            if (currentRowMask.equals(lastRowMask)) {
-                iter.remove();
-            }
-            lastRowMask = currentRowMask;
-        }
     }
 
     public R getBounds() {
