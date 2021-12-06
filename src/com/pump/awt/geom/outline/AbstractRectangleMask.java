@@ -107,6 +107,11 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
 
     protected AbstractRectangleMask(N zero) {
         this.zero = zero;
+        clear();
+    }
+
+    public void clear() {
+        rows.clear();
         rows.put(zero, new NumberLineMask<>());
     }
 

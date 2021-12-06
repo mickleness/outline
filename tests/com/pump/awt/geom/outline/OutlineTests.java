@@ -8,8 +8,12 @@ import junit.framework.TestCase;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Path2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.util.Random;
 
 public abstract class OutlineTests extends TestCase {
 
@@ -102,5 +106,60 @@ public abstract class OutlineTests extends TestCase {
         } catch(IOException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Create a shape whose top-left is at (x,y) and who is .9 x .9 px in size.
+     * This contains random cubic data to make it challenging enough for performance gains
+     * to become apparent.
+     */
+    protected Path2D createSquiggle(long randomSeed, double x, double y) {
+        Random random = new Random(randomSeed);
+        Path2D p = new Path2D.Double();
+        p.moveTo(x + .9f * random.nextFloat(), y + .9f * random.nextFloat());
+        for (int a = 0; a<10; a++) {
+            p.curveTo(x + .9f * random.nextFloat(), y + .9f * random.nextFloat(),
+                    x + .9f * random.nextFloat(), y + .9f * random.nextFloat(),
+                    x + .9f * random.nextFloat(), y + .9f * random.nextFloat());
+        }
+        p.closePath();
+        return p;
+    }
+
+    // this completely envelopes all the other shapes
+    protected Rectangle2D createSquare(double x, double y) {
+        return new Rectangle2D.Double(x - .01, y - .01, .9 + .02, .9 + .02);
+    }
+
+    protected Ellipse2D createEllipse(double x, double y) {
+        return new Ellipse2D.Double(x, y, .9, .9);
+    }
+
+    protected Path2D createPlus(double x, double y) {
+        double k = .1;
+        Path2D p = new Path2D.Double();
+        p.moveTo(x + .9/2 - k, y);
+        p.lineTo(x + .9/2 + k, y);
+        p.lineTo(x + .9/2 + k, y + .9/2 - k);
+        p.lineTo(x + .9, y + .9/2 - k);
+        p.lineTo(x + .9, y + .9/2 + k);
+        p.lineTo(x + .9/2 + k, y + .9/2 + k);
+        p.lineTo(x + .9/2 + k, y + .9);
+        p.lineTo(x + .9/2 - k, y + .9);
+        p.lineTo(x + .9/2 - k, y + .9/2 + k);
+        p.lineTo(x, y + .9/2 + k);
+        p.lineTo(x, y + .9/2 - k);
+        p.lineTo(x + .9/2 - k, y + .9/2 - k);
+        p.closePath();
+        return p;
+    }
+
+    protected Path2D createTriangle(double x, double y) {
+        Path2D p = new Path2D.Double();
+        p.moveTo(x + .9/2, y);
+        p.lineTo(x + .9, y + .9);
+        p.lineTo(x , y + .9);
+        p.closePath();
+        return p;
     }
 }

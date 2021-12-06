@@ -8,7 +8,16 @@ import java.util.Objects;
 public class OutlineOperation {
 
     public enum Type {
-        ADD, SUBTRACT, INTERSECT, XOR
+        ADD(false), SUBTRACT(true), INTERSECT(true), XOR(false);
+
+        /**
+         * True if this operation is guaranteed to either be a null-op or to remove data. False if this operation may add data.
+         */
+        public final boolean isNegative;
+
+        Type(boolean isNegative) {
+            this.isNegative = isNegative;
+        }
     }
 
     public final Type type;

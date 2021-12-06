@@ -373,12 +373,13 @@ public class OptimizedAreaEngine implements OutlineEngine {
     }
 
     @Override
-    public Area flush(Shape body, List<OutlineOperation> operationQueue) {
+    public Area calculate(List<OutlineOperation> operationQueue) {
         flushFutures( (List) prepareFutures);
+        removeClippedOperations(operationQueue);
+        removeInitialNegativeOperations(operationQueue);
+        preprocessOperationsUsingRectangleMask(operationQueue);
 
-        Area result = body == null ? new Area() : new Area(body);
-
-        result = removeRedundanciesBasedOnBoundingBoxes(result, operationQueue);
+        Area result = new Area();
 
         for (List<OptimizedOutlineOperation> operationsRun : getOperationRuns(operationQueue)) {
             if (operationsRun.get(0).type == OutlineOperation.Type.ADD) {
@@ -406,77 +407,99 @@ public class OptimizedAreaEngine implements OutlineEngine {
     }
 
     /**
-     * @return a new starting Area, which may be null. For ex: this method may return
-     *          null if an intersection operation is applied which makes the original
-     *          starting area obsolete.
+     * Remove non-negative operations if they fall outside clipped bounds.
      */
-    protected Area removeRedundanciesBasedOnBoundingBoxes(Area startingArea, List<OutlineOperation> operations) {
-        Rectangle2D startingBounds = startingArea == null || startingArea.isEmpty() ? null : startingArea.getBounds2D();
-        RectangleMask2D currentBounds = startingBounds == null ? null : new RectangleMask2D(startingBounds);
+    protected void removeClippedOperations(List<OutlineOperation> operations) {
+        Rectangle2D[] clippingMask = new Rectangle2D[operations.size()];
+        for(int a = 0; a < operations.size(); a++) {
+            OptimizedOutlineOperation op = (OptimizedOutlineOperation) operations.get(a);
+            if (op.type == OutlineOperation.Type.INTERSECT) {
+                for(int b = 0; b<a; b++) {
+                    OptimizedOutlineOperation prevOp = (OptimizedOutlineOperation) operations.get(b);
+                    if (!prevOp.type.isNegative) {
+                        if (clippingMask[b] == null) {
+                            clippingMask[b] = new Rectangle2D.Double();
+                            clippingMask[b].setFrame(prevOp.bounds);
+                        }
+                        Rectangle2D.intersect(clippingMask[b], op.bounds, clippingMask[b]);
+                    }
+                }
+            }
+        }
 
-        // TODO: (separate method) rearrange clipping runs to smallest, calculate bounds intersection first,
-        // maybe special treatment for rectangles and propagating clipping backwards to predecessors
+        Iterator<OutlineOperation> iter = operations.listIterator();
+        int ctr = 0;
+        while (iter.hasNext()) {
+            OptimizedOutlineOperation op = (OptimizedOutlineOperation) iter.next();
+            if (clippingMask[ctr] != null && clippingMask[ctr].isEmpty())
+                iter.remove();
+            ctr++;
+        }
+    }
 
-        // TODO: check if op IS rectangle. for ADD and SUBTRACT: can it consume any predecessor?
+    /**
+     * Remove the operations at the head of this queue that involve removing data.
+     */
+    protected void removeInitialNegativeOperations(List<OutlineOperation> operations) {
+        Iterator<OutlineOperation> iter = operations.listIterator();
+        while (iter.hasNext()) {
+            OptimizedOutlineOperation op = (OptimizedOutlineOperation) iter.next();
+            if (op.type.isNegative) {
+                iter.remove();
+            } else {
+                return;
+            }
+        }
+    }
 
-        // TODO: do similar check with Areas
+    /**
+     * This creates a RectangleMask2D of all operations and performs and does a couple of things:
+     * 1. If an XOR op is guaranteed to be an ADD operation: convert its type to ADD.
+     * 2. If a negative space of (SUBTRACT or CLIP) falls outside our bounds, remove it.
+     */
+    protected void preprocessOperationsUsingRectangleMask(List<OutlineOperation> operations) {
+        RectangleMask2D currentBounds = new RectangleMask2D();
 
         ListIterator<OutlineOperation> iter = operations.listIterator();
         while (iter.hasNext()) {
             OptimizedOutlineOperation op = (OptimizedOutlineOperation) iter.next();
             switch (op.type) {
                 case SUBTRACT:
-                    boolean isNullOp;
-                    if (currentBounds == null) {
-                        isNullOp = true;
-                    } else {
-                        isNullOp = !currentBounds.intersects(op.bounds);
-                    }
-                    if (isNullOp) {
+                    if (!currentBounds.intersects(op.bounds)) {
                         // we're subtracting something we can't possibly contain, so this
                         // op can be discarded:
                         iter.remove();
                     }
                     break;
-                case ADD:
                 case XOR:
-                    // TODO: for xor (only): offer to convert to ADD
-
-                    // grow our bounds:
-                    if (currentBounds == null) {
-                        currentBounds = new RectangleMask2D(op.bounds);
-                    } else {
-                        currentBounds.add(op.bounds.getX(), op.bounds.getY(), op.bounds.getWidth(), op.bounds.getHeight());
+                    if (!currentBounds.intersects(op.bounds)) {
+                        OptimizedOutlineOperation newOp = new OptimizedOutlineOperation(OutlineOperation.Type.ADD, op.shape);
+                        newOp.populateMetadata(op);
+                        iter.set(newOp);
                     }
+                    currentBounds.add(op.bounds.getX(), op.bounds.getY(), op.bounds.getWidth(), op.bounds.getHeight());
+                    break;
+                case ADD:
+                    currentBounds.add(op.bounds.getX(), op.bounds.getY(), op.bounds.getWidth(), op.bounds.getHeight());
                     break;
                 case INTERSECT:
-                    if (currentBounds == null || currentBounds.isEmpty() ||
-                            !currentBounds.intersects(op.bounds.getX(), op.bounds.getY(), op.bounds.getWidth(), op.bounds.getHeight())) {
-                        // everything we've done so far is outside of this intersection,
-                        // so EVERYTHING (including this op) can go:
-                        currentBounds = null;
-                        startingArea = null;
-                        startingBounds = null;
+                    if (!currentBounds.intersects(op.bounds)) {
                         iter.remove();
-                        while (iter.hasPrevious()) {
+                        while(iter.hasPrevious()) {
                             iter.previous();
                             iter.remove();
                         }
+                        currentBounds.clear();
                     } else {
                         currentBounds.clip(op.bounds.getX(), op.bounds.getY(), op.bounds.getWidth(), op.bounds.getHeight());
 
-                        // can we discard anything?
-
-                        if (startingBounds != null && !new RectangleMask2D(startingBounds).intersects(op.bounds)) {
-                            startingArea = null;
-                            startingBounds = null;
-                        }
+                        // purge everything outside of currentBounds:
 
                         iter.previous();
                         int rewindCtr = 0;
                         while (iter.hasPrevious()) {
                             OptimizedOutlineOperation prevOp = (OptimizedOutlineOperation) iter.previous();
-                            if (!new RectangleMask2D(prevOp.bounds).intersects(op.bounds)) {
+                            if (!op.type.isNegative && !currentBounds.intersects(prevOp.bounds)) {
                                 iter.remove();
                             } else {
                                 rewindCtr++;
@@ -490,11 +513,8 @@ public class OptimizedAreaEngine implements OutlineEngine {
                         }
                     }
                     break;
-                default:
-                    throw new IllegalStateException();
             }
         }
-        return startingArea;
     }
 
     /**

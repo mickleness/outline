@@ -101,7 +101,16 @@ public class Outline implements Shape, Serializable {
         if (operationQueue.isEmpty())
             return;
 
-        shape = getEngine().flush(shape, operationQueue);
+        if (shape != null) {
+            if (shape instanceof Area && ((Area)shape).isEmpty()) {
+                // intentionally empty
+            } else {
+                OutlineOperation initOp = getEngine().createOperation(OutlineOperation.Type.ADD, shape);
+                operationQueue.add(0, initOp);
+            }
+        }
+
+        shape = getEngine().calculate(operationQueue);
         operationQueue.clear();
     }
 
