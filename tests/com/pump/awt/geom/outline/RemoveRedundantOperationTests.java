@@ -1,5 +1,6 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.awt.geom.ShapeUtils;
 import org.junit.Test;
 
 import java.awt.*;
@@ -90,7 +91,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                 Color c = colors[a%colors.length];
                 g.setColor(new Color(c.getRed(), c.getGreen(), c.getBlue(), 50));
                 g.fill(tx.createTransformedShape(ops.get(a).shape));
-                Rectangle2D opBounds = OptimizedAreaEngine.getBounds2D(ops.get(a).shape.getPathIterator(tx));
+                Rectangle2D opBounds = ShapeUtils.getBounds2D(ops.get(a).shape.getPathIterator(tx));
                 String str;
                 if (ops.get(a).type == OutlineOperation.Type.ADD) {
                     str = "+";
