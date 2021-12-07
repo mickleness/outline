@@ -12,7 +12,7 @@ public class OptimizedAreaEngineTests extends OutlineTests {
         outline.intersect(new Rectangle(5,5,4,4));
         engine.removeClippedOperations(outline.operationQueue);
 
-        assertEquals(1, outline.operationQueue.size());
+        assertEquals(2, outline.operationQueue.size());
 
         engine.removeInitialNegativeOperations(outline.operationQueue);
 
