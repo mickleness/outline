@@ -9,6 +9,10 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RemoveRedundantOperationTests extends OutlineTests {
 
@@ -23,47 +27,40 @@ public class RemoveRedundantOperationTests extends OutlineTests {
             Outline baselineShape = null;
             String description = null;
             List<OutlineOperation> ops = null;
-            try {
-                for (OutlineEngine engine : getEngines()) {
-                    Outline outline = null;
+            for (OutlineEngine engine : getEngines()) {
+                Outline outline = null;
 
-                    outline = new Outline(engine);
-                    description = populate(outline);
-                    if (ops == null) {
-                        ops = new LinkedList<>();
-                        ops.addAll(outline.operationQueue);
-                    }
-                    outline.flush();
+                outline = new Outline(engine);
+                description = populate(outline);
+                if (ops == null) {
+                    ops = new LinkedList<>();
+                    ops.addAll(outline.operationQueue);
+                }
+                outline.flush();
 
-                    if (baselineShape == null) {
-                        baselineShape = outline;
-                    } else {
-                        try {
-                            testEquals(name, baselineShape, outline);
-                        } catch (RuntimeException | Error e) {
-                            System.err.println("engine: " + engine.toString());
-                            System.err.println(description);
+                if (baselineShape == null) {
+                    baselineShape = outline;
+                } else {
+                    try {
+                        testEquals(name, baselineShape, outline);
+                    } catch (RuntimeException | Error e) {
+                        System.err.println("engine: " + engine.toString());
+                        System.err.println(description);
 
-                            Rectangle2D r = null;
-                            for(OutlineOperation op : ops) {
-                                if (r == null) {
-                                    r = op.shape.getBounds2D();
-                                } else {
-                                    r.add(op.shape.getBounds2D());
-                                }
+                        Rectangle2D r = null;
+                        for(OutlineOperation op : ops) {
+                            if (r == null) {
+                                r = op.shape.getBounds2D();
+                            } else {
+                                r.add(op.shape.getBounds2D());
                             }
-                            BufferedImage img = createDebugImage(r, ops);
-                            writeImage(name+"-ops", img);
-
-                            throw e;
                         }
+                        BufferedImage img = createDebugImage(r, ops);
+                        writeImage(name+"-ops", img);
+
+                        throw e;
                     }
                 }
-            } catch(OutOfMemoryError error) {
-                // TODO: https://github.com/mickleness/outline/issues/2
-                System.err.println("failed for "+name);
-                System.err.println("description:\n"+description);
-                error.printStackTrace();
             }
             return description;
         }
@@ -122,15 +119,10 @@ public class RemoveRedundantOperationTests extends OutlineTests {
         protected abstract String populate(Outline outline);
     }
 
-    static OutlineEngine[] engines = null;
-
     @Override
     public OutlineEngine[] getEngines() {
-        if (engines == null) {
-            engines = new OutlineEngine[]{new PlainAreaEngine(),
+        return new OutlineEngine[]{new PlainAreaEngine(),
                     new OptimizedAreaEngine(1)};
-        }
-        return engines;
     }
 
     /**
@@ -141,10 +133,10 @@ public class RemoveRedundantOperationTests extends OutlineTests {
 
             @Override
             protected String populate(Outline outline) {
-                outline.add(createPlus(0.8, 0.8));
-                outline.add(createPlus(2.3, 1.1));
-                outline.intersect(createTriangle(2.1, 0.9));
-                outline.intersect(createTriangle(1.9, 0.8));
+                outline.add(createPlus(0.8, 0.8, .9, .9));
+                outline.add(createPlus(2.3, 1.1, .9, .9));
+                outline.intersect(createTriangle(2.1, 0.9, .9, .9));
+                outline.intersect(createTriangle(1.9, 0.8, .9, .9));
                 return null;
             }
         };
@@ -159,10 +151,10 @@ public class RemoveRedundantOperationTests extends OutlineTests {
 
             @Override
             protected String populate(Outline outline) {
-                outline.add(createTriangle(1.3, 2.3));
-                outline.intersect(createSquare(0.8, 2.1));
-                outline.exclusiveOr(createSquare(1.4, 1.4));
-                outline.intersect(createSquare(1.8, 1.6));
+                outline.add(createTriangle(1.3, 2.3, .9, .9));
+                outline.intersect(createSquare(0.8, 2.1, .9, .9));
+                outline.exclusiveOr(createSquare(1.4, 1.4, .9, .9));
+                outline.intersect(createSquare(1.8, 1.6, .9, .9));
                 return null;
             }
         };
@@ -177,9 +169,6 @@ public class RemoveRedundantOperationTests extends OutlineTests {
      */
     @Test
     public void testAccuracy() {
-        // TODO: revise this test; it's too long
-//        if (true)
-//            return;
         class AccuracyTest extends RedundancyTest {
             long randomSeed;
             public AccuracyTest(long randomSeed) {
@@ -195,19 +184,21 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                     String str = "";
                     double x = random.nextInt(3)+ ((double)random.nextInt(10))/10.0;
                     double y = random.nextInt(3) + ((double)random.nextInt(10))/10.0;
+                    double w = random.nextInt(2) + .9;
+                    double h = random.nextInt(2) + .9;
                     OutlineOperation.Type type = OutlineOperation.Type.values()[random.nextInt(OutlineOperation.Type.values().length)];
                     Shape operand = null;
                     switch(random.nextInt(3)) {
                         case 0:
-                            operand = createPlus(x, y);
+                            operand = createPlus(x, y, w, h);
                             str = "createPlus("+x+", "+y+")";
                             break;
                         case 1:
-                            operand = createTriangle(x, y);
+                            operand = createTriangle(x, y, w, h);
                             str = "createTriangle("+x+", "+y+")";
                             break;
                         case 2:
-                            operand = createSquare(x, y);
+                            operand = createSquare(x, y, w, h);
                             str = "createSquare("+x+", "+y+")";
                             break;
                     }
@@ -237,29 +228,48 @@ public class RemoveRedundantOperationTests extends OutlineTests {
             }
         }
 
-        long[] totalTimes = new long[getEngines().length];
-        long lastOutput = System.currentTimeMillis() + 10000;
-        for(int a = 0; a < 100_000_000; a++) {
-            long time = System.currentTimeMillis();
-            if ( time - lastOutput > 10000) {
-                lastOutput = time;
-                System.out.println(NumberFormat.getInstance().format(a));
-            }
-            AccuracyTest test = new AccuracyTest(a);
-            String description = null;
-            try {
-                description = test.run();
-            } catch(RuntimeException | Error e) {
-                System.err.println("a = "+a);
-                throw e;
-            } finally {
-                time = System.currentTimeMillis() - time;
-                if (time > 500) {
-                    System.out.println("## test " + a + " took " + time + " ms");
-                    System.out.println(description);
+        AtomicInteger ctr = new AtomicInteger(0);
+        int threadCount = 8;
+        AtomicBoolean fail = new AtomicBoolean(false);
+        final Thread[] threads = new Thread[threadCount];
+        for(int a = 0; a < threadCount; a++) {
+            threads[a] = new Thread() {
+                long lastOutput = System.currentTimeMillis();
+                public void run() {
+                    while (true) {
+                        int nextSample = ctr.getAndIncrement();
+                        if (nextSample >= 100_000_000)
+                            return;
+
+                        long time = System.currentTimeMillis();
+                        if ( time - lastOutput > 10000 && this == threads[0]) {
+                            lastOutput = time;
+                            System.out.println(NumberFormat.getInstance().format(nextSample));
+                        }
+                        AccuracyTest test = new AccuracyTest(nextSample);
+                        String description = null;
+                        try {
+                            description = test.run();
+                        } catch(RuntimeException | Error e) {
+                            System.err.println("a = "+nextSample);
+                            e.printStackTrace();
+                            fail.set(true);
+                        }
+                    }
                 }
+            };
+            threads[a].start();
+        }
+        for(int a = 0; a < threadCount; a++) {
+            try {
+                threads[a].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         }
+
+        if (fail.get())
+            fail();
     }
 
     @Test
@@ -307,7 +317,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                 outline.add(createSquiggle(0, 0,0));
                 outline.add(createSquiggle(0, 1,0));
                 outline.add(createSquiggle(0, 2,0));
-                outline.intersect(createSquare(1, 1));
+                outline.intersect(createSquare(1, 1, .9, .9));
                 outline.add(createSquiggle(0, 2,0));
                 outline.flush();
                 return null;
@@ -323,7 +333,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                 outline.add(createSquiggle(0, 0,0));
                 outline.add(createSquiggle(0, 1,0));
                 outline.add(createSquiggle(1, 1,0));
-                outline.intersect(createSquare(1, 1));
+                outline.intersect(createSquare(1, 1, .9, .9));
                 outline.add(createSquiggle(0, 2,0));
                 outline.flush();
                 return null;

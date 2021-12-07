@@ -127,38 +127,38 @@ public abstract class OutlineTests extends TestCase {
     }
 
     // this completely envelopes all the other shapes
-    protected Rectangle2D createSquare(double x, double y) {
-        return new Rectangle2D.Double(x - .01, y - .01, .9 + .02, .9 + .02);
+    protected Rectangle2D createSquare(double x, double y, double w, double h) {
+        return new Rectangle2D.Double(x - .01, y - .01, w + .02, h + .02);
     }
 
     protected Ellipse2D createEllipse(double x, double y) {
         return new Ellipse2D.Double(x, y, .9, .9);
     }
 
-    protected Path2D createPlus(double x, double y) {
-        double k = .1;
+    protected Path2D createPlus(double x, double y, double w, double h) {
+        double k = Math.min(w, h) / .9;
         Path2D p = new Path2D.Double();
-        p.moveTo(x + .9/2 - k, y);
-        p.lineTo(x + .9/2 + k, y);
-        p.lineTo(x + .9/2 + k, y + .9/2 - k);
-        p.lineTo(x + .9, y + .9/2 - k);
-        p.lineTo(x + .9, y + .9/2 + k);
-        p.lineTo(x + .9/2 + k, y + .9/2 + k);
-        p.lineTo(x + .9/2 + k, y + .9);
-        p.lineTo(x + .9/2 - k, y + .9);
-        p.lineTo(x + .9/2 - k, y + .9/2 + k);
-        p.lineTo(x, y + .9/2 + k);
-        p.lineTo(x, y + .9/2 - k);
-        p.lineTo(x + .9/2 - k, y + .9/2 - k);
+        p.moveTo(x + w/2 - k, y);
+        p.lineTo(x + w/2 + k, y);
+        p.lineTo(x + w/2 + k, y + h/2 - k);
+        p.lineTo(x + w, y + h/2 - k);
+        p.lineTo(x + w, y + h/2 + k);
+        p.lineTo(x + w/2 + k, y + h/2 + k);
+        p.lineTo(x + w/2 + k, y + h);
+        p.lineTo(x + w/2 - k, y + h);
+        p.lineTo(x + w/2 - k, y + h/2 + k);
+        p.lineTo(x, y + h/2 + k);
+        p.lineTo(x, y + h/2 - k);
+        p.lineTo(x + w/2 - k, y + h/2 - k);
         p.closePath();
         return p;
     }
 
-    protected Path2D createTriangle(double x, double y) {
+    protected Path2D createTriangle(double x, double y, double w, double h) {
         Path2D p = new Path2D.Double();
-        p.moveTo(x + .9/2, y);
-        p.lineTo(x + .9, y + .9);
-        p.lineTo(x , y + .9);
+        p.moveTo(x + w/2, y);
+        p.lineTo(x + w, y + h);
+        p.lineTo(x , y + h);
         p.closePath();
         return p;
     }

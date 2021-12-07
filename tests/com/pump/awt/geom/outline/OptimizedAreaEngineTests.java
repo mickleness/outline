@@ -29,10 +29,10 @@ public class OptimizedAreaEngineTests extends OutlineTests {
 
         OptimizedAreaEngine engine = new OptimizedAreaEngine(1);
         Outline outline = new Outline(engine);
-        outline.add(createTriangle(1.3, 2.3));
-        outline.intersect(createSquare(0.8, 2.1));
-        outline.exclusiveOr(createSquare(1.4, 1.4));
-        outline.intersect(createSquare(1.8, 1.6));
+        outline.add(createTriangle(1.3, 2.3, .9, .9));
+        outline.intersect(createSquare(0.8, 2.1, .9, .9));
+        outline.exclusiveOr(createSquare(1.4, 1.4, .9, .9));
+        outline.intersect(createSquare(1.8, 1.6, .9, .9));
         engine.preprocessOperationsUsingRectangleMask(outline.operationQueue);
 
         assertEquals(4, outline.operationQueue.size());
