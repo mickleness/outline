@@ -37,4 +37,20 @@ public class OptimizedAreaEngineTests extends OutlineTests {
 
         assertEquals(4, outline.operationQueue.size());
     }
+
+    // TODO:
+//    public void testMemoryFailure_1() {
+//        Outline outline = new Outline(new PlainAreaEngine());
+//        outline.add(createEllipse(0, 2, .9, .9));
+//        outline.exclusiveOr(createTriangle(0, 2, .9, .9));
+//        outline.exclusiveOr(createEllipse(0, 2, .9, .9));
+//        outline.add(createSquare(2, 2, .9, .9));
+//        outline.add(createEllipse(1, 2, .9, .9));
+//        outline.exclusiveOr(createEllipse(0, 2, .9, .9));
+//        outline.add(createSquare(0, 0, .9, .9));
+//        outline.add(createTriangle(2, 1, .9, .9));
+//        outline.add(createEllipse(2, 0, .9, .9));
+//        outline.subtract(createEllipse(1, 0, .9, .9));
+//        outline.flush();
+//    }
 }
