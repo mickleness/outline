@@ -92,6 +92,10 @@ public class ShapeUtilsTest extends TestCase {
         assertEquals(null, ShapeUtils.toRectangle2D(p.getPathIterator(null)));
     }
 
+    public void testToRectangle_awtRectangle() {
+        assertEquals(new Rectangle(0,0,10,10), ShapeUtils.toRectangle2D(new Rectangle(0,0,10,10).getPathIterator(null)));
+    }
+
     // TODO: make rectangle-detection smarter so this unit test passes:
 //    public void testToRectangle2D_midpoint() {
 //        Path2D p = new Path2D.Double();

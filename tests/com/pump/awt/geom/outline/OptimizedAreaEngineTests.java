@@ -1,6 +1,9 @@
 package com.pump.awt.geom.outline;
 
 import java.awt.*;
+import java.util.List;
+import java.awt.geom.Ellipse2D;
+import java.util.ArrayList;
 
 public class OptimizedAreaEngineTests extends OutlineTests {
 
@@ -17,6 +20,45 @@ public class OptimizedAreaEngineTests extends OutlineTests {
         engine.removeInitialNegativeOperations(outline.operationQueue);
 
         assertEquals(0, outline.operationQueue.size());
+    }
+
+    public void testPreprocessOperationsUsingRectangleMask_rectSubtraction() {
+        OptimizedAreaEngine engine = new OptimizedAreaEngine(1);
+        Outline outline = new Outline(engine);
+        outline.add(new Rectangle(0,0,100,100));
+        outline.subtract(new Rectangle(50, 50, 10, 10));
+        outline.subtract(new Ellipse2D.Float(55,55,3,3));
+        engine.preprocessOperationsUsingRectangleMask(outline.operationQueue);
+
+        assertEquals(2, outline.operationQueue.size());
+    }
+
+    public void testRemoveRectangleEnclosedOperations_add() {
+        OptimizedAreaEngine engine = new OptimizedAreaEngine(1);
+        Outline outline = new Outline(engine);
+        outline.add(new Rectangle(0,0,100,100));
+        outline.add(new Ellipse2D.Float(50, 50, 10, 10));
+        outline.add(new Ellipse2D.Float(55,55,3,3));
+
+        List<OptimizedAreaEngine.OptimizedOutlineOperation> optOps = new ArrayList<>();
+        optOps.addAll( (List) outline.operationQueue);
+        engine.removeRectangleEnclosedOperations(optOps);
+        assertEquals(1, optOps.size());
+    }
+
+
+    public void testRemoveRectangleEnclosedOperations_clip() {
+        OptimizedAreaEngine engine = new OptimizedAreaEngine(1);
+        Outline outline = new Outline(engine);
+        outline.add(new Rectangle(0,0,100,100));
+        outline.intersect(new Rectangle(50, 50, 10, 10));
+        outline.intersect(new Ellipse2D.Float(55,55,3,3));
+
+        List<OptimizedAreaEngine.OptimizedOutlineOperation> optClipOps = new ArrayList<>();
+        optClipOps.add( (OptimizedAreaEngine.OptimizedOutlineOperation) outline.operationQueue.get(1) );
+        optClipOps.add( (OptimizedAreaEngine.OptimizedOutlineOperation) outline.operationQueue.get(2) );
+        engine.removeRectangleEnclosedOperations(optClipOps);
+        assertEquals(1, optClipOps.size());
     }
 
     /**

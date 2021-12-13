@@ -232,7 +232,7 @@ public class ShapeUtils {
                     return null;
                 }
             } else if (k == PathIterator.SEG_LINETO) {
-                if (points.size() < 4) {
+                if (points.size() < 5) {
                     points.add(new Point2D.Double(coords[0], coords[1]));
                 } else {
                     return null;
@@ -244,6 +244,10 @@ public class ShapeUtils {
             }
             pi.next();
         }
+
+        // if our rectangle wrapped around to its origin
+        if (points.size() == 5 && points.get(0).equals(points.get(4)))
+            points.remove(4);
 
         if (points.size() != 4)
             return null;

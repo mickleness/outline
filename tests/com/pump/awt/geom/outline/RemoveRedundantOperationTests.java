@@ -192,15 +192,15 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                     switch(random.nextInt(3)) {
                         case 0:
                             operand = createPlus(x, y, w, h);
-                            str = "createPlus("+x+", "+y+")";
+                            str = "createPlus("+x+", "+y+", "+w+", "+h+")";
                             break;
                         case 1:
                             operand = createTriangle(x, y, w, h);
-                            str = "createTriangle("+x+", "+y+")";
+                            str = "createTriangle("+x+", "+y+", "+w+", "+h+")";
                             break;
                         case 2:
                             operand = createSquare(x, y, w, h);
-                            str = "createSquare("+x+", "+y+")";
+                            str = "createSquare("+x+", "+y+", "+w+", "+h+")";
                             break;
                     }
                     switch(type) {

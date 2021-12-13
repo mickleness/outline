@@ -16,7 +16,7 @@ public class OptimizedAreaEngine implements OutlineEngine {
     /**
      * This OutlineOperation collects a little metadata about the shape operand
      */
-    static class OptimizedOutlineOperation extends OutlineOperation {
+    protected static class OptimizedOutlineOperation extends OutlineOperation {
         static long idCtr = 0;
 
         /**
@@ -198,8 +198,7 @@ public class OptimizedAreaEngine implements OutlineEngine {
 
         for (List<OptimizedOutlineOperation> operationsRun : getOperationRuns(operationQueue)) {
             OutlineOperation.Type type = operationsRun.get(0).type;
-            if (type == OutlineOperation.Type.ADD || type == OutlineOperation.Type.SUBTRACT)
-                removeRectangleEnclosedOperations(operationsRun);
+            removeRectangleEnclosedOperations(operationsRun);
 
             if (type == OutlineOperation.Type.ADD) {
                 result = flushAdds(result, operationsRun);
@@ -226,30 +225,45 @@ public class OptimizedAreaEngine implements OutlineEngine {
     }
 
     /**
-     * Given a set of consecutive operations: if any represent a Rectangle2D, then we can remove
-     * any inner operands that are contained inside that Rectangle2D. This only applies to ADD and SUBTRACT
-     * operations.
+     * Given a set of consecutive operations of the same type: if any represent a Rectangle2D, then we may remove either
+     * the inner or outer operands (depending ont he operation type).
      */
-    private void removeRectangleEnclosedOperations(List<OptimizedOutlineOperation> operations) {
-        boolean loop = true;
-        while (loop) {
-            loop = false;
-            scan : for(OptimizedOutlineOperation op : operations) {
-                if (op.isRectangle2D) {
-                    Rectangle2D r = op.bounds;
-                    Iterator<OptimizedOutlineOperation> iter = operations.iterator();
-                    while (iter.hasNext()) {
-                        OptimizedOutlineOperation otherOp = iter.next();
-                        if (otherOp != op) {
-                            if (op.bounds.contains(otherOp.bounds)) {
-                                iter.remove();
-                                loop = true;
-                                break scan;
+    protected void removeRectangleEnclosedOperations(List<OptimizedOutlineOperation> operations) {
+        boolean removeSmaller = operations.get(0).type == OutlineOperation.Type.ADD || operations.get(0).type == OutlineOperation.Type.SUBTRACT;
+        boolean removeLarger = operations.get(0).type == OutlineOperation.Type.INTERSECT;
+
+        if (!removeSmaller && !removeLarger)
+            return;
+
+        List<OptimizedOutlineOperation> toRemove = new LinkedList<>();
+
+        int opIndex = 0;
+        for (OptimizedOutlineOperation op : operations) {
+            if (op.isRectangle2D) {
+                Rectangle2D r = op.bounds;
+                int otherOpIndex = 0;
+                for (OptimizedOutlineOperation otherOp : operations) {
+                    if (otherOp != op) {
+                        if (op.bounds.equals(otherOp.bounds) && otherOp.isRectangle2D) {
+                            // only remove one. If multiple rects are equal and we remove all of them: we've lost
+                            // valuable data. It doesn't matter which one we choose:
+                            toRemove.add(opIndex < otherOpIndex ? op : otherOp);
+                        } else if (op.bounds.contains(otherOp.bounds)) {
+                            if (removeSmaller) {
+                                toRemove.add(otherOp);
+                            } else if(removeLarger) {
+                                toRemove.add(op);
                             }
                         }
                     }
+                    otherOpIndex++;
                 }
             }
+            opIndex++;
+        }
+
+        if (!toRemove.isEmpty()) {
+            operations.removeAll(toRemove);
         }
     }
 
