@@ -160,7 +160,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
      */
     protected transient int modCount = 0;
 
-    // TODO: add cached bounds, update when modCount changes.
+    protected R cachedBounds;
 
     private final N zero;
 
@@ -175,6 +175,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
             rows.clear();
             rows.put(zero, new NumberLineMask<>());
             modCount++;
+            cachedBounds = null;
             return true;
         }
         return false;
@@ -248,12 +249,19 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
 
         if (returnValue) {
             modCount++;
+            cachedBounds = null;
         }
 
         return returnValue;
     }
 
     public R getBounds() {
+        if (cachedBounds == null)
+            cachedBounds = createBounds();
+        return (R) cachedBounds.clone();
+    }
+
+    protected R createBounds() {
         if (rows.isEmpty() || (rows.size()==1 && rows.entrySet().iterator().next().getValue().isEmpty()) ) {
             return createEmptyBounds();
         }
