@@ -3,6 +3,9 @@ package com.pump.awt.geom.outline;
 import junit.framework.TestCase;
 
 import java.awt.*;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Rectangle2D;
+import java.util.*;
 
 public class RectangleMaskTests extends TestCase {
 
@@ -372,10 +375,74 @@ public class RectangleMaskTests extends TestCase {
      * then the resulting mask would appear empty.
      */
     public void testClip() {
-        RectangleMask m = new RectangleMask(new Rectangle(200, 149, 90, 90));
+        RectangleMask m = new RectangleMask(200, 149, 90, 90);
         m.clip(199, 229, 92, 92);
         assertEquals(2, m.rows.size());
         assertFalse(m.isEmpty());
         assertEquals(new Rectangle(200, 229, 90, 10), m.getBounds());
+    }
+
+    public void testIterator() {
+        RectangleMask m = new RectangleMask(0,0,1,1);
+        m.add(3,3,1,1);
+        m.add(2,4,1,1);
+        m.add(-1,3,1,1);
+
+        Collection<Rectangle> c = new HashSet<>(Arrays.asList(new Rectangle(0,0,1,1),
+                new Rectangle(-1,3,1,1),
+                new Rectangle(3,3,1,1),
+                new Rectangle(2,4,1,1)));
+
+        Iterator<Rectangle> iter = m.iterator();
+
+        while (!c.isEmpty()) {
+            assertTrue(iter.hasNext());
+            Rectangle r = iter.next();
+            assertTrue(r.toString(), c.remove(r));
+        }
+
+        assertFalse(iter.hasNext());
+    }
+
+    public void testIterator_concurrentModification() {
+        RectangleMask m = new RectangleMask(0,0,1,1);
+
+
+        Iterator<Rectangle> iter = m.iterator();
+        assertEquals(new Rectangle(0,0,1,1), iter.next());
+
+        m.add(3,3,1,1);
+
+        try {
+            iter.next();
+            fail();
+        } catch(ConcurrentModificationException e) {
+            // pass!
+        }
+    }
+
+    public void testIsContainedByShape() {
+        Ellipse2D e = new Ellipse2D.Float(0,0,100,100);
+        RectangleMask m = new RectangleMask();
+        for(int y = 0; y < 100; y++) {
+            for(int x = 0; x < 100; x++) {
+                if (e.contains(x, y, 1, 1))
+                    m.add(x, y, 1, 1);
+            }
+        }
+
+        assertTrue( m.isContainedBy(e) );
+
+        // mix up the complexity by punching holes in the mask:
+        for(int a = 0; a < 100; a++) {
+            RectangleMask copy = new RectangleMask();
+            copy.add(m);
+
+            Random random = new Random(a);
+            for(int b = 0; b < 100; b++) {
+                copy.subtract(random.nextInt(100), random.nextInt(100), 1, 1);
+                assertTrue( copy.isContainedBy(e) );
+            }
+        }
     }
 }

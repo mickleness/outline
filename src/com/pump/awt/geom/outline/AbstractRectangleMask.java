@@ -1,14 +1,14 @@
 package com.pump.awt.geom.outline;
 
 import com.pump.math.NumberLineMask;
+import com.pump.util.Range;
 
+import java.awt.*;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.io.Serializable;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Objects;
-import java.util.TreeMap;
+import java.util.*;
+import java.util.List;
 
 /**
  * This is a composition of rectangles.
@@ -88,7 +88,9 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                 iter = rows.subMap(k1, true, k2, true).entrySet().iterator();
             }
 
-            NumberLineMask<N> prevRowMask = new NumberLineMask<>();
+            Map.Entry<N, NumberLineMask<N>> lowerEntry = k1 == null ? null : rows.lowerEntry(k1);
+            NumberLineMask<N> prevRowMask = lowerEntry == null ? new NumberLineMask<>() : lowerEntry.getValue();
+
             while (iter.hasNext()) {
                 Map.Entry<N, NumberLineMask<N>> entry = iter.next();
                 NumberLineMask<N> currentMask = entry.getValue();
@@ -101,7 +103,64 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
         }
     }
 
+    class MaskIterator implements Iterator<R> {
+        Iterator<Map.Entry<N, NumberLineMask<N>>> iter;
+        List<R> iteratorValues = new LinkedList<>();
+        Map.Entry<N, NumberLineMask<N>> prevRow;
+        final int expectedModCount;
+
+        {
+            expectedModCount = modCount;
+            iter = AbstractRectangleMask.this.rows.entrySet().iterator();
+            prevRow = iter.hasNext() ? iter.next() : null;
+            updateIteratorValues();
+        }
+
+        private void updateIteratorValues() {
+            while (iter.hasNext()) {
+                Map.Entry<N, NumberLineMask<N>> currentRow = iter.next();
+
+                for (Range<N> range : prevRow.getValue().getRanges()) {
+                    iteratorValues.add(createBounds(range.min, prevRow.getKey(), range.max, currentRow.getKey()));
+                }
+
+                prevRow = currentRow;
+
+                if (!iteratorValues.isEmpty())
+                    return;
+            }
+        }
+
+        @Override
+        public boolean hasNext() {
+            return !iteratorValues.isEmpty();
+        }
+
+        @Override
+        public R next() {
+            checkForComodification();
+            R returnValue = iteratorValues.remove(0);
+            updateIteratorValues();
+            return returnValue;
+        }
+
+        final void checkForComodification() {
+            if (modCount != expectedModCount)
+                throw new ConcurrentModificationException();
+        }
+    }
+
     protected final TreeMap<N, NumberLineMask<N>> rows = new TreeMap<>();
+
+    /**
+     * The number of times this mask has been modified.
+     * <p>
+     * This is used by {@link #iterator()} to create an iterator with fail-fast behavior.
+     * </p>
+     */
+    protected transient int modCount = 0;
+
+    // TODO: add cached bounds, update when modCount changes.
 
     private final N zero;
 
@@ -110,9 +169,15 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
         clear();
     }
 
-    public void clear() {
-        rows.clear();
-        rows.put(zero, new NumberLineMask<>());
+    public boolean clear() {
+        boolean uninitialized = rows.isEmpty();
+        if (!isEmpty() || uninitialized) {
+            rows.clear();
+            rows.put(zero, new NumberLineMask<>());
+            modCount++;
+            return true;
+        }
+        return false;
     }
 
     private void ensureRow(N y) {
@@ -128,7 +193,10 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
         }
     }
 
-    protected abstract N add(N n1, N n2);
+    /**
+     * Calculate the same of two values "a + b".
+     */
+    protected abstract N add(N a, N b);
 
     public abstract boolean add(R r);
 
@@ -177,6 +245,10 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
 
         if (op.finish(rows, y, y2))
             returnValue = true;
+
+        if (returnValue) {
+            modCount++;
+        }
 
         return returnValue;
     }
@@ -348,5 +420,100 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
     @Override
     public int hashCode() {
         return Objects.hash(rows);
+    }
+
+    /**
+     * Return true if this mask contains the argument.
+     */
+    public boolean contains(AbstractRectangleMask<N, R> mask) {
+        Iterator<R> iter = mask.iterator();
+        while(iter.hasNext()) {
+            if (!contains(iter.next()))
+                return false;
+        }
+        return true;
+    }
+
+    /**
+     * Return true if this mask intersects the argument.
+     */
+    public boolean intersects(AbstractRectangleMask<N, R> mask) {
+        Iterator<R> iter = mask.iterator();
+        while(iter.hasNext()) {
+            if (!intersects(iter.next()))
+                return true;
+        }
+        return false;
+    }
+
+    /**
+     * Add another mask to this mask.
+     *
+     * @return true if this operation changed this mask.
+     */
+    public boolean add(AbstractRectangleMask<N, R> mask) {
+        Iterator<R> iter = mask.iterator();
+        boolean returnValue = false;
+        while(iter.hasNext()) {
+            R r = iter.next();
+            if (add(r))
+                returnValue = true;
+        }
+        return returnValue;
+    }
+
+    /**
+     * Subtract another mask from this mask.
+     *
+     * @return true if this operation changed this mask.
+     */
+    public boolean subtract(AbstractRectangleMask<N, R> mask) {
+        Iterator<R> iter = mask.iterator();
+        boolean returnValue = false;
+        while(iter.hasNext()) {
+            R r = iter.next();
+            if (subtract(r))
+                returnValue = true;
+        }
+        return returnValue;
+    }
+
+    /**
+     * Return true if this mask intersects the argument.
+     */
+    public boolean intersects(Shape shape) {
+        Iterator<R> iter = iterator();
+        while(iter.hasNext()) {
+            R rect = iter.next();
+            if (shape.intersects(rect))
+                return true;
+        }
+        return false;
+    }
+
+    /**
+     * Return true if this mask is completely contained within the argument.
+     */
+    public boolean isContainedBy(Shape shape) {
+        Iterator<R> iter = iterator();
+        while(iter.hasNext()) {
+            R rect = iter.next();
+            if (!shape.contains(rect))
+                return false;
+        }
+        return true;
+    }
+
+    /**
+     * Create an Iterator that identifies all the rectangles required to recreate this mask.
+     * <p>
+     * This iterator does not guarantee that the set of rectangles it returns is the most
+     * efficient way to express this mask, or that the rectangles do or do not overlap; the only
+     * guarantee this iterator provides is that if you reassemble all of these rectangles you
+     * will fully recreate this mask.
+     * </p>
+     */
+    public Iterator<R> iterator() {
+        return new MaskIterator();
     }
 }

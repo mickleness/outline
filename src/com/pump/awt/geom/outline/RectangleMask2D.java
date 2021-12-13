@@ -11,9 +11,13 @@ public class RectangleMask2D extends AbstractRectangleMask<Double, Rectangle2D.D
         super(0.0);
     }
 
-    public RectangleMask2D(Rectangle2D bounds) {
+    public RectangleMask2D(Rectangle2D r) {
+        this(r.getX(), r.getY(), r.getWidth(), r.getHeight());
+    }
+
+    public RectangleMask2D(double x, double y, double width, double height) {
         this();
-        add(bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight());
+        add(x, y, width, height);
     }
 
     @Override

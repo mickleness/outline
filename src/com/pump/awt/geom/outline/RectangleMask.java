@@ -12,8 +12,12 @@ public class RectangleMask extends AbstractRectangleMask<Integer, Rectangle> {
     }
 
     public RectangleMask(Rectangle r) {
+        this(r.x, r.y, r.width, r.height);
+    }
+
+    public RectangleMask(int x, int y, int width, int height) {
         super(0);
-        add(r.x, r.y, r.width, r.height);
+        add(x, y, width, height);
     }
 
     @Override
