@@ -87,6 +87,16 @@ public abstract class OutlineTests extends TestCase {
                     int alpha1 = (argb1 >> 24) & 0xff;
                     int alpha2 = (argb2 >> 24) & 0xff;
                     if (Math.abs(alpha1 - alpha2) > 20) {
+                        Graphics2D g1 = expected.createGraphics();
+                        Graphics2D g2 = actual.createGraphics();
+                        g1.setColor(Color.red);
+                        g1.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g1.draw(new Ellipse2D.Float(x - 3, y - 3, 6, 6));
+                        g1.dispose();
+                        g2.setColor(Color.red);
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2.draw(new Ellipse2D.Float(x - 3, y - 3, 6, 6));
+                        g2.dispose();
                         fail(x + ", " + y+" alpha1 = "+Integer.toHexString(alpha1)+", alpha2 = "+Integer.toHexString(alpha2));
                     }
                 }
@@ -131,8 +141,8 @@ public abstract class OutlineTests extends TestCase {
         return new Rectangle2D.Double(x - .01, y - .01, w + .02, h + .02);
     }
 
-    protected Ellipse2D createEllipse(double x, double y) {
-        return new Ellipse2D.Double(x, y, .9, .9);
+    protected Ellipse2D createEllipse(double x, double y, double w, double h) {
+        return new Ellipse2D.Double(x, y, w, h);
     }
 
     protected Path2D createPlus(double x, double y, double w, double h) {
