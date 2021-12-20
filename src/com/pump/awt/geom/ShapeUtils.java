@@ -1,12 +1,9 @@
 package com.pump.awt.geom;
 
 import java.awt.*;
+import java.awt.geom.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.awt.geom.PathIterator;
-import java.awt.geom.Point2D;
-import java.awt.geom.QuadCurve2D;
-import java.awt.geom.Rectangle2D;
 
 public class ShapeUtils {
 
@@ -324,5 +321,109 @@ public class ShapeUtils {
             return new Rectangle(minXi, minYi, maxXi - minXi, maxYi - minYi);
         }
         return new Rectangle2D.Double(minX, minY, maxX - minX, maxY - minY);
+    }
+
+    public static Line2D.Double splitLine(Line2D.Double line, double t0, double t1) {
+        if (t0 >= t1)
+            throw new IllegalArgumentException("t0 ("+t0+") must be less than t1 ("+t1+")");
+
+        double ax = line.x2 - line.x1;
+
+        double x0 = ax * t0 + line.x1;
+        double x1 = ax * t1 + line.x1;
+
+        double ay = line.y2 - line.y1;
+
+        double y0 = ay * t0 + line.y1;
+        double y1 = ay * t1 + line.y1;
+
+        return new Line2D.Double(x0, y0, x1, y1);
+
+    }
+
+    public static QuadCurve2D.Double splitQuadraticCurve(QuadCurve2D.Double quad, double t0, double t1) {
+        if (t0 >= t1)
+            throw new IllegalArgumentException("t0 ("+t0+") must be less than t1 ("+t1+")");
+
+        double ax = quad.x1 - 2 * quad.ctrlx + quad.x2;
+        double bx = -2 * quad.x1 + 2 * quad.ctrlx;
+        double cx = quad.x1;
+
+        double ay = quad.y1 - 2 * quad.ctrly + quad.y2;
+        double by = -2 * quad.y1 + 2 * quad.ctrly;
+        double cy = quad.y1;
+
+        double tZ = (t0 + t1) / 2.0;
+
+        double f0 = (ay * t0 + by) * t0 + cy;
+        double f1 = (ay * tZ + by) * tZ + cy;
+        double f2 = (ay * t1 + by) * t1 + cy;
+
+        double ay2 = 2 * f2 - 4 * f1 + 2 * f0;
+        double cy2 = f0;
+        double by2 = f2 - cy2 - ay2;
+
+        f0 = (ax * t0 + bx) * t0 + cx;
+        f1 = (ax * tZ + bx) * tZ + cx;
+        f2 = (ax * t1 + bx) * t1 + cx;
+
+        double ax2 = 2 * f2 - 4 * f1 + 2 * f0;
+        double cx2 = f0;
+        double bx2 = f2 - cx2 - ax2;
+
+        double newCtrlY = (2 * cy2 + by2) / 2;
+        double newY1 = ay2 - cy2 + 2 * newCtrlY;
+
+        double newCtrlX = (2 * cx2 + bx2) / 2;
+        double newX1 = ax2 - cx2 + 2 * newCtrlX;
+
+        return new QuadCurve2D.Double(cx2, cy2, newCtrlX, newCtrlY, newX1, newY1);
+    }
+
+    public static CubicCurve2D.Double splitCubicCurve(CubicCurve2D.Double cubic, double t0, double t1) {
+        if (t0 >= t1)
+            throw new IllegalArgumentException("t0 ("+t0+") must be less than t1 ("+t1+")");
+
+        double ax = -cubic.x1 + 3 * cubic.ctrlx1 - 3 * cubic.ctrlx2 + cubic.x2;
+        double bx = 3 * cubic.x1 - 6 * cubic.ctrlx1 + 3 * cubic.ctrlx2;
+        double cx = -3 * cubic.x1 + 3 * cubic.ctrlx1;
+        double dx = cubic.x1;
+        double ay = -cubic.y1 + 3 * cubic.ctrly1 - 3 * cubic.ctrly2 + cubic.y2;
+        double by = 3 * cubic.y1 - 6 * cubic.ctrly1 + 3 * cubic.ctrly2;
+        double cy = -3 * cubic.y1 + 3 * cubic.ctrly1;
+        double dy = cubic.y1;
+
+        double tW = 2.0 * t0 / 3.0 + t1 / 3.0;
+        double tZ = t0 / 3.0 + 2.0 * t1 / 3.0;
+
+        double f0 = ((ay * t0 + by) * t0 + cy) * t0 + dy;
+        double f1 = ((ay * tW + by) * tW + cy) * tW + dy;
+        double f2 = ((ay * tZ + by) * tZ + cy) * tZ + dy;
+        double f3 = ((ay * t1 + by) * t1 + cy) * t1 + dy;
+
+        double dy2 = f0;
+        double cy2 = (-11 * f0 + 18 * f1 - 9 * f2 + 2 * f3) / 2.0;
+        double by2 = (-19 * f0 + 27 * f2 - 8 * f3 - 10 * cy2) / 4;
+        double ay2 = f3 - by2 - cy2 - f0;
+
+        f0 = ((ax * t0 + bx) * t0 + cx) * t0 + dx;
+        f1 = ((ax * tW + bx) * tW + cx) * tW + dx;
+        f2 = ((ax * tZ + bx) * tZ + cx) * tZ + dx;
+        f3 = ((ax * t1 + bx) * t1 + cx) * t1 + dx;
+
+        double dx2 = f0;
+        double cx2 = (-11 * f0 + 18 * f1 - 9 * f2 + 2 * f3) / 2.0;
+        double bx2 = (-19 * f0 + 27 * f2 - 8 * f3 - 10 * cx2) / 4;
+        double ax2 = f3 - bx2 - cx2 - f0;
+
+        double cy0 = (3 * dy2 + cy2) / 3;
+        double cy1 = (by2 - 3 * dy2 + 6 * cy0) / 3;
+        double y1 = ay2 + dy2 - 3 * cy0 + 3 * cy1;
+
+        double cx0 = (3 * dx2 + cx2) / 3;
+        double cx1 = (bx2 - 3 * dx2 + 6 * cx0) / 3;
+        double x1 = ax2 + dx2 - 3 * cx0 + 3 * cx1;
+
+        return new CubicCurve2D.Double(dx2, dy2, cx0, cy0, cx1, cy1, x1, y1);
     }
 }

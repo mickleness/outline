@@ -1,13 +1,14 @@
 package com.pump.awt.geom.outline;
 
 import java.awt.*;
+import java.awt.geom.Rectangle2D;
 
 /**
  * This is a composition of int-based java.awt.Rectangles.
  */
 public class RectangleMask extends AbstractRectangleMask<Integer, Rectangle> {
 
-    protected RectangleMask() {
+    public RectangleMask() {
         super(0);
     }
 
@@ -41,7 +42,7 @@ public class RectangleMask extends AbstractRectangleMask<Integer, Rectangle> {
     }
 
     @Override
-    protected Rectangle createBounds(Integer x1, Integer y1, Integer x2, Integer y2) {
+    protected Rectangle createRectangleFromGeneric(Integer x1, Integer y1, Integer x2, Integer y2) {
         return new Rectangle(x1, y1, x2 - x1, y2 - y1);
     }
 
@@ -73,5 +74,25 @@ public class RectangleMask extends AbstractRectangleMask<Integer, Rectangle> {
         int x2 = (int) (Math.ceil(x + w));
         int y2 = (int) (Math.ceil(y + h));
         return super.contains( (Integer) x1, (Integer) y1, (Integer) (x2 - x1), (Integer) (y2 - y1) );
+    }
+
+    @Override
+    protected double midpoint(Integer v1, Integer v2) {
+        return (v1.doubleValue() + v2.doubleValue())/2.0;
+    }
+
+    @Override
+    protected Rectangle createRectangleFromDouble(double x1, double y1, double x2, double y2, boolean allowZeroDimension) {
+        Rectangle r = new Rectangle2D.Double(x1, y1, x2 - x1, y2 - y1).getBounds();
+        if (!allowZeroDimension) {
+            r.width = Math.max(1, r.width);
+            r.height = Math.max(1, r.height);
+        }
+        return r;
+    }
+
+    @Override
+    protected RectangleMask createMask() {
+        return new RectangleMask();
     }
 }

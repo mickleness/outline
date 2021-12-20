@@ -1,11 +1,13 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.awt.geom.ClosedPathIterator;
+import com.pump.awt.geom.MonotonicPathIterator;
+import com.pump.awt.geom.ShapeUtils;
 import com.pump.math.NumberLineMask;
 import com.pump.util.Range;
 
 import java.awt.*;
-import java.awt.geom.Point2D;
-import java.awt.geom.Rectangle2D;
+import java.awt.geom.*;
 import java.io.Serializable;
 import java.util.*;
 import java.util.List;
@@ -121,7 +123,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                 Map.Entry<N, NumberLineMask<N>> currentRow = iter.next();
 
                 for (Range<N> range : prevRow.getValue().getRanges()) {
-                    iteratorValues.add(createBounds(range.min, prevRow.getKey(), range.max, currentRow.getKey()));
+                    iteratorValues.add(createRectangleFromGeneric(range.min, prevRow.getKey(), range.max, currentRow.getKey()));
                 }
 
                 prevRow = currentRow;
@@ -282,10 +284,10 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
             y2 = rowEntry.getKey();
         }
 
-        return createBounds(x1, y1, x2, y2);
+        return createRectangleFromGeneric(x1, y1, x2, y2);
     }
 
-    protected abstract R createBounds(N x1, N y1, N x2, N y2);
+    protected abstract R createRectangleFromGeneric(N x1, N y1, N x2, N y2);
 
     protected abstract R createEmptyBounds();
 
@@ -393,7 +395,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
             return null;
         y2 = secondEntry.getKey();
 
-        return createBounds(x1, y1, x2, y2);
+        return createRectangleFromGeneric(x1, y1, x2, y2);
     }
 
     /**
@@ -407,7 +409,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
      * Return true if this RectangleMask is equivalent to the rectangle provided.
      */
     public boolean isEqual(N x, N y, N width, N height) {
-        return isEqual(createBounds(x, y, add(x, width), add(y, height)));
+        return isEqual(createRectangleFromGeneric(x, y, add(x, width), add(y, height)));
     }
 
     /**
@@ -524,4 +526,171 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
     public Iterator<R> iterator() {
         return new MaskIterator();
     }
+
+    // TODO: implement PathIterator
+
+    /**
+     * @param maxSegmentArea the maximum area (width * height) of each segment's bounds. The smaller this value
+     *                       is the more each segment will be partitioned into subsegments. Finer details lead to
+     *                       greater accuracy and a larger data structure.
+     */
+    public boolean add(Shape shape, double maxSegmentArea) {
+
+        // TODO: write helper class to consolidate this cluster of methods?
+
+        AbstractRectangleMask<N, R> other = createMask();
+        MonotonicPathIterator pi = new MonotonicPathIterator(new ClosedPathIterator(shape.getPathIterator(null)));
+        double lastX = 0;
+        double lastY = 0;
+        double[] coords = new double[6];
+
+        Line2D.Double line = new Line2D.Double();
+        QuadCurve2D.Double quad = new QuadCurve2D.Double();
+        CubicCurve2D.Double cubic = new CubicCurve2D.Double();
+
+        double x1 = 0;
+        double y1 = 0;
+
+        while(!pi.isDone()) {
+            int k = pi.currentSegment(coords);
+
+            Shape currentSegment = null;
+
+            switch(k) {
+                case PathIterator.SEG_MOVETO:
+                    x1 = coords[0];
+                    y1 = coords[1];
+                    break;
+                case PathIterator.SEG_LINETO:
+                    x1 = coords[0];
+                    y1 = coords[1];
+                    line.setLine(lastX, lastY, x1, y1);
+                    currentSegment = line;
+                    break;
+                case PathIterator.SEG_QUADTO:
+                    x1 = coords[2];
+                    y1 = coords[3];
+                    quad.setCurve(lastX, lastY, coords[0], coords[1], x1, y1);
+                    currentSegment = quad;
+                    break;
+                case PathIterator.SEG_CUBICTO:
+                    x1 = coords[4];
+                    y1 = coords[5];
+                    cubic.setCurve(lastX, lastY, coords[0], coords[1], coords[2], coords[3], x1, y1);
+                    currentSegment = cubic;
+                    break;
+            }
+
+            if (currentSegment != null) {
+                add_shapeSegment(currentSegment, other, maxSegmentArea);
+            }
+
+            lastX = x1;
+            lastY = y1;
+
+
+            pi.next();
+        }
+
+        other.fillShape(shape);
+
+        return add(other);
+    }
+
+    private void fillShape(Shape shape) {
+
+        // TODO: implement smarter flood fill based on previous row -- try to minimize calling shape.contains(x,y)
+        Map.Entry<N, NumberLineMask<N>> lastEntry = null;
+        for(Map.Entry<N, NumberLineMask<N>> entry : rows.entrySet()) {
+            if (lastEntry != null) {
+                double y = midpoint(entry.getKey(), lastEntry.getKey());
+
+                NumberLineMask<N> row = lastEntry.getValue();
+
+                boolean scan = true;
+                while (scan) {
+                    scan = false;
+
+                    Range<N> lastRange = null;
+                    for (Range<N> range : row.getRanges()) {
+                        if (lastRange != null) {
+                            double x = midpoint(lastRange.max, range.min);
+                            if (shape.contains(x, y)) {
+                                row.add(lastRange.max, range.min);
+                                scan = true;
+                                break;
+                            }
+                        }
+
+                        lastRange = range;
+                    }
+                }
+            }
+
+            lastEntry = entry;
+        }
+    }
+
+    protected abstract double midpoint(N v1, N v2);
+
+    private void add_shapeSegment(Shape segment, AbstractRectangleMask<N,R> mask, double maxArea) {
+        double area;
+        double x1, x2, y1, y2;
+        if (segment instanceof Line2D.Double) {
+            Line2D.Double l = (Line2D.Double) segment;
+            x1 = l.x1;
+            y1 = l.y1;
+            x2 = l.x2;
+            y2 = l.y2;
+        } else if (segment instanceof QuadCurve2D.Double) {
+            QuadCurve2D.Double q = (QuadCurve2D.Double) segment;
+            x1 = q.x1;
+            y1 = q.y1;
+            x2 = q.x2;
+            y2 = q.y2;
+        } else if (segment instanceof CubicCurve2D.Double) {
+            CubicCurve2D.Double c = (CubicCurve2D.Double) segment;
+            x1 = c.x1;
+            y1 = c.y1;
+            x2 = c.x2;
+            y2 = c.y2;
+        } else {
+            // this is a private method that should only be called with one of the three shape types listed above
+            throw new IllegalStateException(segment.getClass().getName());
+        }
+        area = (x2 - x1) * (y2 - y1);
+        if (area < 0) area = -area;
+        if (area > maxArea) {
+            if (segment instanceof Line2D.Double) {
+                Line2D.Double l = (Line2D.Double) segment;
+                add_shapeSegment( ShapeUtils.splitLine(l, 0, .5), mask, maxArea);
+                add_shapeSegment( ShapeUtils.splitLine(l, .5, 1), mask, maxArea);
+            } else if (segment instanceof QuadCurve2D.Double) {
+                QuadCurve2D.Double q = (QuadCurve2D.Double) segment;
+                add_shapeSegment( ShapeUtils.splitQuadraticCurve(q, 0, .5), mask, maxArea);
+                add_shapeSegment( ShapeUtils.splitQuadraticCurve(q, .5, 1), mask, maxArea);
+            } else if (segment instanceof CubicCurve2D.Double) {
+                CubicCurve2D.Double c = (CubicCurve2D.Double) segment;
+                add_shapeSegment( ShapeUtils.splitCubicCurve(c, 0, .5), mask, maxArea);
+                add_shapeSegment( ShapeUtils.splitCubicCurve(c, .5, 1), mask, maxArea);
+            }
+        } else {
+            R r = createRectangleFromDouble(
+                    Math.min(x1, x2),
+                    Math.min(y1, y2),
+                    Math.max(x1, x2),
+                    Math.max(y1, y2),
+                    false);
+            mask.add(r);
+        }
+    }
+
+    /**
+     * @param allowZeroDimension if true then the return value can have a zero width or height. If false then the
+     *                           return value should have a small width or height so it contains (but does not match)
+     *                           the arguments.
+     */
+    protected abstract R createRectangleFromDouble(double x1, double y1, double x2, double y2, boolean allowZeroDimension);
+
+    protected abstract AbstractRectangleMask<N,R> createMask();
 }

@@ -7,7 +7,7 @@ import java.awt.geom.Rectangle2D;
  */
 public class RectangleMask2D extends AbstractRectangleMask<Double, Rectangle2D.Double> {
 
-    protected RectangleMask2D() {
+    public RectangleMask2D() {
         super(0.0);
     }
 
@@ -41,7 +41,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Double, Rectangle2D.D
     }
 
     @Override
-    protected Rectangle2D.Double createBounds(Double x1, Double y1, Double x2, Double y2) {
+    protected Rectangle2D.Double createRectangleFromGeneric(Double x1, Double y1, Double x2, Double y2) {
         return new Rectangle2D.Double(x1, y1, x2 - x1, y2 - y1);
     }
 
@@ -63,5 +63,28 @@ public class RectangleMask2D extends AbstractRectangleMask<Double, Rectangle2D.D
     @Override
     public boolean contains(double x, double y, double w, double h) {
         return super.contains( (Double) x, (Double) y, (Double) w, (Double) h);
+    }
+
+    @Override
+    protected double midpoint(Double v1, Double v2) {
+        return (v1.doubleValue() + v2.doubleValue() )/2.0;
+    }
+
+    @Override
+    protected Rectangle2D.Double createRectangleFromDouble(double x1, double y1, double x2, double y2, boolean allowZeroDimension) {
+        double w, h;
+        if (allowZeroDimension) {
+            w = x2 - x1;
+            h = y2 - y1;
+        } else {
+            w = Math.max(x2 - x1, .0000000001);
+            h = Math.max(y2 - y1, .0000000001);
+        }
+        return new Rectangle2D.Double(x1, y1, w, h);
+    }
+
+    @Override
+    protected RectangleMask2D createMask() {
+        return new RectangleMask2D();
     }
 }
