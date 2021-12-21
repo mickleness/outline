@@ -1,6 +1,7 @@
 package com.pump.awt.geom.outline;
 
 import com.pump.awt.geom.ShapeUtils;
+import com.pump.awt.geom.ShapeUtilsTest;
 import org.junit.Test;
 
 import java.awt.*;
@@ -43,7 +44,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                     baselineShape = outline;
                 } else {
                     try {
-                        testEquals(name, baselineShape, outline);
+                        ShapeUtilsTest.testEquals(name, baselineShape, outline);
                     } catch (RuntimeException | Error e) {
                         System.err.println("engine: " + engine.toString());
                         System.err.println(description);
@@ -57,7 +58,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                             }
                         }
                         BufferedImage img = createDebugImage(r, ops);
-                        writeImage(name+"-ops", img);
+                        ShapeUtilsTest.writeImage(name+"-ops", img);
 
                         throw e;
                     }

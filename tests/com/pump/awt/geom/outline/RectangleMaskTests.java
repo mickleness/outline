@@ -1,11 +1,15 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.awt.geom.ShapeUtilsTest;
 import junit.framework.TestCase;
 
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Path2D;
+import java.awt.geom.PathIterator;
 import java.awt.geom.Rectangle2D;
 import java.util.*;
+import java.util.List;
 
 public class RectangleMaskTests extends TestCase {
 
@@ -443,6 +447,34 @@ public class RectangleMaskTests extends TestCase {
                 copy.subtract(random.nextInt(100), random.nextInt(100), 1, 1);
                 assertTrue( copy.isContainedBy(e) );
             }
+        }
+    }
+
+    /**
+     * This tests several thousand possible shape configurations and confirms
+     * that the mask's PathIterator shape fills the appropriate pixels.
+     */
+    public void testPathIterator() {
+        for(int a = 0; a < 65536; a++) {
+            String str = Integer.toString(a, 2);
+            while (str.length()<16)
+                str = "0"+str;
+
+            RectangleMask mask = new RectangleMask();
+            Path2D.Double path = new Path2D.Double();
+
+            for(int y = 0; y < 4; y++) {
+                for(int x = 0; x < 4; x++) {
+                    String substr = str.substring(y * 4, y*4 + 4);
+                    if (substr.charAt(x)=='1') {
+                        Rectangle r = new Rectangle(x,y,1,1);
+                        mask.add(r);
+                        path.append(r, false);
+                    }
+                }
+            }
+
+            ShapeUtilsTest.testEquals(str, path, mask);
         }
     }
 }

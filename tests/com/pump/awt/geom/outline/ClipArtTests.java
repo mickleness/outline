@@ -1,5 +1,6 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.awt.geom.ShapeUtilsTest;
 import com.pump.awt.geom.outline.clipart.*;
 import org.junit.Test;
 
@@ -268,7 +269,7 @@ public class ClipArtTests extends OutlineTests {
                 result.setBaseline(engine, lastSum, medianTime);
             } else {
                 result.addEngineTime(engine, medianTime);
-                testEquals(clipArt.name, result.baselineShape, lastSum);
+                ShapeUtilsTest.testEquals(clipArt.name, result.baselineShape, lastSum);
             }
         }
         return result;

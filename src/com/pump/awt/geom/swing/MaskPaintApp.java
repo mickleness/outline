@@ -69,15 +69,7 @@ public class MaskPaintApp extends JFrame {
             g2.scale(1f/scale, 1f/scale);
             g2.setColor(Color.black);
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            Iterator<Rectangle> iter = mask.iterator();
-
-            // TODO: make mask its own shape, don't use Area
-            Area sum = new Area();
-            while (iter.hasNext()) {
-                Rectangle r = iter.next();
-                sum.add(new Area(r));
-            }
-            g2.fill(sum);
+            g2.fill(mask);
             g2.dispose();
 
             if (currentShape != null) {

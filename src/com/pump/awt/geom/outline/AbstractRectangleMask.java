@@ -23,7 +23,7 @@ import java.util.List;
  * @param <N> the type of number (Integer, Double, BigDecimal) this mask is expressed with
  * @param <R> the type of Rectangle2D this mask interacts with
  */
-public abstract class AbstractRectangleMask<N extends Comparable, R extends Rectangle2D> implements Serializable {
+public abstract class AbstractRectangleMask<N extends Comparable, R extends Rectangle2D> implements Serializable, Shape {
 
     enum Operation {
         ADD, SUBTRACT,
@@ -257,10 +257,18 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
         return returnValue;
     }
 
-    public R getBounds() {
+    @Override
+    public Rectangle2D getBounds2D() {
         if (cachedBounds == null)
             cachedBounds = createBounds();
-        return (R) cachedBounds.clone();
+        return (Rectangle2D) cachedBounds.clone();
+    }
+
+    @Override
+    public Rectangle getBounds() {
+        if (cachedBounds == null)
+            cachedBounds = createBounds();
+        return cachedBounds.getBounds();
     }
 
     protected R createBounds() {
@@ -693,4 +701,27 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
     protected abstract R createRectangleFromDouble(double x1, double y1, double x2, double y2, boolean allowZeroDimension);
 
     protected abstract AbstractRectangleMask<N,R> createMask();
+
+    @Override
+    public PathIterator getPathIterator(AffineTransform tx) {
+        // TODO: implement better targeted iterator
+        // return new MaskPathIterator();
+
+        Path2D.Double p = new Path2D.Double();
+        Iterator<R> iter = iterator();
+        while (iter.hasNext()) {
+            Rectangle2D r = (Rectangle2D) iter.next();
+            p.append( r, false );
+        }
+        return p.getPathIterator(tx);
+    }
+
+    /**
+     * This returns {@link #getPathIterator(AffineTransform)}. The flatness argument doesn't apply
+     * because there are no curves in this object; it is a series of horizontal and vertical lines.
+     */
+    @Override
+    public PathIterator getPathIterator(AffineTransform tx, double flatness) {
+        return getPathIterator(tx);
+    }
 }
