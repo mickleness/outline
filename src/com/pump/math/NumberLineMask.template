@@ -1,0 +1,385 @@
+package com.pump.math;
+
+import com.pump.util.Range%name%;
+
+import java.io.IOException;
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.*;
+
+/**
+ * This describes a mask that covers zero or more parts of the number line.
+ * <p>
+ * This object is not thread safe.
+ * </p>
+ */
+public class NumberLine%name%Mask implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    protected TreeMap<%name%, Range%name%> ranges;
+
+    public NumberLine%name%Mask() {
+        initialize();
+    }
+
+    public NumberLine%name%Mask(NumberLine%name%Mask maskToCopy) {
+        initialize();
+        ranges.putAll(maskToCopy.ranges);
+    }
+
+    protected void initialize() {
+        ranges = new TreeMap<>();
+    }
+
+    @Override
+    public String toString() {
+        return ranges.values().toString();
+    }
+
+    /**
+     * Return true if the argument is contained inside this NumberLine%name%.
+     */
+    public boolean contains(%type% x) {
+        Map.Entry<%name%, Range%name%> floorEntry = ranges.floorEntry(%box%(x));
+        Range%name% range = floorEntry == null ? null : floorEntry.getValue();
+        if (range == null)
+            return false;
+        return range.contains(x);
+    }
+
+    /**
+     * Return true if the argument is contained inside this NumberLine%name%Mask.
+     */
+    public boolean contains(Range%name% x) {
+        return contains(x.min, x.max);
+    }
+
+    /**
+     * Return true if the argument is contained inside this NumberLine%name%Mask.
+     */
+    public boolean contains(%type% min, %type% max) {
+        Map.Entry<%name%, Range%name%> floorEntry = ranges.floorEntry(%box%(min));
+        Range%name% range = floorEntry == null ? null : floorEntry.getValue();
+        if (range == null)
+            return false;
+        return range.contains(min, max);
+    }
+
+    /**
+     * Return true if the argument intersects this NumberLine.
+     */
+    public boolean intersects(Range%name% x) {
+        return intersects(x.min, x.max);
+    }
+
+    /**
+     * Return true if the argument intersects this NumberLine.
+     */
+    public boolean intersects(%type% min, %type% max) {
+        Map.Entry<%name%, Range%name%> floorEntry = ranges.floorEntry(%box%(min));
+
+        Iterator<Range%name%> iter;
+        if (floorEntry == null) {
+            iter = ranges.values().iterator();
+        } else {
+            iter = ranges.tailMap(floorEntry.getKey()).values().iterator();
+        }
+        while (iter.hasNext()) {
+            Range%name% range = iter.next();
+            if (range.intersects(min, max))
+                return true;
+            if (range.max > max)
+                break;
+        }
+        return false;
+    }
+
+    /**
+     * @return true if a change occurred, false if the argument was already part of this mask.
+     */
+    public boolean add(%type% x1, %type% x2) {
+        boolean returnValue = false;
+
+        boolean repeat = true;
+        while (repeat) {
+            repeat = false;
+
+            Map.Entry<%name%, Range%name%> floorEntry = ranges.floorEntry(%box%(x1));
+            Map.Entry<%name%, Range%name%> ceilingEntry = ranges.ceilingEntry(%box%(x2));
+
+            Iterator<Map.Entry<%name%, Range%name%>> iter;
+            if (floorEntry != null) {
+                iter = ranges.tailMap(floorEntry.getKey(), true).entrySet().iterator();
+            } else {
+                iter = ranges.entrySet().iterator();
+            }
+
+            while (iter.hasNext()) {
+                Map.Entry<%name%, Range%name%> entry = iter.next();
+                Range%name% existingRange = entry.getValue();
+                if (existingRange.contains(x1, x2)) {
+                    return returnValue;
+                } else if (existingRange.intersects(x1, x2) ||
+                        x1 == existingRange.max ||
+                        x2 == existingRange.min) {
+                    returnValue = true;
+                    iter.remove();
+                    if (x1 > existingRange.min)
+                        x1 = existingRange.min;
+                    if (existingRange.max > x2)
+                        x2 = existingRange.max;
+                    repeat = true;
+                }
+                if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
+                    break;
+                }
+            }
+
+            ranges.put(x1, new Range%name%(x1, x2));
+            return true;
+        }
+        return returnValue;
+    }
+
+    /**
+     * @return true if a change occurred, false if the argument was already part of this mask.
+     */
+    public boolean add(Range%name% newRange) {
+        return add(newRange.min, newRange.max);
+    }
+
+    /**
+     * @return true if a change occurred, false if the argument was already part of this mask.
+     */
+    public boolean add(NumberLine%name%Mask other) {
+        boolean returnValue = false;
+        for(Range%name% range : other.getRanges()) {
+            if (add(range.min, range.max))
+                returnValue = true;
+        }
+        return returnValue;
+    }
+
+    public boolean subtract(%type% x1, %type% x2) {
+        return subtract(new Range%name%(x1, x2));
+    }
+
+    /**
+     * @return true if a change occurred, false if the argument was already not a part of this mask.
+     */
+    public boolean subtract(final Range%name% range) {
+        boolean returnValue = false;
+
+        boolean repeat = true;
+        while (repeat) {
+            repeat = false;
+
+            Map.Entry<%name%, Range%name%> floorEntry = ranges.floorEntry(%box%(range.min));
+            Map.Entry<%name%, Range%name%> ceilingEntry = ranges.ceilingEntry(%box%(range.max));
+
+            Iterator<Map.Entry<%name%, Range%name%>> iter;
+            if (floorEntry != null) {
+                iter = ranges.tailMap(floorEntry.getKey(), true).entrySet().iterator();
+            } else {
+                iter = ranges.entrySet().iterator();
+            }
+
+            while (iter.hasNext()) {
+                Map.Entry<%name%, Range%name%> entry = iter.next();
+                Range%name% existingRange = entry.getValue();
+                boolean addLeftEdge = false;
+                boolean addRightEdge = false;
+                try {
+                    if (range.contains(existingRange)) {
+                        iter.remove();
+                        returnValue = true;
+                        repeat = true;
+                        break;
+                    } else if (existingRange.contains(range)) {
+                        iter.remove();
+                        if (range.min == existingRange.min) {
+                            if (range.max == existingRange.max) {
+                                // this should be covered above by 'range.contains(existingRange)'
+                            } else {
+                                addRightEdge = true;
+                            }
+                        } else if (range.max == existingRange.max) {
+                            addLeftEdge = true;
+                        } else {
+                            addLeftEdge = true;
+                            addRightEdge = true;
+                        }
+                        return true;
+                    } else if (existingRange.contains(range.min)) {
+                        iter.remove();
+                        returnValue = true;
+                        addLeftEdge = true;
+                        repeat = true;
+                        break;
+                    } else if (existingRange.min == range.max) {
+                        // do nothing
+                    } else if (existingRange.contains(range.max)) {
+                        iter.remove();
+                        returnValue = true;
+                        addRightEdge = true;
+                        repeat = true;
+                        break;
+                    }
+                } finally {
+                    if (addLeftEdge) {
+                        ranges.put(existingRange.min, new Range%name%(existingRange.min, range.min));
+                    }
+                    if (addRightEdge) {
+                        ranges.put(range.max, new Range%name%(range.max, existingRange.max));
+                    }
+                }
+
+                if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
+                    break;
+                }
+            }
+        }
+        return returnValue;
+    }
+
+    /**
+     * @return true if a change occurred, false if the argument was already not a part of this mask.
+     */
+    public boolean subtract(NumberLine%name%Mask other) {
+        boolean returnValue = false;
+        for(Range%name% range : other.getRanges()) {
+            if (subtract(range.min, range.max))
+                returnValue = true;
+        }
+        return returnValue;
+    }
+
+    /**
+     * @return true if a change occurred, false if clipping to the argument makes no difference.
+     */
+    public boolean clip(Range%name% range) {
+        return clip(range.min, range.max);
+    }
+
+    /**
+     * @return true if a change occurred, false if clipping to the argument makes no difference.
+     */
+    public boolean clip(%type% x1, %type% x2) {
+        NumberLine%name%Mask scratch = new NumberLine%name%Mask();
+        scratch.add(x1, x2);
+        return clip(scratch);
+    }
+
+    public boolean clip(NumberLine%name%Mask other) {
+        if (ranges.isEmpty())
+            return false;
+
+        if (other.isEmpty()) {
+            ranges.clear();
+            return true;
+        }
+
+        %type% minA = ranges.firstEntry().getValue().min;
+        %type% minB = other.ranges.firstEntry().getValue().min;
+        %type% maxA = ranges.lastEntry().getValue().max;
+        %type% maxB = other.ranges.lastEntry().getValue().max;
+        %type% min = minA < minB ? minA : minB;
+        %type% max = maxA > maxB ? maxA : maxB;
+        NumberLine%name%Mask scratch = new NumberLine%name%Mask();
+        scratch.add(min, max);
+        scratch.subtract(other);
+        return subtract(scratch);
+    }
+
+    /**
+     * Return the minimum value in this number line.
+     *
+     * @throws EmptyNumberLineMaskException if {@link #isEmpty()} returns true so there is no minimum.
+     */
+    public %type% getMin() {
+        if (ranges.isEmpty())
+            throw new EmptyNumberLineMaskException();
+        return ranges.firstEntry().getValue().min;
+    }
+
+    /**
+     * Return the maximum value in this number line. Note number lines exclude the max, so
+     * <code>contains(getMax())</code> should always return false.
+     *
+     * @throws EmptyNumberLineMaskException if {@link #isEmpty()} returns true so there is no maximum.
+     */
+    public %type% getMax() {
+        if (ranges.isEmpty())
+            throw new EmptyNumberLineMaskException();
+        return ranges.lastEntry().getValue().max;
+    }
+
+    /**
+     * Return true if this number line is empty.
+     */
+    public boolean isEmpty() {
+        return ranges.isEmpty();
+    }
+
+    /**
+     * Remove all data from this NumberLineMask so {@link #getRanges()} returns an empty array.
+     */
+    public void clear() {
+        ranges.clear();
+    }
+
+    /**
+     * Return all the Range%name%s that make up this mask.
+     */
+    public Range%name%[] getRanges() {
+        return ranges.values().toArray(new Range%name%[0]);
+    }
+
+    @Serial
+    private void writeObject(java.io.ObjectOutputStream out)
+            throws IOException {
+        out.writeInt(0);
+        Range%name%[] array = ranges.values().toArray(new Range%name%[0]);
+        out.writeObject(array);
+    }
+
+    @Serial
+    private void readObject(java.io.ObjectInputStream in)
+            throws IOException, ClassNotFoundException {
+        initialize();
+
+        int internalVersion = in.readInt();
+        if (internalVersion == 0) {
+            Range%name%[] array = (Range%name%[]) in.readObject();
+            for(Range%name% range : array) {
+                ranges.put( %box%(range.min), range);
+            }
+        } else {
+            throw new IOException("Unsupported internal version: "+internalVersion);
+        }
+    }
+
+    /**
+     * Return true if this mask contains only one element that equals the argument.
+     */
+    public boolean isEqual(Range%name% range) {
+        if (ranges.size() != 1)
+            return false;
+        return ranges.entrySet().iterator().next().getValue().equals(range);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        NumberLine%name%Mask that = (NumberLine%name%Mask) o;
+        return Objects.equals(ranges, that.ranges);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(ranges);
+    }
+}
