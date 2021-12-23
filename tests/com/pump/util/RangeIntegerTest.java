@@ -2,9 +2,9 @@ package com.pump.util;
 
 import junit.framework.TestCase;
 
-public class RangeTest extends TestCase {
+public class RangeIntegerTest extends TestCase {
 
-    Range<Integer> r5_10 = new Range<>(5, 10);
+    RangeInteger r5_10 = new RangeInteger(5, 10);
 
     public void testToString() {
         assertEquals("[5,10)", r5_10.toString());
@@ -28,7 +28,7 @@ public class RangeTest extends TestCase {
         assertTrue(r5_10.contains(6, 7));
 
         // test one Range that can fit inside another:
-        Range<Integer> big = new Range<>(0, 15);
+        RangeInteger big = new RangeInteger(0, 15);
         assertFalse(r5_10.contains(big));
         assertTrue(big.contains(r5_10));
 
@@ -42,29 +42,29 @@ public class RangeTest extends TestCase {
     }
 
     public void testIntersectsRange() {
-        assertIntersects(true, r5_10, new Range<>(2,6));
-        assertIntersects(true, r5_10, new Range<>(2,11));
-        assertIntersects(true, r5_10, new Range<>(7,14));
+        assertIntersects(true, r5_10, new RangeInteger(2,6));
+        assertIntersects(true, r5_10, new RangeInteger(2,11));
+        assertIntersects(true, r5_10, new RangeInteger(7,14));
 
-        assertIntersects(false, r5_10, new Range<>(2,5));
-        assertIntersects(false, r5_10, new Range<>(10,16));
+        assertIntersects(false, r5_10, new RangeInteger(2,5));
+        assertIntersects(false, r5_10, new RangeInteger(10,16));
 
-        assertIntersects(false, r5_10, new Range<>(12,14));
-        assertIntersects(false, r5_10, new Range<>(2,4));
+        assertIntersects(false, r5_10, new RangeInteger(12,14));
+        assertIntersects(false, r5_10, new RangeInteger(2,4));
 
-        assertIntersects(true, r5_10, new Range<>(5, 6));
-        assertIntersects(true, r5_10, new Range<>(7, 8));
-        assertIntersects(true, r5_10, new Range<>(9, 10));
+        assertIntersects(true, r5_10, new RangeInteger(5, 6));
+        assertIntersects(true, r5_10, new RangeInteger(7, 8));
+        assertIntersects(true, r5_10, new RangeInteger(9, 10));
 
-        assertIntersects(false, r5_10, new Range<>(4, 5));
-        assertIntersects(false, r5_10, new Range<>(10, 11));
+        assertIntersects(false, r5_10, new RangeInteger(4, 5));
+        assertIntersects(false, r5_10, new RangeInteger(10, 11));
     }
 
     /**
      * Confirm whether two ranges should intersect. This checks the value of r1.intersects(r2) and r2.intersects(r1),
      * which should be symmetrically identical.
      */
-    private void assertIntersects(boolean expectedValue, Range<Integer> r1, Range<Integer> r2) {
+    private void assertIntersects(boolean expectedValue, RangeInteger r1, RangeInteger r2) {
         assertEquals(expectedValue, r1.intersects(r2));
         assertEquals(expectedValue, r2.intersects(r1));
     }
