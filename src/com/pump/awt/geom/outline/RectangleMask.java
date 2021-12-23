@@ -94,13 +94,13 @@ public class RectangleMask extends AbstractRectangleMask<Integer, Rectangle> {
     }
 
     @Override
-    protected Rectangle createRectangleFromDouble(double x1, double y1, double x2, double y2, boolean allowZeroDimension) {
+    protected Integer[] createRectangleFromDouble(double x1, double y1, double x2, double y2, boolean allowZeroDimension) {
         Rectangle r = new Rectangle2D.Double(x1, y1, x2 - x1, y2 - y1).getBounds();
         if (!allowZeroDimension) {
             r.width = Math.max(1, r.width);
             r.height = Math.max(1, r.height);
         }
-        return r;
+        return new Integer[] {r.x, r.y, r.width, r.height};
     }
 
     @Override

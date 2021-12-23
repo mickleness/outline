@@ -70,8 +70,8 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
         };
 
         public <N extends Comparable> boolean finish(TreeMap<N, NumberLineMask<N>> rows, N y1, N y2) {
-            N k1 = rows.floorKey(y1);
-            N k2 = rows.ceilingKey(y2);
+            N k1 = y1 == null ? null : rows.floorKey(y1);
+            N k2 = y2 == null ? null : rows.ceilingKey(y2);
 
             if (k1 != null) {
                 k1 = rows.lowerKey(k1);
@@ -208,18 +208,18 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
     public abstract boolean clip(R r);
 
     public boolean add(N x, N y, N width, N height) {
-        return performOperation(Operation.ADD, x, y, width, height);
+        return performOperation(Operation.ADD, x, y, width, height, true);
     }
 
     public boolean subtract(N x, N y, N width, N height) {
-        return performOperation(Operation.SUBTRACT, x, y, width, height);
+        return performOperation(Operation.SUBTRACT, x, y, width, height, true);
     }
 
     public boolean clip(N x, N y, N width, N height) {
-        return performOperation(Operation.CLIP, x, y, width, height);
+        return performOperation(Operation.CLIP, x, y, width, height, true);
     }
 
-    protected boolean performOperation(Operation op, N x, N y, N width, N height) {
+    protected boolean performOperation(Operation op, N x, N y, N width, N height, boolean executeFinishHook) {
         if (width.compareTo(zero) < 0 || height.compareTo(zero) < 0)
             throw new IllegalArgumentException("x = "+x+", y = "+y+", width = "+width+", y = "+height);
         if (width.equals(zero) || height.equals(zero))
@@ -246,7 +246,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                 returnValue = true;
         }
 
-        if (op.finish(rows, y, y2))
+        if (executeFinishHook && op.finish(rows, y, y2))
             returnValue = true;
 
         if (returnValue) {
@@ -630,7 +630,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                     addLineSegment(ax, bx, ay, by, t0, mid, maxArea);
                     addLineSegment(ax, bx, ay, by, mid, t1, maxArea);
                 } else {
-                    R r;
+                    N[] r;
                     if (x0 < x1) {
                         if (y0 < y1) {
                             r = createRectangleFromDouble(x0, y0, x1, y1, false);
@@ -644,7 +644,8 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                             r = createRectangleFromDouble(x1, y1, x0, y0, false);
                         }
                     }
-                    add(r);
+
+                    performOperation(Operation.ADD, r[0], r[1], r[2], r[3], false);
                 }
             }
 
@@ -661,7 +662,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                     addQuadSegment(ax, bx, cx, ay, by, cy, t0, mid, maxArea);
                     addQuadSegment(ax, bx, cx, ay, by, cy, mid, t1, maxArea);
                 } else {
-                    R r;
+                    N[] r;
                     if (x0 < x1) {
                         if (y0 < y1) {
                             r = createRectangleFromDouble(x0, y0, x1, y1, false);
@@ -675,7 +676,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                             r = createRectangleFromDouble(x1, y1, x0, y0, false);
                         }
                     }
-                    add(r);
+                    performOperation(Operation.ADD, r[0], r[1], r[2], r[3], false);
                 }
             }
 
@@ -692,7 +693,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                     addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, t0, mid, maxArea);
                     addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, mid, t1, maxArea);
                 } else {
-                    R r;
+                    N[] r;
                     if (x0 < x1) {
                         if (y0 < y1) {
                             r = createRectangleFromDouble(x0, y0, x1, y1, false);
@@ -706,12 +707,15 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                             r = createRectangleFromDouble(x1, y1, x0, y0, false);
                         }
                     }
-                    add(r);
+                    performOperation(Operation.ADD, r[0], r[1], r[2], r[3], false);
                 }
             }
         }
 
         new TraceOutline().run();
+
+        // consolidate everything
+        Operation.ADD.finish(rows, null, null);
 
         // step 2: flood fill the interior path/paths
 
@@ -806,8 +810,10 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
      * @param allowZeroDimension if true then the return value can have a zero width or height. If false then the
      *                           return value should have a small width or height so it contains (but does not match)
      *                           the arguments.
+     *
+     * @return the x, y, width and height of a new rectangle
      */
-    protected abstract R createRectangleFromDouble(double x1, double y1, double x2, double y2, boolean allowZeroDimension);
+    protected abstract N[] createRectangleFromDouble(double x1, double y1, double x2, double y2, boolean allowZeroDimension);
 
     protected abstract AbstractRectangleMask<N,R> createMask();
 
