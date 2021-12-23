@@ -546,63 +546,172 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
      */
     public AbstractRectangleMask(N zero, Shape shape, AffineTransform tx, double maxSegmentArea) {
         this(zero);
-
         Objects.requireNonNull(shape);
 
         // step 1: trace the perimeter/outline of the shape:
 
-        MonotonicPathIterator pi = new MonotonicPathIterator(new ClosedPathIterator(shape.getPathIterator(tx)));
-        double lastX = 0;
-        double lastY = 0;
-        double[] coords = new double[6];
+        class TraceOutline {
+            public void run() {
+                MonotonicPathIterator pi = new MonotonicPathIterator(new ClosedPathIterator(shape.getPathIterator(tx)));
+                double lastX = 0;
+                double lastY = 0;
+                double[] coords = new double[6];
 
-        Line2D.Double line = new Line2D.Double();
-        QuadCurve2D.Double quad = new QuadCurve2D.Double();
-        CubicCurve2D.Double cubic = new CubicCurve2D.Double();
+                while (!pi.isDone()) {
+                    int k = pi.currentSegment(coords);
 
-        double x1 = 0;
-        double y1 = 0;
+                    Shape currentSegment = null;
 
-        while(!pi.isDone()) {
-            int k = pi.currentSegment(coords);
+                    switch (k) {
+                        case PathIterator.SEG_MOVETO:
+                            lastX = coords[0];
+                            lastY = coords[1];
+                            break;
+                        case PathIterator.SEG_LINETO:
+                            {
+                                double ax = -lastX + coords[0];
+                                double bx = lastX;
+                                double ay = -lastY + coords[1];
+                                double by = lastY;
 
-            Shape currentSegment = null;
+                                addLineSegment(ax, bx, ay, by, 0, 1, maxSegmentArea);
+                            }
+                            lastX = coords[0];
+                            lastY = coords[1];
 
-            switch(k) {
-                case PathIterator.SEG_MOVETO:
-                    x1 = coords[0];
-                    y1 = coords[1];
-                    break;
-                case PathIterator.SEG_LINETO:
-                    x1 = coords[0];
-                    y1 = coords[1];
-                    line.setLine(lastX, lastY, x1, y1);
-                    currentSegment = line;
-                    break;
-                case PathIterator.SEG_QUADTO:
-                    x1 = coords[2];
-                    y1 = coords[3];
-                    quad.setCurve(lastX, lastY, coords[0], coords[1], x1, y1);
-                    currentSegment = quad;
-                    break;
-                case PathIterator.SEG_CUBICTO:
-                    x1 = coords[4];
-                    y1 = coords[5];
-                    cubic.setCurve(lastX, lastY, coords[0], coords[1], coords[2], coords[3], x1, y1);
-                    currentSegment = cubic;
-                    break;
+                            break;
+                        case PathIterator.SEG_QUADTO:
+                            {
+                                double ax = lastX - 2 * coords[0] + coords[2];
+                                double bx = -2 * lastX + 2 * coords[0];
+                                double cx = lastX;
+                                double ay = lastY - 2 * coords[1] + coords[3];
+                                double by = -2 * lastY + 2 * coords[1];
+                                double cy = lastY;
+
+                                addQuadSegment(ax, bx, cx, ay, by, cy, 0, 1, maxSegmentArea);
+                            }
+                            lastX = coords[2];
+                            lastY = coords[3];
+
+                            break;
+                        case PathIterator.SEG_CUBICTO:
+                            {
+                                double ax = -lastX + 3 * coords[0] - 3 * coords[2] + coords[4];
+                                double bx = 3 * lastX - 6 * coords[0] + 3 * coords[2];
+                                double cx = -3 * lastX + 3 * coords[0];
+                                double dx = lastX;
+                                double ay = -lastY + 3 * coords[1] - 3 * coords[3] + coords[5];
+                                double by = 3 * lastY - 6 * coords[1] + 3 * coords[3];
+                                double cy = -3 * lastY + 3 * coords[1];
+                                double dy = lastY;
+
+                                addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, 0, 1, maxSegmentArea);
+                            }
+                            lastX = coords[4];
+                            lastY = coords[5];
+
+                            break;
+                    }
+                    pi.next();
+                }
             }
 
-            if (currentSegment != null) {
-                addShapeSegmentOutline(currentSegment, maxSegmentArea);
+            private void addLineSegment(double ax, double bx, double ay, double by, double t0, double t1, double maxArea) {
+                double x0 = ax * t0 + bx;
+                double x1 = ax * t1 + bx;
+                double y0 = ay * t0 + by;
+                double y1 = ay * t1 + by;
+
+                double area = (x1 - x0) * (y1 - y0);
+                if (area < 0) area = -area;
+                if (area > maxArea) {
+                    double mid = (t0 + t1) / 2.0;
+                    addLineSegment(ax, bx, ay, by, t0, mid, maxArea);
+                    addLineSegment(ax, bx, ay, by, mid, t1, maxArea);
+                } else {
+                    R r;
+                    if (x0 < x1) {
+                        if (y0 < y1) {
+                            r = createRectangleFromDouble(x0, y0, x1, y1, false);
+                        } else {
+                            r = createRectangleFromDouble(x0, y1, x1, y0, false);
+                        }
+                    } else {
+                        if (y0 < y1) {
+                            r = createRectangleFromDouble(x1, y0, x0, y1, false);
+                        } else {
+                            r = createRectangleFromDouble(x1, y1, x0, y0, false);
+                        }
+                    }
+                    add(r);
+                }
             }
 
-            lastX = x1;
-            lastY = y1;
+            private void addQuadSegment(double ax, double bx, double cx, double ay, double by, double cy, double t0, double t1, double maxArea) {
+                double x0 = (ax * t0 + bx) * t0 + cx;
+                double x1 = (ax * t1 + bx) * t1 + cx;
+                double y0 = (ay * t0 + by) * t0 + cy;
+                double y1 = (ay * t1 + by) * t1 + cy;
 
+                double area = (x1 - x0) * (y1 - y0);
+                if (area < 0) area = -area;
+                if (area > maxArea) {
+                    double mid = (t0 + t1) / 2.0;
+                    addQuadSegment(ax, bx, cx, ay, by, cy, t0, mid, maxArea);
+                    addQuadSegment(ax, bx, cx, ay, by, cy, mid, t1, maxArea);
+                } else {
+                    R r;
+                    if (x0 < x1) {
+                        if (y0 < y1) {
+                            r = createRectangleFromDouble(x0, y0, x1, y1, false);
+                        } else {
+                            r = createRectangleFromDouble(x0, y1, x1, y0, false);
+                        }
+                    } else {
+                        if (y0 < y1) {
+                            r = createRectangleFromDouble(x1, y0, x0, y1, false);
+                        } else {
+                            r = createRectangleFromDouble(x1, y1, x0, y0, false);
+                        }
+                    }
+                    add(r);
+                }
+            }
 
-            pi.next();
+            private void addCubicSegment(double ax, double bx, double cx, double dx, double ay, double by, double cy, double dy, double t0, double t1, double maxArea) {
+                double x0 = ((ax * t0 + bx) * t0 + cx) * t0 + dx;
+                double x1 = ((ax * t1 + bx) * t1 + cx) * t1 + dx;
+                double y0 = ((ay * t0 + by) * t0 + cy) * t0 + dy;
+                double y1 = ((ay * t1 + by) * t1 + cy) * t1 + dy;
+
+                double area = (x1 - x0) * (y1 - y0);
+                if (area < 0) area = -area;
+                if (area > maxArea) {
+                    double mid = (t0 + t1) / 2.0;
+                    addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, t0, mid, maxArea);
+                    addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, mid, t1, maxArea);
+                } else {
+                    R r;
+                    if (x0 < x1) {
+                        if (y0 < y1) {
+                            r = createRectangleFromDouble(x0, y0, x1, y1, false);
+                        } else {
+                            r = createRectangleFromDouble(x0, y1, x1, y0, false);
+                        }
+                    } else {
+                        if (y0 < y1) {
+                            r = createRectangleFromDouble(x1, y0, x0, y1, false);
+                        } else {
+                            r = createRectangleFromDouble(x1, y1, x0, y0, false);
+                        }
+                    }
+                    add(r);
+                }
+            }
         }
+
+        new TraceOutline().run();
 
         // step 2: flood fill the interior path/paths
 
@@ -692,58 +801,6 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
     }
 
     protected abstract double midpoint(N v1, N v2);
-
-    private void addShapeSegmentOutline(Shape segment, double maxArea) {
-        double area;
-        double x1, x2, y1, y2;
-        if (segment instanceof Line2D.Double) {
-            Line2D.Double l = (Line2D.Double) segment;
-            x1 = l.x1;
-            y1 = l.y1;
-            x2 = l.x2;
-            y2 = l.y2;
-        } else if (segment instanceof QuadCurve2D.Double) {
-            QuadCurve2D.Double q = (QuadCurve2D.Double) segment;
-            x1 = q.x1;
-            y1 = q.y1;
-            x2 = q.x2;
-            y2 = q.y2;
-        } else if (segment instanceof CubicCurve2D.Double) {
-            CubicCurve2D.Double c = (CubicCurve2D.Double) segment;
-            x1 = c.x1;
-            y1 = c.y1;
-            x2 = c.x2;
-            y2 = c.y2;
-        } else {
-            // this is a private method that should only be called with one of the three shape types listed above
-            throw new IllegalStateException(segment.getClass().getName());
-        }
-        area = (x2 - x1) * (y2 - y1);
-        if (area < 0) area = -area;
-        if (area > maxArea) {
-            if (segment instanceof Line2D.Double) {
-                Line2D.Double l = (Line2D.Double) segment;
-                addShapeSegmentOutline( ShapeUtils.splitLine(l, 0, .5), maxArea);
-                addShapeSegmentOutline( ShapeUtils.splitLine(l, .5, 1), maxArea);
-            } else if (segment instanceof QuadCurve2D.Double) {
-                QuadCurve2D.Double q = (QuadCurve2D.Double) segment;
-                addShapeSegmentOutline( ShapeUtils.splitQuadraticCurve(q, 0, .5), maxArea);
-                addShapeSegmentOutline( ShapeUtils.splitQuadraticCurve(q, .5, 1), maxArea);
-            } else if (segment instanceof CubicCurve2D.Double) {
-                CubicCurve2D.Double c = (CubicCurve2D.Double) segment;
-                addShapeSegmentOutline( ShapeUtils.splitCubicCurve(c, 0, .5), maxArea);
-                addShapeSegmentOutline( ShapeUtils.splitCubicCurve(c, .5, 1), maxArea);
-            }
-        } else {
-            R r = createRectangleFromDouble(
-                    Math.min(x1, x2),
-                    Math.min(y1, y2),
-                    Math.max(x1, x2),
-                    Math.max(y1, y2),
-                    false);
-            add(r);
-        }
-    }
 
     /**
      * @param allowZeroDimension if true then the return value can have a zero width or height. If false then the
