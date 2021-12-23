@@ -538,16 +538,20 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
     // TODO: implement PathIterator
 
     /**
+     * @param shape the shape to create a mask of
+     * @param tx the optional AffineTransform to apply to the shape
      * @param maxSegmentArea the maximum area (width * height) of each segment's bounds. The smaller this value
      *                       is the more each segment will be partitioned into subsegments. Finer details lead to
      *                       greater accuracy and a larger data structure.
      */
-    public boolean add(Shape shape, double maxSegmentArea) {
+    public AbstractRectangleMask(N zero, Shape shape, AffineTransform tx, double maxSegmentArea) {
+        this(zero);
 
-        // TODO: write helper class to consolidate this cluster of methods?
+        Objects.requireNonNull(shape);
 
-        AbstractRectangleMask<N, R> other = createMask();
-        MonotonicPathIterator pi = new MonotonicPathIterator(new ClosedPathIterator(shape.getPathIterator(null)));
+        // step 1: trace the perimeter/outline of the shape:
+
+        MonotonicPathIterator pi = new MonotonicPathIterator(new ClosedPathIterator(shape.getPathIterator(tx)));
         double lastX = 0;
         double lastY = 0;
         double[] coords = new double[6];
@@ -590,7 +594,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
             }
 
             if (currentSegment != null) {
-                add_shapeSegment(currentSegment, other, maxSegmentArea);
+                addShapeSegmentOutline(currentSegment, maxSegmentArea);
             }
 
             lastX = x1;
@@ -600,48 +604,96 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
             pi.next();
         }
 
-        other.fillShape(shape);
+        // step 2: flood fill the interior path/paths
 
-        return add(other);
-    }
+        class FloodFill {
 
-    private void fillShape(Shape shape) {
+            AffineTransform inverseT = null;
+            Point2D p = new Point2D.Double();
 
-        // TODO: implement smarter flood fill based on previous row -- try to minimize calling shape.contains(x,y)
-        Map.Entry<N, NumberLineMask<N>> lastEntry = null;
-        for(Map.Entry<N, NumberLineMask<N>> entry : rows.entrySet()) {
-            if (lastEntry != null) {
-                double y = midpoint(entry.getKey(), lastEntry.getKey());
-
-                NumberLineMask<N> row = lastEntry.getValue();
-
-                boolean scan = true;
-                while (scan) {
-                    scan = false;
-
-                    Range<N> lastRange = null;
-                    for (Range<N> range : row.getRanges()) {
-                        if (lastRange != null) {
-                            double x = midpoint(lastRange.max, range.min);
-                            if (shape.contains(x, y)) {
-                                row.add(lastRange.max, range.min);
-                                scan = true;
-                                break;
-                            }
-                        }
-
-                        lastRange = range;
-                    }
+            {
+                try {
+                    inverseT = tx == null ? null : tx.createInverse();
+                } catch(Throwable t) {
+                    throw new RuntimeException(t);
                 }
             }
 
-            lastEntry = entry;
+            public void run() {
+                Map.Entry<N, NumberLineMask<N>> lastEntry = null;
+                for(Map.Entry<N, NumberLineMask<N>> entry : rows.entrySet()) {
+                    if (lastEntry != null) {
+                        fill(lastEntry.getKey(), entry.getKey(), lastEntry.getValue());
+                    }
+
+                    lastEntry = entry;
+                }
+            }
+
+            NumberLineMask<N> prevFillMask = null;
+            NumberLineMask<N> prevEmptyMask = null;
+            private void fill(N y1, N y2, NumberLineMask<N> horizMask) {
+                double y = midpoint(y1, y2);
+
+                NumberLineMask<N> currentFillMask = new NumberLineMask<>();
+                NumberLineMask<N> currentEmptyMask = new NumberLineMask<>();
+
+                if (prevFillMask != null) {
+                    // if our unfilled segments intersect the filled/unfilled info from the previous row,
+                    // that can inform how we flood-fill without having to call shape#contains(..)
+                    Range<N>[] ranges = horizMask.getRanges();
+                    for(int a = 1; a < ranges.length; a++) {
+                        N x1 = ranges[a - 1].max;
+                        N x2 = ranges[a].min;
+                        if (prevFillMask.contains(x1, x2)) {
+                            currentFillMask.add(x1, x2);
+                            horizMask.add(x1, x2);
+                        }
+                        if (prevEmptyMask.contains(x1, x2)) {
+                            currentEmptyMask.add(x1, x2);
+                        }
+                    }
+                }
+
+                Range<N>[] ranges = horizMask.getRanges();
+                for(int a = 1; a < ranges.length; a++) {
+                    N x1 = ranges[a-1].max;
+                    N x2 = ranges[a].min;
+
+                    // we already figured out this must be an empty zone
+                    if (currentEmptyMask.intersects(x1, x2))
+                        continue;
+
+                    // ... and [x1,x2) won't be in currentFillMask or horizMask, because the
+                    // range [x1, x2) is by definition a gap in those number line masks
+
+                    double x = midpoint(x1, x2);
+                    p.setLocation(x, y);
+                    if (inverseT != null)
+                        inverseT.transform(p, p);
+
+                    // the call to shape.contains(Point2D) is probably our most
+                    // expensive call here:
+
+                    if (shape.contains(p)) {
+                        currentFillMask.add(x1, x2);
+                        horizMask.add(x1, x2);
+                    } else {
+                        currentEmptyMask.add(x1, x2);
+                    }
+                }
+
+                prevFillMask = currentFillMask;
+                prevEmptyMask = currentEmptyMask;
+            }
         }
+
+        new FloodFill().run();
     }
 
     protected abstract double midpoint(N v1, N v2);
 
-    private void add_shapeSegment(Shape segment, AbstractRectangleMask<N,R> mask, double maxArea) {
+    private void addShapeSegmentOutline(Shape segment, double maxArea) {
         double area;
         double x1, x2, y1, y2;
         if (segment instanceof Line2D.Double) {
@@ -671,16 +723,16 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
         if (area > maxArea) {
             if (segment instanceof Line2D.Double) {
                 Line2D.Double l = (Line2D.Double) segment;
-                add_shapeSegment( ShapeUtils.splitLine(l, 0, .5), mask, maxArea);
-                add_shapeSegment( ShapeUtils.splitLine(l, .5, 1), mask, maxArea);
+                addShapeSegmentOutline( ShapeUtils.splitLine(l, 0, .5), maxArea);
+                addShapeSegmentOutline( ShapeUtils.splitLine(l, .5, 1), maxArea);
             } else if (segment instanceof QuadCurve2D.Double) {
                 QuadCurve2D.Double q = (QuadCurve2D.Double) segment;
-                add_shapeSegment( ShapeUtils.splitQuadraticCurve(q, 0, .5), mask, maxArea);
-                add_shapeSegment( ShapeUtils.splitQuadraticCurve(q, .5, 1), mask, maxArea);
+                addShapeSegmentOutline( ShapeUtils.splitQuadraticCurve(q, 0, .5), maxArea);
+                addShapeSegmentOutline( ShapeUtils.splitQuadraticCurve(q, .5, 1), maxArea);
             } else if (segment instanceof CubicCurve2D.Double) {
                 CubicCurve2D.Double c = (CubicCurve2D.Double) segment;
-                add_shapeSegment( ShapeUtils.splitCubicCurve(c, 0, .5), mask, maxArea);
-                add_shapeSegment( ShapeUtils.splitCubicCurve(c, .5, 1), mask, maxArea);
+                addShapeSegmentOutline( ShapeUtils.splitCubicCurve(c, 0, .5), maxArea);
+                addShapeSegmentOutline( ShapeUtils.splitCubicCurve(c, .5, 1), maxArea);
             }
         } else {
             R r = createRectangleFromDouble(
@@ -689,7 +741,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                     Math.max(x1, x2),
                     Math.max(y1, y2),
                     false);
-            mask.add(r);
+            add(r);
         }
     }
 

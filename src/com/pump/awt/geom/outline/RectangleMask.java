@@ -1,6 +1,7 @@
 package com.pump.awt.geom.outline;
 
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 
 /**
@@ -19,6 +20,17 @@ public class RectangleMask extends AbstractRectangleMask<Integer, Rectangle> {
     public RectangleMask(int x, int y, int width, int height) {
         super(0);
         add(x, y, width, height);
+    }
+
+    /**
+     * @param shape the shape to create a mask of
+     * @param tx the optional AffineTransform to apply to the shape
+     * @param maxSegmentArea the maximum area (width * height) of each segment's bounds. The smaller this value
+     *                       is the more each segment will be partitioned into subsegments. Finer details lead to
+     *                       greater accuracy and a larger data structure.
+     */
+    public RectangleMask(Shape shape, AffineTransform tx, int maxSegmentArea) {
+        super(0, shape, tx, maxSegmentArea);
     }
 
     @Override
