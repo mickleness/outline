@@ -208,18 +208,18 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
     public abstract boolean clip(R r);
 
     public boolean add(N x, N y, N width, N height) {
-        return performOperation(Operation.ADD, x, y, width, height, true);
+        return performOperation_widthHeight(Operation.ADD, x, y, width, height, true);
     }
 
     public boolean subtract(N x, N y, N width, N height) {
-        return performOperation(Operation.SUBTRACT, x, y, width, height, true);
+        return performOperation_widthHeight(Operation.SUBTRACT, x, y, width, height, true);
     }
 
     public boolean clip(N x, N y, N width, N height) {
-        return performOperation(Operation.CLIP, x, y, width, height, true);
+        return performOperation_widthHeight(Operation.CLIP, x, y, width, height, true);
     }
 
-    protected boolean performOperation(Operation op, N x, N y, N width, N height, boolean executeFinishHook) {
+    protected boolean performOperation_widthHeight(Operation op, N x, N y, N width, N height, boolean executeFinishHook) {
         if (width.compareTo(zero) < 0 || height.compareTo(zero) < 0)
             throw new IllegalArgumentException("x = "+x+", y = "+y+", width = "+width+", y = "+height);
         if (width.equals(zero) || height.equals(zero))
@@ -227,7 +227,10 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
 
         N y2 = add(y, height);
         N x2 = add(x, width);
+        return performOperation_edges(op, x, y, x2, y2, executeFinishHook);
+    }
 
+    protected boolean performOperation_edges(Operation op, N x, N y, N x2, N y2, boolean executeFinishHook) {
         ensureRow(y);
         ensureRow(y2);
 
@@ -574,7 +577,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                                 double ay = -lastY + coords[1];
                                 double by = lastY;
 
-                                addLineSegment(ax, bx, ay, by, 0, 1, maxSegmentArea);
+                                addLineSegment(ax, bx, ay, by, 0, 1);
                             }
                             lastX = coords[0];
                             lastY = coords[1];
@@ -589,7 +592,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                                 double by = -2 * lastY + 2 * coords[1];
                                 double cy = lastY;
 
-                                addQuadSegment(ax, bx, cx, ay, by, cy, 0, 1, maxSegmentArea);
+                                addQuadSegment(ax, bx, cx, ay, by, cy, 0, 1);
                             }
                             lastX = coords[2];
                             lastY = coords[3];
@@ -606,7 +609,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                                 double cy = -3 * lastY + 3 * coords[1];
                                 double dy = lastY;
 
-                                addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, 0, 1, maxSegmentArea);
+                                addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, 0, 1);
                             }
                             lastX = coords[4];
                             lastY = coords[5];
@@ -617,19 +620,23 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                 }
             }
 
-            private void addLineSegment(double ax, double bx, double ay, double by, double t0, double t1, double maxArea) {
-                double x0 = ax * t0 + bx;
-                double x1 = ax * t1 + bx;
-                double y0 = ay * t0 + by;
-                double y1 = ay * t1 + by;
+            private void addLineSegment(double ax, double bx, double ay, double by, double t0, double t1) {
+                double x0 = ax * t0;
+                double x1 = ax * t1;
+                double y0 = ay * t0;
+                double y1 = ay * t1;
 
                 double area = (x1 - x0) * (y1 - y0);
                 if (area < 0) area = -area;
-                if (area > maxArea) {
+                if (area > maxSegmentArea) {
                     double mid = (t0 + t1) / 2.0;
-                    addLineSegment(ax, bx, ay, by, t0, mid, maxArea);
-                    addLineSegment(ax, bx, ay, by, mid, t1, maxArea);
+                    addLineSegment(ax, bx, ay, by, t0, mid);
+                    addLineSegment(ax, bx, ay, by, mid, t1);
                 } else {
+                    x0 += bx;
+                    x1 += bx;
+                    y0 += by;
+                    y1 += by;
                     N[] r;
                     if (x0 < x1) {
                         if (y0 < y1) {
@@ -645,23 +652,28 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                         }
                     }
 
-                    performOperation(Operation.ADD, r[0], r[1], r[2], r[3], false);
+                    performOperation_edges(Operation.ADD, r[0], r[1], r[2], r[3], false);
                 }
             }
 
-            private void addQuadSegment(double ax, double bx, double cx, double ay, double by, double cy, double t0, double t1, double maxArea) {
-                double x0 = (ax * t0 + bx) * t0 + cx;
-                double x1 = (ax * t1 + bx) * t1 + cx;
-                double y0 = (ay * t0 + by) * t0 + cy;
-                double y1 = (ay * t1 + by) * t1 + cy;
+            private void addQuadSegment(double ax, double bx, double cx, double ay, double by, double cy, double t0, double t1) {
+                double x0 = (ax * t0 + bx) * t0;
+                double x1 = (ax * t1 + bx) * t1;
+                double y0 = (ay * t0 + by) * t0;
+                double y1 = (ay * t1 + by) * t1;
 
                 double area = (x1 - x0) * (y1 - y0);
                 if (area < 0) area = -area;
-                if (area > maxArea) {
+                if (area > maxSegmentArea) {
                     double mid = (t0 + t1) / 2.0;
-                    addQuadSegment(ax, bx, cx, ay, by, cy, t0, mid, maxArea);
-                    addQuadSegment(ax, bx, cx, ay, by, cy, mid, t1, maxArea);
+                    addQuadSegment(ax, bx, cx, ay, by, cy, t0, mid);
+                    addQuadSegment(ax, bx, cx, ay, by, cy, mid, t1);
                 } else {
+                    x0 += cx;
+                    x1 += cx;
+                    y0 += cy;
+                    y1 += cy;
+
                     N[] r;
                     if (x0 < x1) {
                         if (y0 < y1) {
@@ -676,23 +688,28 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                             r = createRectangleFromDouble(x1, y1, x0, y0, false);
                         }
                     }
-                    performOperation(Operation.ADD, r[0], r[1], r[2], r[3], false);
+                    performOperation_edges(Operation.ADD, r[0], r[1], r[2], r[3], false);
                 }
             }
 
-            private void addCubicSegment(double ax, double bx, double cx, double dx, double ay, double by, double cy, double dy, double t0, double t1, double maxArea) {
-                double x0 = ((ax * t0 + bx) * t0 + cx) * t0 + dx;
-                double x1 = ((ax * t1 + bx) * t1 + cx) * t1 + dx;
-                double y0 = ((ay * t0 + by) * t0 + cy) * t0 + dy;
-                double y1 = ((ay * t1 + by) * t1 + cy) * t1 + dy;
+            private void addCubicSegment(double ax, double bx, double cx, double dx, double ay, double by, double cy, double dy, double t0, double t1) {
+                double x0 = ((ax * t0 + bx) * t0 + cx) * t0;
+                double x1 = ((ax * t1 + bx) * t1 + cx) * t1;
+                double y0 = ((ay * t0 + by) * t0 + cy) * t0;
+                double y1 = ((ay * t1 + by) * t1 + cy) * t1;
 
                 double area = (x1 - x0) * (y1 - y0);
                 if (area < 0) area = -area;
-                if (area > maxArea) {
+                if (area > maxSegmentArea) {
                     double mid = (t0 + t1) / 2.0;
-                    addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, t0, mid, maxArea);
-                    addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, mid, t1, maxArea);
+                    addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, t0, mid);
+                    addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, mid, t1);
                 } else {
+                    x0 += dx;
+                    x1 += dx;
+                    y0 += dy;
+                    y1 += dy;
+
                     N[] r;
                     if (x0 < x1) {
                         if (y0 < y1) {
@@ -707,7 +724,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                             r = createRectangleFromDouble(x1, y1, x0, y0, false);
                         }
                     }
-                    performOperation(Operation.ADD, r[0], r[1], r[2], r[3], false);
+                    performOperation_edges(Operation.ADD, r[0], r[1], r[2], r[3], false);
                 }
             }
         }
@@ -758,11 +775,11 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
                     for(int a = 1; a < ranges.length; a++) {
                         N x1 = ranges[a - 1].max;
                         N x2 = ranges[a].min;
-                        if (prevFillMask.contains(x1, x2)) {
+                        if (prevFillMask.intersects(x1, x2)) {
                             currentFillMask.add(x1, x2);
                             horizMask.add(x1, x2);
                         }
-                        if (prevEmptyMask.contains(x1, x2)) {
+                        if (prevEmptyMask.intersects(x1, x2)) {
                             currentEmptyMask.add(x1, x2);
                         }
                     }
@@ -811,7 +828,7 @@ public abstract class AbstractRectangleMask<N extends Comparable, R extends Rect
      *                           return value should have a small width or height so it contains (but does not match)
      *                           the arguments.
      *
-     * @return the x, y, width and height of a new rectangle
+     * @return the x1, y1, x2 and y2 of a new rectangle
      */
     protected abstract N[] createRectangleFromDouble(double x1, double y1, double x2, double y2, boolean allowZeroDimension);
 
