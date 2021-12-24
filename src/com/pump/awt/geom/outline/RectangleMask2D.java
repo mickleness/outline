@@ -87,13 +87,11 @@ public class RectangleMask2D extends AbstractRectangleMask<Double, Rectangle2D.D
     protected Double[] createRectangleFromDouble(double x1, double y1, double x2, double y2, boolean allowZeroDimension) {
         double w, h;
         if (allowZeroDimension) {
-            w = x2 - x1;
-            h = y2 - y1;
-        } else {
-            w = Math.max(x2 - x1, .0000000001);
-            h = Math.max(y2 - y1, .0000000001);
+            return new Double[] {x1, y1, x2, y2};
         }
-        return new Double[] {x1, y1, w, h};
+        w = Math.max(x2 - x1, .0000000001);
+        h = Math.max(y2 - y1, .0000000001);
+        return new Double[] {x1, y1, x1 + w, y1 + h};
     }
 
     @Override

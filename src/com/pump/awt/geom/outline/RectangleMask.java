@@ -100,7 +100,7 @@ public class RectangleMask extends AbstractRectangleMask<Integer, Rectangle> {
             r.width = Math.max(1, r.width);
             r.height = Math.max(1, r.height);
         }
-        return new Integer[] {r.x, r.y, r.width, r.height};
+        return new Integer[] {r.x, r.y, r.x + r.width, r.y + r.height};
     }
 
     @Override
