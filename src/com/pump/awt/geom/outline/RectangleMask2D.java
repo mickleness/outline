@@ -9,6 +9,8 @@ import java.awt.geom.Rectangle2D;
  */
 public class RectangleMask2D extends AbstractRectangleMask<Double, Rectangle2D.Double> {
 
+    // TODO: rewrite to match RectangleMask, maybe setup .template file
+
     public RectangleMask2D() {
         super(0.0);
     }

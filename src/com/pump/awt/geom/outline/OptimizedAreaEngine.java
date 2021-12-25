@@ -13,6 +13,9 @@ import java.util.concurrent.*;
 
 public class OptimizedAreaEngine implements OutlineEngine {
 
+    // TODO: make this sit on top of delegate OutlineEngine
+    // TODO: intercept shapes and replace quad/cubic segments if they live in dest
+
     /**
      * This OutlineOperation collects a little metadata about the shape operand
      */
@@ -203,8 +206,10 @@ public class OptimizedAreaEngine implements OutlineEngine {
             if (type == OutlineOperation.Type.ADD) {
                 result = flushAdds(result, operationsRun);
             } else {
+                // TODO: optimize other ops like how we optimized adds above
                 for (OptimizedOutlineOperation op : operationsRun) {
                     if (type == OutlineOperation.Type.INTERSECT) {
+                        // TODO: apply Clipper, or other clipping algorithm
                         if (result != null)
                             result.intersect(new Area(op.shape));
                     } else if (type == OutlineOperation.Type.XOR) {
