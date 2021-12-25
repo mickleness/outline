@@ -1,33 +1,33 @@
 This table shows how long it takes to create an outline of clip art using different models.
 
 PlainAreaEngine	OptimizedAreaEngine	OptimizedAreaEngine[ workerThreadCount = 4]	ScaledMaskOutlineEngine[ resolution = 2.0]	ScaledMaskOutlineEngine[ resolution = 4.0]	Clip Art Name
-172	74	51	212	230	Broccoli
-451	269	160	323	711	Cat5
-355	159	101	341	742	CelticKnot5 x 10
-338	209	210	197	468	EasterEgg x 4
-573	219	139	211	406	ExitSign
-1767	1407	1156	122	247	GardenSign
-66314	18811	5451	138	280	GiftBox
-170	175	150	705	1352	Globe3 x 5
-24476	4020	2138	598	1118	IceCream12
-1420	1138	1139	7146	9007	JackOLantern x 50
-1375	956	899	867	1920	JohnLemon x 50
-186	151	129	101	193	MotherAndBaby
-196	113	131	1481	3421	MRIMachine x 100
-120	86	61	270	558	MysteriousCube
-1079	832	743	10907	21752	OrangeJuice x 100
-284	149	121	311	647	PersonAtComputer x 5
-254	128	129	646	1217	RockingChair x 5
-310	159	158	370	796	RunningDogRetro x 5
-120	80	69	1267	2581	RussianBulldozer x 10
-274	152	132	601	1278	Salad x 4
-996	71	91	1506	3516	ShareRoadSign x 100
-958	703	596	2475	5597	SpaceTravel x 50
-225	276	262	2491	5184	StackOfBooks4 x 10
-92	37	25	194	396	Stew
-657	312	210	212	460	Students
-278	274	277	2553	6305	TeleworkGuy x 100
-313	212	148	121	226	WellDressedOwl
+365	85	56	308	345	Broccoli
+596	346	237	426	1157	Cat5
+480	217	150	468	1076	CelticKnot5 x 10
+477	243	318	258	597	EasterEgg x 4
+841	344	215	313	475	ExitSign
+2588	2002	1696	177	402	GardenSign
+61644	14385	5071	154	310	GiftBox
+168	164	200	643	1333	Globe3 x 5
+23702	4720	1924	506	1186	IceCream12
+1438	1390	1506	6686	13522	JackOLantern x 50
+1880	1164	1229	1304	3232	JohnLemon x 50
+282	202	194	153	338	MotherAndBaby
+242	147	170	2036	4789	MRIMachine x 100
+148	99	101	511	787	MysteriousCube
+1417	1057	993	15772	32171	OrangeJuice x 100
+344	176	213	486	979	PersonAtComputer x 5
+361	161	198	1329	1921	RockingChair x 5
+388	246	247	574	1088	RunningDogRetro x 5
+162	157	97	2043	4216	RussianBulldozer x 10
+352	180	156	803	2069	Salad x 4
+1401	106	149	2188	5285	ShareRoadSign x 100
+1403	1058	857	3815	8114	SpaceTravel x 50
+280	384	352	3593	7646	StackOfBooks4 x 10
+96	38	27	262	545	Stew
+953	428	297	292	669	Students
+373	351	367	3613	9584	TeleworkGuy x 100
+532	354	212	186	329	WellDressedOwl
 
 Summary execution times:
 103753	31172	14876	36366	70608	

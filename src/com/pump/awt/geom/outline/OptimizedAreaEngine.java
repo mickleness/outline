@@ -1,11 +1,11 @@
 package com.pump.awt.geom.outline;
 
 import com.pump.awt.geom.ShapeUtils;
+import com.pump.awt.geom.mask.RectangleMask2D;
 
 import java.awt.*;
 import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
-import java.awt.geom.QuadCurve2D;
 import java.awt.geom.Rectangle2D;
 import java.util.*;
 import java.util.List;

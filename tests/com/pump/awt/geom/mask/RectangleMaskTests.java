@@ -1,15 +1,13 @@
-package com.pump.awt.geom.outline;
+package com.pump.awt.geom.mask;
 
 import com.pump.awt.geom.ShapeUtilsTest;
+import com.pump.awt.geom.mask.RectangleMask;
 import junit.framework.TestCase;
 
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
-import java.awt.geom.PathIterator;
-import java.awt.geom.Rectangle2D;
 import java.util.*;
-import java.util.List;
 
 public class RectangleMaskTests extends TestCase {
 

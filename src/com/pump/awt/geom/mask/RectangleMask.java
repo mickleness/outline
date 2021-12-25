@@ -1,10 +1,8 @@
-package com.pump.awt.geom.outline;
+package com.pump.awt.geom.mask;
 
 import com.pump.awt.geom.ClosedPathIterator;
 import com.pump.awt.geom.MonotonicPathIterator;
 import com.pump.math.NumberLineIntegerMask;
-import com.pump.math.NumberLineMask;
-import com.pump.util.Range;
 import com.pump.util.RangeInteger;
 
 import java.awt.*;

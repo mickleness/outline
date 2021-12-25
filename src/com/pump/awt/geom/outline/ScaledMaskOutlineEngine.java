@@ -1,16 +1,9 @@
 package com.pump.awt.geom.outline;
 
-import com.pump.awt.geom.ClosedPathIterator;
-import com.pump.awt.geom.ShapeUtils;
+import com.pump.awt.geom.mask.RectangleMask;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.PathIterator;
-import java.awt.geom.Point2D;
-import java.awt.geom.Rectangle2D;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedList;
 import java.util.List;
 
 /**

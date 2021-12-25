@@ -240,7 +240,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                 public void run() {
                     while (true) {
                         int nextSample = ctr.getAndIncrement();
-                        if (nextSample >= 100_000_000)
+                        if (nextSample >= 10_000)
                             return;
 
                         long time = System.currentTimeMillis();

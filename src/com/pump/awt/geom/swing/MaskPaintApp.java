@@ -1,17 +1,13 @@
 package com.pump.awt.geom.swing;
 
-import com.pump.awt.geom.outline.RectangleMask;
-import com.pump.awt.geom.outline.RectangleMask2D;
+import com.pump.awt.geom.mask.RectangleMask;
 
 import javax.swing.*;
 import javax.swing.event.MouseInputAdapter;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Area;
 import java.awt.geom.Line2D;
-import java.awt.geom.Rectangle2D;
-import java.util.Iterator;
 
 public class MaskPaintApp extends JFrame {
     public static void main(String[] args) {

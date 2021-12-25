@@ -1,4 +1,4 @@
-package com.pump.awt.geom.outline;
+package com.pump.awt.geom.mask;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
