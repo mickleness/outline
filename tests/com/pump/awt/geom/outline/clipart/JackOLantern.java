@@ -26,7 +26,7 @@ public class JackOLantern implements javax.swing.Icon {
      * Creates a new transcoded SVG image.
      */
     public JackOLantern() {
-        this(3501, 3144);
+        this(1000, 898);
     }
 
     /**
