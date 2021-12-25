@@ -423,10 +423,6 @@ public class RectangleMask implements Shape, Serializable {
         }
 
         new FloodFill().run();
-
-        // TODO: we could set up one extra helper thread so we have two threads.
-        // One modifies this data structure, the other looks ahead and queues up rectangles
-        // to add
     }
 
     public boolean clear() {
