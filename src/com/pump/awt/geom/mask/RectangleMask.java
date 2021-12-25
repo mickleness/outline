@@ -17,83 +17,7 @@ import java.util.List;
 public class RectangleMask implements Shape, Serializable {
 
     enum Operation {
-        ADD, SUBTRACT,
-        CLIP() {
-
-            /**
-             * This operation is unique because it deletes rows above and below the operation.
-             */
-            @Override
-            public <N extends Comparable> boolean finish(TreeMap<Integer, NumberLineIntegerMask> rows, int y1, int y2) {
-                boolean returnValue = false;
-
-                Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter;
-                iter = rows.entrySet().iterator();
-
-                NumberLineIntegerMask prevRowMask = new NumberLineIntegerMask();
-                while (iter.hasNext()) {
-                    Map.Entry<Integer, NumberLineIntegerMask> entry = iter.next();
-                    if (entry.getKey().intValue() < y1 || entry.getKey().intValue() > y2) {
-                        returnValue = true;
-                        iter.remove();
-                    } else if (entry.getKey().compareTo(y2) == 0) {
-                        if (prevRowMask != null && prevRowMask.isEmpty()) {
-                            iter.remove();
-                        } else if (!entry.getValue().isEmpty()) {
-                            entry.getValue().clear();
-                            returnValue = true;
-                        }
-                    } else {
-                        NumberLineIntegerMask currentMask = entry.getValue();
-                        if (currentMask.equals(prevRowMask)) {
-                            iter.remove();
-                        }
-                        prevRowMask = currentMask;
-                    }
-                }
-
-                if (!rows.isEmpty() && !rows.lastEntry().getValue().isEmpty()) {
-                    rows.put(y2, new NumberLineIntegerMask());
-                    returnValue = true;
-                }
-                return returnValue;
-            }
-        };
-
-        public <N extends Comparable> boolean finish(TreeMap<Integer, NumberLineIntegerMask> rows, int y1, int y2) {
-            Integer k1 = rows.floorKey(y1);
-            Integer k2 = rows.ceilingKey(y2);
-
-            if (k1 != null) {
-                k1 = rows.lowerKey(k1);
-            }
-
-            if (k2 != null) {
-                Integer k3 = rows.higherKey(k2);
-                if (k3 != null)
-                    k2 = k3;
-            }
-
-            Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter;
-            if (k1 == null) {
-                iter = rows.entrySet().iterator();
-            } else {
-                iter = rows.subMap(k1, true, k2, true).entrySet().iterator();
-            }
-
-            Map.Entry<Integer, NumberLineIntegerMask> lowerEntry = k1 == null ? null : rows.lowerEntry(k1);
-            NumberLineIntegerMask prevRowMask = lowerEntry == null ? new NumberLineIntegerMask() : lowerEntry.getValue();
-
-            while (iter.hasNext()) {
-                Map.Entry<Integer, NumberLineIntegerMask> entry = iter.next();
-                NumberLineIntegerMask currentMask = entry.getValue();
-                if (currentMask.equals(prevRowMask)) {
-                    iter.remove();
-                }
-                prevRowMask = currentMask;
-            }
-            return false;
-        }
+        ADD, SUBTRACT, CLIP
     }
 
     class MaskIterator implements Iterator<Rectangle> {
@@ -160,6 +84,9 @@ public class RectangleMask implements Shape, Serializable {
 
     protected Rectangle cachedBounds;
 
+    protected int autoCollapseRowSuspensions = 0;
+    protected int[] touchedRows;
+
     public RectangleMask() {
         clear();
     }
@@ -183,6 +110,8 @@ public class RectangleMask implements Shape, Serializable {
     public RectangleMask(Shape shape, AffineTransform tx, double maxSegmentArea) {
         Objects.requireNonNull(shape);
 
+        suspendAutoCollapseRows();
+
         // step 1: trace the perimeter/outline of the shape:
 
         class TraceOutline {
@@ -195,58 +124,53 @@ public class RectangleMask implements Shape, Serializable {
                 while (!pi.isDone()) {
                     int k = pi.currentSegment(coords);
 
-                    Shape currentSegment = null;
-
                     switch (k) {
-                        case PathIterator.SEG_MOVETO:
+                        case PathIterator.SEG_MOVETO -> {
                             lastX = coords[0];
                             lastY = coords[1];
-                            break;
-                        case PathIterator.SEG_LINETO:
-                        {
-                            double ax = -lastX + coords[0];
-                            double bx = lastX;
-                            double ay = -lastY + coords[1];
-                            double by = lastY;
-
-                            addLineSegment(ax, bx, ay, by, 0, 1);
                         }
-                        lastX = coords[0];
-                        lastY = coords[1];
+                        case PathIterator.SEG_LINETO -> {
+                            {
+                                double ax = -lastX + coords[0];
+                                double bx = lastX;
+                                double ay = -lastY + coords[1];
+                                double by = lastY;
 
-                        break;
-                        case PathIterator.SEG_QUADTO:
-                        {
-                            double ax = lastX - 2 * coords[0] + coords[2];
-                            double bx = -2 * lastX + 2 * coords[0];
-                            double cx = lastX;
-                            double ay = lastY - 2 * coords[1] + coords[3];
-                            double by = -2 * lastY + 2 * coords[1];
-                            double cy = lastY;
-
-                            addQuadSegment(ax, bx, cx, ay, by, cy, 0, 1);
+                                addLineSegment(ax, bx, ay, by, 0, 1);
+                            }
+                            lastX = coords[0];
+                            lastY = coords[1];
                         }
-                        lastX = coords[2];
-                        lastY = coords[3];
+                        case PathIterator.SEG_QUADTO -> {
+                            {
+                                double ax = lastX - 2 * coords[0] + coords[2];
+                                double bx = -2 * lastX + 2 * coords[0];
+                                double cx = lastX;
+                                double ay = lastY - 2 * coords[1] + coords[3];
+                                double by = -2 * lastY + 2 * coords[1];
+                                double cy = lastY;
 
-                        break;
-                        case PathIterator.SEG_CUBICTO:
-                        {
-                            double ax = -lastX + 3 * coords[0] - 3 * coords[2] + coords[4];
-                            double bx = 3 * lastX - 6 * coords[0] + 3 * coords[2];
-                            double cx = -3 * lastX + 3 * coords[0];
-                            double dx = lastX;
-                            double ay = -lastY + 3 * coords[1] - 3 * coords[3] + coords[5];
-                            double by = 3 * lastY - 6 * coords[1] + 3 * coords[3];
-                            double cy = -3 * lastY + 3 * coords[1];
-                            double dy = lastY;
-
-                            addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, 0, 1);
+                                addQuadSegment(ax, bx, cx, ay, by, cy, 0, 1);
+                            }
+                            lastX = coords[2];
+                            lastY = coords[3];
                         }
-                        lastX = coords[4];
-                        lastY = coords[5];
+                        case PathIterator.SEG_CUBICTO -> {
+                            {
+                                double ax = -lastX + 3 * coords[0] - 3 * coords[2] + coords[4];
+                                double bx = 3 * lastX - 6 * coords[0] + 3 * coords[2];
+                                double cx = -3 * lastX + 3 * coords[0];
+                                double dx = lastX;
+                                double ay = -lastY + 3 * coords[1] - 3 * coords[3] + coords[5];
+                                double by = 3 * lastY - 6 * coords[1] + 3 * coords[3];
+                                double cy = -3 * lastY + 3 * coords[1];
+                                double dy = lastY;
 
-                        break;
+                                addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, 0, 1);
+                            }
+                            lastX = coords[4];
+                            lastY = coords[5];
+                        }
                     }
                     pi.next();
                 }
@@ -285,7 +209,7 @@ public class RectangleMask implements Shape, Serializable {
                 if (yMin == yMax)
                     yMax++;
 
-                performOperation_edges(Operation.ADD, xMin, yMin, xMax, yMax, false);
+                performOperation(Operation.ADD, xMin, yMin, xMax, yMax);
             }
 
             private void addQuadSegment(double ax, double bx, double cx, double ay, double by, double cy, double t0, double t1) {
@@ -333,14 +257,13 @@ public class RectangleMask implements Shape, Serializable {
 
         new TraceOutline().run();
 
-        // consolidate everything
-        Operation.ADD.finish(rows, rows.firstKey().intValue(), rows.lastKey().intValue());
+        resumeAutoCollapseRows();
 
         // step 2: flood fill the interior path/paths
 
         class FloodFill {
 
-            AffineTransform inverseT = null;
+            final AffineTransform inverseT;
             Point2D p = new Point2D.Double();
 
             {
@@ -449,55 +372,108 @@ public class RectangleMask implements Shape, Serializable {
     }
 
     public boolean add(int x, int y, int width, int height) {
-        return performOperation_widthHeight(Operation.ADD, x, y, width, height, true);
-    }
-
-    public boolean subtract(int x, int y, int width, int height) {
-        return performOperation_widthHeight(Operation.SUBTRACT, x, y, width, height, true);
-    }
-
-    public boolean clip(int x, int y, int width, int height) {
-        return performOperation_widthHeight(Operation.CLIP, x, y, width, height, true);
-    }
-
-    protected boolean performOperation_widthHeight(Operation op, int x, int y, int width, int height, boolean executeFinishHook) {
         if (width < 0 || height < 0)
             throw new IllegalArgumentException("x = "+x+", y = "+y+", width = "+width+", y = "+height);
         if (width == 0 || height == 0)
             return false;
 
-        int y2 = y + height;
-        int x2 = x + width;
-        return performOperation_edges(op, x, y, x2, y2, executeFinishHook);
+        return performOperation(Operation.ADD, x, y, x + width, y + height);
     }
 
-    protected boolean performOperation_edges(Operation op, int x, int y, int x2, int y2, boolean executeFinishHook) {
+    public boolean subtract(int x, int y, int width, int height) {
+        if (width < 0 || height < 0)
+            throw new IllegalArgumentException("x = "+x+", y = "+y+", width = "+width+", y = "+height);
+        if (width == 0 || height == 0)
+            return false;
+
+        return performOperation(Operation.SUBTRACT, x, y, x + width, y + height);
+    }
+
+    public boolean clip(int x, int y, int width, int height) {
+        if (width < 0 || height < 0)
+            throw new IllegalArgumentException("x = "+x+", y = "+y+", width = "+width+", y = "+height);
+        if (width == 0 || height == 0)
+            return false;
+
+        return performOperation(Operation.CLIP, x, y, x + width, y + height);
+    }
+
+    protected boolean performOperation(Operation op, int x, int y, int x2, int y2) {
         ensureRow(y);
         ensureRow(y2);
 
+        if (touchedRows == null) {
+            touchedRows = new int[] {y, y2};
+        } else {
+            touchedRows[0] = Math.min(y, touchedRows[0]);
+            touchedRows[1] = Math.max(y, touchedRows[1]);
+        }
+
+        suspendAutoCollapseRows();
+
+        try {
+            boolean returnValue = false;
+            for (Map.Entry<Integer, NumberLineIntegerMask> entry : rows.tailMap(y).entrySet()) {
+                if (entry.getKey().equals(y2))
+                    break;
+
+                boolean opResults = switch (op) {
+                    case ADD -> entry.getValue().add(x, x2);
+                    case SUBTRACT -> entry.getValue().subtract(x, x2);
+                    case CLIP -> entry.getValue().clip(x, x2);
+                    default -> false;
+                };
+
+                if (opResults)
+                    returnValue = true;
+            }
+
+            if (op == Operation.CLIP)
+                removeRowsAboveAndBelow(y, y2);
+
+            if (returnValue) {
+                modCount++;
+                cachedBounds = null;
+            }
+
+            return returnValue;
+        } finally {
+            resumeAutoCollapseRows();
+        }
+    }
+
+    private boolean removeRowsAboveAndBelow(int y1, int y2) {
         boolean returnValue = false;
-        for(Map.Entry<Integer, NumberLineIntegerMask> entry : rows.tailMap(y).entrySet()) {
-            if (entry.getKey().equals(y2))
-                break;
 
-            boolean opResults = switch (op) {
-                case ADD -> entry.getValue().add(x, x2);
-                case SUBTRACT -> entry.getValue().subtract(x, x2);
-                case CLIP -> entry.getValue().clip(x, x2);
-            };
+        Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter;
+        iter = rows.entrySet().iterator();
 
-            if (opResults)
+        NumberLineIntegerMask prevRowMask = new NumberLineIntegerMask();
+        while (iter.hasNext()) {
+            Map.Entry<Integer, NumberLineIntegerMask> entry = iter.next();
+            if (entry.getKey().intValue() < y1 || entry.getKey().intValue() > y2) {
                 returnValue = true;
+                iter.remove();
+            } else if (entry.getKey().compareTo(y2) == 0) {
+                if (prevRowMask != null && prevRowMask.isEmpty()) {
+                    iter.remove();
+                } else if (!entry.getValue().isEmpty()) {
+                    entry.getValue().clear();
+                    returnValue = true;
+                }
+            } else {
+                NumberLineIntegerMask currentMask = entry.getValue();
+                if (currentMask.equals(prevRowMask)) {
+                    iter.remove();
+                }
+                prevRowMask = currentMask;
+            }
         }
 
-        if (executeFinishHook && op.finish(rows, y, y2))
+        if (!rows.isEmpty() && !rows.lastEntry().getValue().isEmpty()) {
+            rows.put(y2, new NumberLineIntegerMask());
             returnValue = true;
-
-        if (returnValue) {
-            modCount++;
-            cachedBounds = null;
         }
-
         return returnValue;
     }
 
@@ -571,9 +547,7 @@ public class RectangleMask implements Shape, Serializable {
             return false;
         int y2 = y + height;
         int x2 = x + width;
-        Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter = rows.tailMap(floorKey, true).entrySet().iterator();
-        while (iter.hasNext()) {
-            Map.Entry<Integer, NumberLineIntegerMask> entry = iter.next();
+        for (Map.Entry<Integer, NumberLineIntegerMask> entry : rows.tailMap(floorKey, true).entrySet()) {
             if (entry.getKey().compareTo(y2) >= 0)
                 return true;
 
@@ -709,15 +683,19 @@ public class RectangleMask implements Shape, Serializable {
      * @return true if this operation changed this mask.
      */
     public boolean add(RectangleMask mask) {
-        // TODO: suspend auto-collapsing of rows
-        Iterator<Rectangle> iter = mask.iterator();
-        boolean returnValue = false;
-        while(iter.hasNext()) {
-            Rectangle r = iter.next();
-            if (add(r))
-                returnValue = true;
+        suspendAutoCollapseRows();
+        try {
+            Iterator<Rectangle> iter = mask.iterator();
+            boolean returnValue = false;
+            while(iter.hasNext()) {
+                Rectangle r = iter.next();
+                if (add(r))
+                    returnValue = true;
+            }
+            return returnValue;
+        } finally {
+            resumeAutoCollapseRows();
         }
-        return returnValue;
     }
 
     /**
@@ -726,14 +704,19 @@ public class RectangleMask implements Shape, Serializable {
      * @return true if this operation changed this mask.
      */
     public boolean subtract(RectangleMask mask) {
-        Iterator<Rectangle> iter = mask.iterator();
-        boolean returnValue = false;
-        while(iter.hasNext()) {
-            Rectangle r = iter.next();
-            if (subtract(r))
-                returnValue = true;
+        suspendAutoCollapseRows();
+        try {
+            Iterator<Rectangle> iter = mask.iterator();
+            boolean returnValue = false;
+            while (iter.hasNext()) {
+                Rectangle r = iter.next();
+                if (subtract(r))
+                    returnValue = true;
+            }
+            return returnValue;
+        } finally {
+            resumeAutoCollapseRows();
         }
-        return returnValue;
     }
 
     /**
@@ -834,4 +817,67 @@ public class RectangleMask implements Shape, Serializable {
         int y2 = (int) (Math.ceil(y + h));
         return contains( x1, y1, x2 - x1, y2 - y1);
     }
+
+    /**
+     * Avoid calling {@link #collapseRows(int, int)} until every call
+     * to <code>suspendAutoCollapseRows()</code> is matched with a call
+     * to <code>resumeAutoCollapseRows().</code>
+     */
+    protected void suspendAutoCollapseRows() {
+        autoCollapseRowSuspensions++;
+    }
+
+    /**
+     * This must be called after {@link #suspendAutoCollapseRows()} to resume
+     * collapsing rows when appropriate.
+     */
+    protected void resumeAutoCollapseRows() {
+        autoCollapseRowSuspensions--;
+        if (autoCollapseRowSuspensions == 0 && touchedRows != null) {
+            collapseRows(touchedRows[0], touchedRows[1]);
+        }
+        if (autoCollapseRowSuspensions < 0)
+            throw new IllegalStateException("resumeAutoCollapseRows() has been called more times than suspendAutoCollapseRows()");
+    }
+
+    /**
+     * Collapse any possible redundant rows after an operation.
+     *
+     * @param y1 the minimum row that was changed
+     * @param y2 the maximum row that was changed
+     */
+    protected void collapseRows(int y1, int y2) {
+        Integer k1 = rows.floorKey(y1);
+        Integer k2 = rows.ceilingKey(y2);
+
+        if (k1 != null) {
+            k1 = rows.lowerKey(k1);
+        }
+
+        if (k2 != null) {
+            Integer k3 = rows.higherKey(k2);
+            if (k3 != null)
+                k2 = k3;
+        }
+
+        Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter;
+        if (k1 == null) {
+            iter = rows.entrySet().iterator();
+        } else {
+            iter = rows.subMap(k1, true, k2, true).entrySet().iterator();
+        }
+
+        Map.Entry<Integer, NumberLineIntegerMask> lowerEntry = k1 == null ? null : rows.lowerEntry(k1);
+        NumberLineIntegerMask prevRowMask = lowerEntry == null ? new NumberLineIntegerMask() : lowerEntry.getValue();
+
+        while (iter.hasNext()) {
+            Map.Entry<Integer, NumberLineIntegerMask> entry = iter.next();
+            NumberLineIntegerMask currentMask = entry.getValue();
+            if (currentMask.equals(prevRowMask)) {
+                iter.remove();
+            }
+            prevRowMask = currentMask;
+        }
+    }
+
 }
