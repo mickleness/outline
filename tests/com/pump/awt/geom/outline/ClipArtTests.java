@@ -269,7 +269,9 @@ public class ClipArtTests extends OutlineTests {
                 result.setBaseline(engine, lastSum, medianTime);
             } else {
                 result.addEngineTime(engine, medianTime);
-                ShapeUtilsTest.testEquals(clipArt.name, result.baselineShape, lastSum);
+                String expectedName = clipArt.name;
+                String actualName = clipArt.name+"-"+engine.toString();
+                ShapeUtilsTest.testEquals(expectedName, actualName, result.baselineShape, lastSum);
             }
         }
         return result;

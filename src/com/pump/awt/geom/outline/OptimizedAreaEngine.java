@@ -569,7 +569,7 @@ public class OptimizedAreaEngine implements OutlineEngine {
         if (workerThreadCount <= 1) {
             return getClass().getSimpleName();
         } else {
-            return getClass().getSimpleName()+"["+workerThreadCount+"]";
+            return getClass().getSimpleName()+"[ workerThreadCount = "+workerThreadCount+"]";
         }
     }
 }

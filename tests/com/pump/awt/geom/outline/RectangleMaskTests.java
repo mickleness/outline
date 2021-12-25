@@ -474,7 +474,7 @@ public class RectangleMaskTests extends TestCase {
                 }
             }
 
-            ShapeUtilsTest.testEquals(str, path, mask);
+            ShapeUtilsTest.testEquals(str+"-expected", str+"-actual", path, mask);
         }
     }
 }

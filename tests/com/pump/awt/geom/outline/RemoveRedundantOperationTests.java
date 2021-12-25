@@ -44,7 +44,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                     baselineShape = outline;
                 } else {
                     try {
-                        ShapeUtilsTest.testEquals(name, baselineShape, outline);
+                        ShapeUtilsTest.testEquals(name+"-expected", name+"-actual", baselineShape, outline);
                     } catch (RuntimeException | Error e) {
                         System.err.println("engine: " + engine.toString());
                         System.err.println(description);

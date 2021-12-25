@@ -7,7 +7,7 @@ import java.awt.geom.QuadCurve2D;
 /**
  * This represents a path segment used by a PathIterator.
  */
-class PathSegment {
+public class PathSegment {
     int type;
     double[] coords;
 

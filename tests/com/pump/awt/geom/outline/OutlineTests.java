@@ -33,7 +33,11 @@ public abstract class OutlineTests extends TestCase {
     }
 
     public OutlineEngine[] getEngines() {
-        return new OutlineEngine[] { new PlainAreaEngine(), new OptimizedAreaEngine(1), new OptimizedAreaEngine(4) };
+        return new OutlineEngine[] { new PlainAreaEngine(),
+                new OptimizedAreaEngine(1),
+                new OptimizedAreaEngine(4),
+                new ScaledMaskOutlineEngine(2),
+                new ScaledMaskOutlineEngine(4) };
     }
 
     /**
