@@ -2,15 +2,12 @@ package com.pump.awt.geom.mask;
 
 import com.pump.awt.geom.ClosedPathIterator;
 import com.pump.awt.geom.MonotonicPathIterator;
-import com.pump.math.NumberLineMask;
-import com.pump.util.Range;
 
 import java.awt.*;
 import java.awt.geom.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
-import java.util.List;
 
 /**
  * This is a composition of rectangles.
@@ -32,8 +29,7 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
     }
 
 
-    protected abstract class OutlineTracer implements Runnable{
-
+    protected static abstract class OutlineTracer implements Runnable{
         double maxSegmentArea;
         Shape shape;
         AffineTransform tx;
@@ -375,7 +371,7 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
     }
 
     /**
-     * Avoid calling {@link #collapseRows(int, int)} until every call
+     * Avoid calling {@link #collapseRows()} until every call
      * to <code>suspendAutoCollapseRows()</code> is matched with a call
      * to <code>resumeAutoCollapseRows().</code>
      */
@@ -400,4 +396,41 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
      * Collapse any possible redundant rows after an operation.
      */
     protected abstract void collapseRows();
+
+    /**
+     * Clip this mask to another mask.
+     * <p>
+     * This is more computationally expensive than {@link #add(AbstractRectangleMask)}
+     * or {@link #subtract(AbstractRectangleMask)}.
+     */
+    public void clip(AbstractRectangleMask<R> mask) {
+        AbstractRectangleMask<R> src = clone();
+
+        clear();
+        suspendAutoCollapseRows();
+
+        R scratch = null;
+
+        Iterator<R> iter1 = src.iterator();
+        while (iter1.hasNext()) {
+            R rect1 = iter1.next();
+
+            if (scratch == null)
+                scratch = (R) rect1.clone();
+
+            Iterator<R> iter2 = mask.iterator();
+            while (iter2.hasNext()) {
+                R rect2 = iter2.next();
+                Rectangle.intersect(rect1, rect2, scratch);
+
+                if (!scratch.isEmpty()) {
+                    add(scratch);
+                }
+            }
+        }
+
+        resumeAutoCollapseRows();
+    }
+
+    public abstract AbstractRectangleMask<R> clone();
 }

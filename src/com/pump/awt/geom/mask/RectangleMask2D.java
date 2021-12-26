@@ -154,7 +154,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
             NumberLineDoubleMask prevFillMask = null;
             NumberLineDoubleMask prevEmptyMask = null;
             private void fill(double y1, double y2, NumberLineDoubleMask horizMask) {
-                double y = ((double)(y1 + y2)) / 2.0;
+                double y = (y1 + y2) / 2.0;
 
                 NumberLineDoubleMask currentFillMask = new NumberLineDoubleMask();
                 NumberLineDoubleMask currentEmptyMask = new NumberLineDoubleMask();
@@ -188,7 +188,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
                     // ... and [x1,x2) won't be in currentFillMask or horizMask, because the
                     // range [x1, x2) is by definition a gap in those number line masks
 
-                    double x = ((double)(x1 + x2)) / 2.0;
+                    double x = (x1 + x2) / 2.0;
                     p.setLocation(x, y);
                     if (inverseT != null)
                         inverseT.transform(p, p);
@@ -288,7 +288,6 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
                     case ADD -> entry.getValue().add(x, x2);
                     case SUBTRACT -> entry.getValue().subtract(x, x2);
                     case CLIP -> entry.getValue().clip(x, x2);
-                    default -> false;
                 };
 
                 if (opResults)
@@ -309,9 +308,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         }
     }
 
-    private boolean removeRowsAboveAndBelow(double y1, double y2) {
-        boolean returnValue = false;
-
+    private void removeRowsAboveAndBelow(double y1, double y2) {
         Iterator<Map.Entry<Double, NumberLineDoubleMask>> iter;
         iter = rows.entrySet().iterator();
 
@@ -319,14 +316,12 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         while (iter.hasNext()) {
             Map.Entry<Double, NumberLineDoubleMask> entry = iter.next();
             if (entry.getKey().doubleValue() < y1 || entry.getKey().doubleValue() > y2) {
-                returnValue = true;
                 iter.remove();
             } else if (entry.getKey().compareTo(y2) == 0) {
                 if (prevRowMask != null && prevRowMask.isEmpty()) {
                     iter.remove();
                 } else if (!entry.getValue().isEmpty()) {
                     entry.getValue().clear();
-                    returnValue = true;
                 }
             } else {
                 NumberLineDoubleMask currentMask = entry.getValue();
@@ -339,9 +334,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
 
         if (!rows.isEmpty() && !rows.lastEntry().getValue().isEmpty()) {
             rows.put(y2, new NumberLineDoubleMask());
-            returnValue = true;
         }
-        return returnValue;
     }
 
     @Override
@@ -531,5 +524,12 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
             }
             prevRowMask = currentMask;
         }
+    }
+
+    @Override
+    public RectangleMask2D clone() {
+        RectangleMask2D copy = new RectangleMask2D();
+        copy.add(this);
+        return copy;
     }
 }

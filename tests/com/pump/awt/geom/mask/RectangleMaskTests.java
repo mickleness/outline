@@ -475,4 +475,22 @@ public class RectangleMaskTests extends TestCase {
             ShapeUtilsTest.testEquals(str+"-expected", str+"-actual", path, mask, true);
         }
     }
+
+    public void testClipMask() {
+        RectangleMask m1 = new RectangleMask(new Ellipse2D.Float(0,0,10,10), null, 1);
+        RectangleMask m2 = new RectangleMask(new Ellipse2D.Float(5,0,10,10), null, 1);
+
+        RectangleMask clip = new RectangleMask();
+        clip.add(m1);
+        clip.clip(m2);
+
+        for(int y = 0; y<10; y++) {
+            for(int x = 0; x < 15; x++) {
+                boolean c1 = m1.contains(x, y);
+                boolean c2 = m2.contains(x, y);
+
+                assertEquals(c1 && c2, clip.contains(x, y));
+            }
+        }
+    }
 }

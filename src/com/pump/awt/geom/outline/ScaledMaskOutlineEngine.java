@@ -45,9 +45,7 @@ public class ScaledMaskOutlineEngine implements OutlineEngine {
                     returnValue.subtract(operand);
                     break;
                 case INTERSECT:
-//                    TODO: returnValue.clip(operand);
-                    if (true)
-                        throw new IllegalArgumentException();
+                    returnValue.clip(operand);
                     break;
                 case XOR:
 //                    TODO: returnValue.xor(operand);

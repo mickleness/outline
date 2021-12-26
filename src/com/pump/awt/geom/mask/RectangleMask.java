@@ -307,9 +307,7 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         }
     }
 
-    private boolean removeRowsAboveAndBelow(int y1, int y2) {
-        boolean returnValue = false;
-
+    private void removeRowsAboveAndBelow(int y1, int y2) {
         Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter;
         iter = rows.entrySet().iterator();
 
@@ -317,14 +315,12 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         while (iter.hasNext()) {
             Map.Entry<Integer, NumberLineIntegerMask> entry = iter.next();
             if (entry.getKey().intValue() < y1 || entry.getKey().intValue() > y2) {
-                returnValue = true;
                 iter.remove();
             } else if (entry.getKey().compareTo(y2) == 0) {
                 if (prevRowMask != null && prevRowMask.isEmpty()) {
                     iter.remove();
                 } else if (!entry.getValue().isEmpty()) {
                     entry.getValue().clear();
-                    returnValue = true;
                 }
             } else {
                 NumberLineIntegerMask currentMask = entry.getValue();
@@ -337,9 +333,7 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
 
         if (!rows.isEmpty() && !rows.lastEntry().getValue().isEmpty()) {
             rows.put(y2, new NumberLineIntegerMask());
-            returnValue = true;
         }
-        return returnValue;
     }
 
     @Override
@@ -554,5 +548,12 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
             }
             prevRowMask = currentMask;
         }
+    }
+
+    @Override
+    public RectangleMask clone() {
+        RectangleMask copy = new RectangleMask();
+        copy.add(this);
+        return copy;
     }
 }
