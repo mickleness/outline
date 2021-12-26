@@ -382,4 +382,77 @@ public class NumberLine%name%Mask implements Serializable {
     public int hashCode() {
         return Objects.hash(ranges);
     }
+
+    public boolean xor(Range%name% newRange) {
+        return xor(newRange.min, newRange.max);
+    }
+
+    public boolean xor(%type% x1, %type% x2) {
+        boolean returnValue = false;
+
+        Collection<Range%name%> additions = new ArrayList<>();
+
+        Iterator<Map.Entry<%name%, Range%name%>> iter = ranges.entrySet().iterator();
+        %name% lastXinRange = null;
+        while (iter.hasNext()) {
+            Map.Entry<%name%, Range%name%> entry = iter.next();
+            Range%name% existing = entry.getValue();
+
+            if (existing.max == x1) {
+                iter.remove();
+                additions.add(existing);
+            } else if (existing.intersects(x1, x2) || existing.min == x2) {
+                iter.remove();
+                returnValue = true;
+
+                if (lastXinRange == null) {
+                    if (existing.min > x1)
+                       additions.add(new Range%name%(x1, existing.min));
+                } else {
+                    additions.add(new Range%name%(lastXinRange, existing.min));
+                }
+
+                if (existing.min < x1) {
+                    additions.add(new Range%name%(existing.min, x1));
+                }
+                if (existing.max > x2) {
+                    additions.add(new Range%name%(x2, existing.max));
+                }
+                lastXinRange = existing.max;
+            } else if (existing.min > x2) {
+                break;
+            }
+        }
+
+        if (lastXinRange == null) {
+            additions.add(new Range%name%(x1, x2));
+        } else if (lastXinRange.compareTo(x2) < 0) {
+            additions.add(new Range%name%(lastXinRange, x2));
+        }
+
+        // join adjacent ranges in additions;
+        Range%name% uncommitted = null;
+        Range%name%[] additionsArray = additions.toArray(new Range%name%[additions.size()]);
+        additions.clear();
+        for(Range%name% r : additionsArray) {
+            if (uncommitted == null) {
+                uncommitted = r;
+            } else {
+                if (uncommitted.max == r.min) {
+                    uncommitted = new Range%name%(uncommitted.min, r.max);
+                } else {
+                    additions.add(uncommitted);
+                    uncommitted = r;
+                }
+            }
+        }
+        if (uncommitted != null)
+            additions.add(uncommitted);
+
+        for(Range%name% r : additions) {
+            ranges.put(r.min, r);
+        }
+
+        return returnValue;
+    }
 }

@@ -245,6 +245,15 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         return performOperation(Operation.ADD, x, y, x + width, y + height);
     }
 
+    public boolean xor(int x, int y, int width, int height) {
+        if (width < 0 || height < 0)
+            throw new IllegalArgumentException("x = "+x+", y = "+y+", width = "+width+", y = "+height);
+        if (width == 0 || height == 0)
+            return false;
+
+        return performOperation(Operation.XOR, x, y, x + width, y + height);
+    }
+
     public boolean subtract(int x, int y, int width, int height) {
         if (width < 0 || height < 0)
             throw new IllegalArgumentException("x = "+x+", y = "+y+", width = "+width+", y = "+height);
@@ -286,7 +295,7 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
                     case ADD -> entry.getValue().add(x, x2);
                     case SUBTRACT -> entry.getValue().subtract(x, x2);
                     case CLIP -> entry.getValue().clip(x, x2);
-                    default -> false;
+                    case XOR -> entry.getValue().xor(x, x2);
                 };
 
                 if (opResults)
@@ -476,6 +485,11 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
     @Override
     public boolean add(Rectangle r) {
         return add(r.x, r.y, r.width, r.height);
+    }
+
+    @Override
+    public boolean xor(Rectangle r) {
+        return xor(r.x, r.y, r.width, r.height);
     }
 
     @Override

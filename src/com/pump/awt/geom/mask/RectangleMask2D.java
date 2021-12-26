@@ -247,6 +247,15 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         return performOperation(Operation.ADD, x, y, x + width, y + height);
     }
 
+    public boolean xor(double x, double y, double width, double height) {
+        if (width < 0 || height < 0)
+            throw new IllegalArgumentException("x = "+x+", y = "+y+", width = "+width+", y = "+height);
+        if (width == 0 || height == 0)
+            return false;
+
+        return performOperation(Operation.XOR, x, y, x + width, y + height);
+    }
+
     public boolean subtract(double x, double y, double width, double height) {
         if (width < 0 || height < 0)
             throw new IllegalArgumentException("x = "+x+", y = "+y+", width = "+width+", y = "+height);
@@ -288,6 +297,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
                     case ADD -> entry.getValue().add(x, x2);
                     case SUBTRACT -> entry.getValue().subtract(x, x2);
                     case CLIP -> entry.getValue().clip(x, x2);
+                    case XOR -> entry.getValue().xor(x, x2);
                 };
 
                 if (opResults)
@@ -477,6 +487,11 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     @Override
     public boolean add(Rectangle2D.Double r) {
         return add(r.x, r.y, r.width, r.height);
+    }
+
+    @Override
+    public boolean xor(Rectangle2D.Double r) {
+        return xor(r.x, r.y, r.width, r.height);
     }
 
     @Override

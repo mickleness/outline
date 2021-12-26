@@ -1,6 +1,7 @@
 package com.pump.math;
 
 import com.pump.util.RangeDouble;
+import com.pump.util.RangeInteger;
 
 import java.io.IOException;
 import java.io.Serial;
@@ -381,5 +382,78 @@ public class NumberLineDoubleMask implements Serializable {
     @Override
     public int hashCode() {
         return Objects.hash(ranges);
+    }
+
+    public boolean xor(RangeDouble newRange) {
+        return xor(newRange.min, newRange.max);
+    }
+
+    public boolean xor(double x1, double x2) {
+        boolean returnValue = false;
+
+        Collection<RangeDouble> additions = new ArrayList<>();
+
+        Iterator<Map.Entry<Double, RangeDouble>> iter = ranges.entrySet().iterator();
+        Double lastXinRange = null;
+        while (iter.hasNext()) {
+            Map.Entry<Double, RangeDouble> entry = iter.next();
+            RangeDouble existing = entry.getValue();
+
+            if (existing.max == x1) {
+                iter.remove();
+                additions.add(existing);
+            } else if (existing.intersects(x1, x2) || existing.min == x2) {
+                iter.remove();
+                returnValue = true;
+
+                if (lastXinRange == null) {
+                    if (existing.min > x1)
+                        additions.add(new RangeDouble(x1, existing.min));
+                } else {
+                    additions.add(new RangeDouble(lastXinRange, existing.min));
+                }
+
+                if (existing.min < x1) {
+                    additions.add(new RangeDouble(existing.min, x1));
+                }
+                if (existing.max > x2) {
+                    additions.add(new RangeDouble(x2, existing.max));
+                }
+                lastXinRange = existing.max;
+            } else if (existing.min > x2) {
+                break;
+            }
+        }
+
+        if (lastXinRange == null) {
+            additions.add(new RangeDouble(x1, x2));
+        } else if (lastXinRange.compareTo(x2) < 0) {
+            additions.add(new RangeDouble(lastXinRange, x2));
+        }
+
+        // join adjacent ranges in additions;
+        RangeDouble uncommitted = null;
+        RangeDouble[] additionsArray = additions.toArray(new RangeDouble[additions.size()]);
+        additions.clear();
+        for(RangeDouble r : additionsArray) {
+            if (uncommitted == null) {
+                uncommitted = r;
+            } else {
+                if (uncommitted.max == r.min) {
+                    uncommitted = new RangeDouble(uncommitted.min, r.max);
+                } else {
+                    additions.add(uncommitted);
+                    uncommitted = r;
+                }
+            }
+        }
+        if (uncommitted != null)
+            additions.add(uncommitted);
+
+        for(RangeDouble r : additions) {
+            ranges.put(r.min, r);
+        }
+
+        return returnValue;
     }
 }

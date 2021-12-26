@@ -25,7 +25,7 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
     private static final long serialVersionUID = 1L;
 
     protected enum Operation {
-        ADD, SUBTRACT, CLIP
+        ADD, SUBTRACT, CLIP, XOR
     }
 
 
@@ -242,6 +242,8 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
 
     public abstract boolean add(R rect);
 
+    public abstract boolean xor(R rect);
+
     public abstract boolean clip(R rect);
 
     /**
@@ -302,6 +304,27 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
             while (iter.hasNext()) {
                 R r = iter.next();
                 if (subtract(r))
+                    returnValue = true;
+            }
+            return returnValue;
+        } finally {
+            resumeAutoCollapseRows();
+        }
+    }
+
+    /**
+     * Xor (exclusive or) another mask to this mask.
+     *
+     * @return true if this operation changed this mask.
+     */
+    public boolean xor(AbstractRectangleMask<R> mask) {
+        suspendAutoCollapseRows();
+        try {
+            Iterator<R> iter = mask.iterator();
+            boolean returnValue = false;
+            while(iter.hasNext()) {
+                R r = iter.next();
+                if (xor(r))
                     returnValue = true;
             }
             return returnValue;

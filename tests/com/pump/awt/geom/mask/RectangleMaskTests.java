@@ -493,4 +493,22 @@ public class RectangleMaskTests extends TestCase {
             }
         }
     }
+
+    public void testXorMask() {
+        RectangleMask m1 = new RectangleMask(new Ellipse2D.Float(0,0,10,10), null, 1);
+        RectangleMask m2 = new RectangleMask(new Ellipse2D.Float(5,0,10,10), null, 1);
+
+        RectangleMask xor = new RectangleMask();
+        xor.add(m1);
+        xor.xor(m2);
+
+        for(int y = 0; y<10; y++) {
+            for(int x = 0; x < 15; x++) {
+                boolean c1 = m1.contains(x, y);
+                boolean c2 = m2.contains(x, y);
+
+                assertEquals( c1 ^ c2, xor.contains(x, y));
+            }
+        }
+    }
 }

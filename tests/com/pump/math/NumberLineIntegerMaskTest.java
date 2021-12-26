@@ -386,4 +386,35 @@ public class NumberLineIntegerMaskTest extends TestCase {
             }
         }
     }
+
+    public void testXors() {
+        for(int a = 0; a<256; a++) {
+            String str = Integer.toString(a, 2);
+            while (str.length() < 8)
+                str = "0"+str;
+            NumberLineIntegerMask mask = createMask(a);
+            NumberLineIntegerMask xored = createMask(a ^ 0x3c);
+
+            mask.xor(2,6);
+
+            assertEquals("a = "+a+", str = "+toBinaryString(a)+" xor'ed = "+toBinaryString(a ^ 0x3c), xored, mask);
+        }
+    }
+
+    private String toBinaryString(int a) {
+        String str = Integer.toString(a, 2);
+        while (str.length() < 8)
+            str = "0"+str;
+        return str;
+    }
+
+    private NumberLineIntegerMask createMask(int a) {
+        NumberLineIntegerMask returnValue = new NumberLineIntegerMask();
+        String str = toBinaryString(a);
+        for(int b = 0; b<str.length(); b++) {
+            if (str.charAt(b) == '1')
+                returnValue.add(b,b+1);
+        }
+        return returnValue;
+    }
 }
