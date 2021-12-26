@@ -159,18 +159,26 @@ public class ShapeUtilsTest extends TestCase {
 //    }
 
 
-    public static void testEquals(String expectedName, String actualName, Shape expectedShape, Shape actualShape) {
+    /**
+     * @param highPrecision if true then the shapes must produce very close to a pixel-perfect replica.
+     *                      If false then we blur the images and apply a very generous threshold for comparison,
+     *                      so only really striking difference (like missing pixels) will be detected.
+     */
+    public static void testEquals(String expectedName, String actualName, Shape expectedShape, Shape actualShape, boolean highPrecision) {
         Rectangle r = expectedShape.getBounds();
         r.add(actualShape.getBounds());
         BufferedImage expectedImage = createImage(expectedShape, r);
         BufferedImage actualImage = createImage(actualShape, r);
 
-        // the ScaledMaskOutlineEngine is a little chunkier than the PlainAreaEngine. Instead of fixing
-        // this: I'll just make the image comparison fuzzier.
-        expectedImage = blur(expectedImage);
-        actualImage = blur(actualImage);
+        if (!highPrecision) {
+            // the ScaledMaskOutlineEngine is a little chunkier than the PlainAreaEngine. Instead of fixing
+            // this: I'll just make the image comparison fuzzier.
+            expectedImage = blur(expectedImage);
+            actualImage = blur(actualImage);
+        }
 
-        assertImageSimilar(expectedName, actualName, expectedImage, actualImage);
+        int threshold = highPrecision ? 50 : 240;
+        assertImageSimilar(expectedName, actualName, expectedImage, actualImage, threshold);
     }
 
     private static BufferedImage blur(BufferedImage src) {
@@ -242,7 +250,7 @@ public class ShapeUtilsTest extends TestCase {
         }
     }
 
-    public static void assertImageSimilar(String expectedName, String actualName, BufferedImage expected, BufferedImage actual) {
+    public static void assertImageSimilar(String expectedName, String actualName, BufferedImage expected, BufferedImage actual, int threshold) {
         try {
             assertEquals(expected.getHeight(), actual.getHeight());
             assertEquals(expected.getWidth(), actual.getWidth());
@@ -265,7 +273,7 @@ public class ShapeUtilsTest extends TestCase {
                     int alpha1 = (argb1 >> 24) & 0xff;
                     int alpha2 = (argb2 >> 24) & 0xff;
                     // we want to know if it's REALLY off. Like white = black off.
-                    if (Math.abs(alpha1 - alpha2) > 240) {
+                    if (Math.abs(alpha1 - alpha2) > threshold) {
                         Graphics2D g1 = expected.createGraphics();
                         Graphics2D g2 = actual.createGraphics();
                         g1.setColor(Color.red);

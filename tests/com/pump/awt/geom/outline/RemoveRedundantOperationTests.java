@@ -44,7 +44,7 @@ public class RemoveRedundantOperationTests extends OutlineTests {
                     baselineShape = outline;
                 } else {
                     try {
-                        ShapeUtilsTest.testEquals(name+"-expected", name+"-actual", baselineShape, outline);
+                        ShapeUtilsTest.testEquals(name+"-expected", name+"-actual", baselineShape, outline, true);
                     } catch (RuntimeException | Error e) {
                         System.err.println("engine: " + engine.toString());
                         System.err.println(description);
@@ -123,6 +123,8 @@ public class RemoveRedundantOperationTests extends OutlineTests {
 
     @Override
     public OutlineEngine[] getEngines() {
+        // we aren't profiling performance, we just want to see if the OptimizedAreaEngine
+        // drops any Operations that the PlainAreaEngine proves are important.
         return new OutlineEngine[]{new PlainAreaEngine(),
                     new OptimizedAreaEngine(1)};
     }
