@@ -1,6 +1,5 @@
 package com.pump.math;
 
-import com.pump.util.Range;
 import com.pump.util.RangeInteger;
 import junit.framework.TestCase;
 
