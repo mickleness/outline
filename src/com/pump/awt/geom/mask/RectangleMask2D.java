@@ -90,6 +90,9 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     }
 
     /**
+     * Create a RectangleMask2D that traces a given shape. This may be a little too large especially on the right
+     * and bottom edges; it is not guaranteed to be a perfect match.
+     *
      * @param shape the shape to create a mask of
      * @param tx the optional AffineTransform to apply to the shape
      * @param maxSegmentArea the maximum area (width * height) of each segment's bounds. The smaller this value

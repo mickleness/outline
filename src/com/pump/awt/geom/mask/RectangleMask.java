@@ -88,6 +88,9 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
     }
 
     /**
+     * Create a RectangleMask that traces a given shape. This may introduce a few extra pixels on the right
+     * and bottom edges; it is not guaranteed to be a perfect match.
+     *
      * @param shape the shape to create a mask of
      * @param tx the optional AffineTransform to apply to the shape
      * @param maxSegmentArea the maximum area (width * height) of each segment's bounds. The smaller this value

@@ -511,4 +511,23 @@ public class RectangleMaskTests extends TestCase {
             }
         }
     }
+
+
+    // TODO: this test highlights a problem with how rectanglemasks trace shapes
+//    public void testShapeCreation() {
+//        RectangleMask mask = new RectangleMask(createL(0,0), null, 1);
+//        ShapeUtilsTest.testEquals("expected_l", "actual_l", createL(0,0), mask, true);
+//    }
+
+    private Path2D createL(int x, int y) {
+        Path2D path = new Path2D.Double();
+        path.moveTo(x,y);
+        path.lineTo(x+1,y);
+        path.lineTo(x+1,y+1);
+        path.lineTo(x+2,y+1);
+        path.lineTo(x+2,y+2);
+        path.lineTo(x,y+2);
+        path.closePath();
+        return path;
+    }
 }
