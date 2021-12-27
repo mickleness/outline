@@ -428,4 +428,14 @@ public class ShapeUtils {
 
         return new CubicCurve2D.Double(dx2, dy2, cx0, cy0, cx1, cy1, x1, y1);
     }
+
+    /**
+     * Return true if a shape has no path segment data to iterate over.
+     */
+    public static boolean isEmpty(Shape shape) {
+        if (shape instanceof Area)
+            return ((Area)shape).isEmpty();
+        PathIterator pi = shape.getPathIterator(null);
+        return pi.isDone();
+    }
 }
