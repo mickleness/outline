@@ -276,6 +276,7 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
      * @return true if this operation changed this mask.
      */
     public boolean add(AbstractRectangleMask<R> mask) {
+        // TODO: optimize mask-based operations if either operand is empty
         suspendAutoCollapseRows();
         try {
             Iterator<R> iter = mask.iterator();
