@@ -31,7 +31,6 @@ public class ScaledMaskOutlineEngineTests extends TestCase  {
             outline_actual.flush();
         }
 
-        System.out.println(outline_actual.shape);
         ShapeUtilsTest.testEquals("expected", "actual", outline_expected, outline_actual, true);
     }
 }

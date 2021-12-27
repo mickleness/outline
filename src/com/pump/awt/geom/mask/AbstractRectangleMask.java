@@ -1,13 +1,13 @@
 package com.pump.awt.geom.mask;
 
-import com.pump.awt.geom.ClosedPathIterator;
-import com.pump.awt.geom.MonotonicPathIterator;
+import com.pump.awt.geom.*;
 
 import java.awt.*;
 import java.awt.geom.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
+import java.util.List;
 
 /**
  * This is a composition of rectangles.
@@ -43,19 +43,35 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
         @Override
         public void run() {
             MonotonicPathIterator pi = new MonotonicPathIterator(new ClosedPathIterator(shape.getPathIterator(tx)));
+            RectangleIterator ri = new RectangleIterator(pi);
             double lastX = 0;
             double lastY = 0;
-            double[] coords = new double[6];
+            double[] coords = new double[8];
 
-            while (!pi.isDone()) {
-                int k = pi.currentSegment(coords);
+            while (!ri.isDone()) {
+                int k = ri.currentSegment(coords);
 
                 switch (k) {
-                    case PathIterator.SEG_MOVETO -> {
+                    case RectangleIterator.SEG_RECTANGLE_EARLY_CLOSE:
+                    case RectangleIterator.SEG_RECTANGLE_EARLY_DONE:
+                    case RectangleIterator.SEG_RECTANGLE_FULL_CLOSE:
+                    case RectangleIterator.SEG_RECTANGLE_FULL_NO_CLOSE:
+                    {
+                        double minX = Math.min(Math.min(coords[0], coords[2]), Math.min(coords[4], coords[6]));
+                        double minY = Math.min(Math.min(coords[1], coords[3]), Math.min(coords[5], coords[7]));
+                        double maxX = Math.max(Math.max(coords[0], coords[2]), Math.max(coords[4], coords[6]));
+                        double maxY = Math.max(Math.max(coords[1], coords[3]), Math.max(coords[5], coords[7]));
+                        addUnsortedEdges(minX, maxX, minY, maxY);
+                        lastX = coords[6];
+                        lastY = coords[7];
+                        break;
+                    }
+                    case PathIterator.SEG_MOVETO: {
                         lastX = coords[0];
                         lastY = coords[1];
+                        break;
                     }
-                    case PathIterator.SEG_LINETO -> {
+                    case PathIterator.SEG_LINETO: {
                         {
                             double ax = -lastX + coords[0];
                             double bx = lastX;
@@ -66,8 +82,9 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
                         }
                         lastX = coords[0];
                         lastY = coords[1];
+                        break;
                     }
-                    case PathIterator.SEG_QUADTO -> {
+                    case PathIterator.SEG_QUADTO: {
                         {
                             double ax = lastX - 2 * coords[0] + coords[2];
                             double bx = -2 * lastX + 2 * coords[0];
@@ -80,8 +97,9 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
                         }
                         lastX = coords[2];
                         lastY = coords[3];
+                        break;
                     }
-                    case PathIterator.SEG_CUBICTO -> {
+                    case PathIterator.SEG_CUBICTO: {
                         {
                             double ax = -lastX + 3 * coords[0] - 3 * coords[2] + coords[4];
                             double bx = 3 * lastX - 6 * coords[0] + 3 * coords[2];
@@ -96,9 +114,10 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
                         }
                         lastX = coords[4];
                         lastY = coords[5];
+                        break;
                     }
                 }
-                pi.next();
+                ri.next();
             }
         }
 
