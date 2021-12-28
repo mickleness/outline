@@ -3,16 +3,68 @@ package com.pump.awt.geom;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * This is a transform that only scales and translates. It is a subset of an
  * <code>AffineTransform</code>, except with no rotation/shearing.
  */
-public class RectangularTransform {
-    double translateX = 0;
-    double translateY = 0;
-    double scaleX = 1;
-    double scaleY = 1;
+public class RectangularTransform implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private static Rectangle2D transform(Rectangle2D src, Rectangle2D dst, double scaleX, double scaleY, double translateX, double translateY) {
+        double newX = src.getX() * scaleX + translateX;
+        double newY = src.getY() * scaleY + translateY;
+        double newW = src.getWidth() * scaleX;
+        double newH = src.getHeight() * scaleY;
+
+        if (dst == null) {
+            dst = (Rectangle2D) src.clone();
+            dst.setFrame(newX, newY, newW, newH);
+
+            if (dst.getX() == newX &&
+                    dst.getY() == newY &&
+                    dst.getWidth() == newW &&
+                    dst.getHeight() == newH) {
+                // if we started with a Rectangle and dst was null, can we return a new
+                // Rectangle without losing any necessary precision?
+                return dst;
+            }
+
+            dst = new Rectangle2D.Double();
+        }
+        dst.setFrame(newX, newY, newW, newH);
+
+        return dst;
+    }
+
+    private static Point2D transform(Point2D src, Point2D dst, double scaleX, double scaleY, double translateX, double translateY) {
+        double newX = src.getX() * scaleX + translateX;
+        double newY = src.getY() * scaleY + translateY;
+
+        if (dst == null) {
+            dst = (Point2D) src.clone();
+            dst.setLocation(newX, newY);
+
+            if (dst.getX() == newX &&
+                    dst.getY() == newY) {
+                return dst;
+            }
+
+            dst = new Point2D.Double();
+        }
+        dst.setLocation(newX, newY);
+
+        return dst;
+    }
+
+    private double translateX = 0;
+    private double translateY = 0;
+    private double scaleX = 1;
+    private double scaleY = 1;
 
     /** Creates an identity transform. */
     public RectangularTransform() {
@@ -50,9 +102,30 @@ public class RectangularTransform {
         translateY = ty;
     }
 
+    /**
+     * Create a copy of an existing transform.
+     */
+    public RectangularTransform(RectangularTransform transform) {
+        setTransform(transform);
+    }
+
+    /**
+     * Create a new RectangularTransform with a given x and y scale.
+     */
+    public static RectangularTransform getScaleInstance(double scale) {
+        return getScaleInstance(scale, scale);
+    }
+
+    /**
+     * Create a new RectangularTransform with a given x and y scale.
+     */
+    public static RectangularTransform getScaleInstance(double scaleX, double scaleY) {
+        return new RectangularTransform(scaleX, scaleY, 0, 0);
+    }
+
     /** Transforms the source argument. */
     public Rectangle2D transform(Rectangle2D src) {
-        return transform(src, null);
+        return transform(src, null, scaleX, scaleY, translateX, translateY);
     }
 
     /**
@@ -66,31 +139,19 @@ public class RectangularTransform {
      * @return the dst argument, or a new Rectangle2D if that argument was null.
      */
     public Rectangle2D transform(Rectangle2D src, Rectangle2D dst) {
+        return transform(src, dst, scaleX, scaleY, translateX, translateY);
+    }
 
-        double newX = src.getX() * scaleX + translateX;
-        double newY = src.getY() * scaleY + translateY;
-        double newW = src.getWidth() * scaleX;
-        double newH = src.getHeight() * scaleY;
-
-        if (dst == null) {
-            dst = (Rectangle2D) src.clone();
-            dst.setFrame(newX, newY, newW, newH);
-
-            if (dst.getX() == newX &&
-                    dst.getY() == newY &&
-                    dst.getWidth() == newW &&
-                    dst.getHeight() == newH) {
-                // if we started with a Rectangle and dst was null, can we return a new
-                // Rectangle without losing any necessary precision?
-                return dst;
-            }
-
-            dst = new Rectangle2D.Double();
-        }
-        dst.setFrame(newX, newY, newW, newH);
-
-
-        return dst;
+    /**
+     * Transforms the source argument.
+     *
+     * @param src
+     *            the initial point.
+     *
+     * @return the transformed point
+     */
+    public Point2D transform(Point2D src) {
+        return transform(src, null, scaleX, scaleY, translateX, translateY);
     }
 
     /**
@@ -104,13 +165,7 @@ public class RectangularTransform {
      * @return the dst argument, or a new Point2D if that argument was null.
      */
     public Point2D transform(Point2D src, Point2D dst) {
-        if (dst == null)
-            dst = new Point2D.Double();
-
-        dst.setLocation(src.getX() * scaleX + translateX, src.getY() * scaleY
-                + translateY);
-
-        return dst;
+        return transform(src, dst, scaleX, scaleY, translateX, translateY);
     }
 
     /**
@@ -127,6 +182,19 @@ public class RectangularTransform {
 
         translateX = -oldRect.getX() * scaleX + newRect.getX();
         translateY = -oldRect.getY() * scaleY + newRect.getY();
+    }
+
+    /**
+     * Define this transform.
+     *
+     * @param transform the transform to copy the translate and scale attributes from.
+     */
+    public void setTransform(RectangularTransform transform) {
+        scaleX = transform.scaleX;
+        scaleY = transform.scaleY;
+
+        translateX = transform.translateX;
+        translateY = transform.translateY;
     }
 
     /**
@@ -186,4 +254,84 @@ public class RectangularTransform {
                 / scaleX, -translateY / scaleY);
     }
 
+    public Point2D transformInverse(Point2D src, Point2D dst) {
+        return transform(src, dst, 1.0 / scaleX, 1.0 / scaleY, -translateX / scaleX, -translateY / scaleY);
+    }
+
+    public Rectangle2D transformInverse(Rectangle2D src, Rectangle2D dst) {
+        return transform(src, dst, 1.0 / scaleX, 1.0 / scaleY, -translateX / scaleX, -translateY / scaleY);
+    }
+
+    @Override
+    public RectangularTransform clone() {
+        return new RectangularTransform(this);
+    }
+
+    private void writeObject(java.io.ObjectOutputStream out)
+            throws java.io.IOException
+    {
+        out.writeInt(0);
+        out.writeDouble(scaleX);
+        out.writeDouble(scaleY);
+        out.writeDouble(translateX);
+        out.writeDouble(translateY);
+    }
+
+    private void readObject(java.io.ObjectInputStream in)
+            throws ClassNotFoundException, IOException
+    {
+        int internalVersion = in.readInt();
+        if (internalVersion == 0) {
+            scaleX = in.readDouble();
+            scaleY = in.readDouble();
+            translateX = in.readDouble();
+            translateY = in.readDouble();
+        } else {
+            throw new IOException("unsupported internal version: "+internalVersion);
+        }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        RectangularTransform that = (RectangularTransform) o;
+        return that.translateX == translateX &&
+                that.translateY == translateY &&
+                that.scaleX == scaleX &&
+                that.scaleY == scaleY;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(translateX, translateY, scaleX, scaleY);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("RectangularTransform[");
+        if (scaleX == scaleY) {
+            if (scaleX == 1) {
+                // don't mention it
+            } else {
+                sb.append(" scale = "+scaleX);
+            }
+        } else {
+            if (scaleX != 1) {
+                sb.append(" scaleX = "+scaleX);
+            }
+            if (scaleY != 1) {
+                sb.append(" scaleY = "+scaleY);
+            }
+        }
+        if (translateX != 0) {
+            sb.append(" translateX = "+translateX);
+        }
+        if (translateY != 0) {
+            sb.append(" translateY = "+translateX);
+        }
+        sb.append("]");
+        return sb.toString();
+    }
 }
