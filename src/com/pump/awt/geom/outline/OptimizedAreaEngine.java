@@ -4,16 +4,18 @@ import com.pump.awt.geom.ShapeUtils;
 import com.pump.awt.geom.mask.RectangleMask2D;
 
 import java.awt.*;
-import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Rectangle2D;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
 
+/**
+ * This engine filters operations and may prune, reorder, or multithread
+ * operations to improve performance
+ */
 public class OptimizedAreaEngine implements OutlineEngine {
 
-    // TODO: make this sit on top of delegate OutlineEngine
     // TODO: intercept shapes and replace quad/cubic segments if they live in dest
 
     /**
@@ -172,6 +174,7 @@ public class OptimizedAreaEngine implements OutlineEngine {
         }
     }
 
+    protected final OutlineEngine delegateEngine;
     protected ExecutorService executor;
     protected List<Future<?>> prepareFutures = new LinkedList<>();
     protected int workerThreadCount;
@@ -182,6 +185,17 @@ public class OptimizedAreaEngine implements OutlineEngine {
      *                          more than separate worker threads may be used for complex calculations.
      */
     public OptimizedAreaEngine(int workerThreadCount) {
+        this(new PlainAreaEngine(), workerThreadCount);
+    }
+
+    /**
+     * @param engine the other engine that performs operations.
+     * @param workerThreadCount if this is 1 or less then no additional worker threads are used. (That is:
+     *                          everything will be processed in the calling thread.) If this is two or
+     *                          more than separate worker threads may be used for complex calculations.
+     */
+    public OptimizedAreaEngine(OutlineEngine engine, int workerThreadCount) {
+        this.delegateEngine = engine;
         this.workerThreadCount = workerThreadCount;
         if (workerThreadCount <= 1) {
             executor = new InlineExecutor();
@@ -191,13 +205,13 @@ public class OptimizedAreaEngine implements OutlineEngine {
     }
 
     @Override
-    public Area calculate(List<OutlineOperation> operationQueue) {
+    public Shape calculate(List<OutlineOperation> operationQueue) {
         flushFutures( (List) prepareFutures);
         removeClippedOperations(operationQueue);
         removeInitialNegativeOperations(operationQueue);
         preprocessOperationsUsingRectangleMask(operationQueue);
 
-        Area result = new Area();
+        Shape result = null;
 
         for (List<OptimizedOutlineOperation> operationsRun : getOperationRuns(operationQueue)) {
             OutlineOperation.Type type = operationsRun.get(0).type;
@@ -211,22 +225,22 @@ public class OptimizedAreaEngine implements OutlineEngine {
                     if (type == OutlineOperation.Type.INTERSECT) {
                         // TODO: apply Clipper, or other clipping algorithm
                         if (result != null)
-                            result.intersect(new Area(op.shape));
+                            result = execute(OutlineOperation.Type.INTERSECT, result, op.shape);
                     } else if (type == OutlineOperation.Type.XOR) {
                         if (result == null) {
-                            result = new Area(op.shape);
+                            result = op.shape;
                         } else {
-                            result.exclusiveOr(new Area(op.shape));
+                            result = execute(OutlineOperation.Type.XOR, result, op.shape);
                         }
                     } else if (type == OutlineOperation.Type.SUBTRACT) {
                         if (result != null)
-                            result.subtract(new Area(op.shape));
+                            result = execute(OutlineOperation.Type.SUBTRACT, result, op.shape);
                     }
                 }
             }
         }
 
-        return result == null || result.isEmpty() ? null : result;
+        return result == null || ShapeUtils.isEmpty(result) ? null : result;
     }
 
     /**
@@ -403,12 +417,12 @@ public class OptimizedAreaEngine implements OutlineEngine {
         }
     };
 
-    private Area flushAdds(Area result, List<OptimizedOutlineOperation> addOperations) {
+    private Shape flushAdds(Shape result, List<OptimizedOutlineOperation> addOperations) {
         List<OptimizedOutlineOperation> linearOperations = removeLinearOperations(addOperations);
 
         // Linear shapes are usually easier to churn through than quadratic & cubic shapes
-        Area polygonShapes = flushAdds2(new Area(), linearOperations);
-        if (!polygonShapes.isEmpty()) {
+        Shape polygonShapes = flushAdds2(result, linearOperations);
+        if (polygonShapes != null && !ShapeUtils.isEmpty(polygonShapes)) {
             OptimizedOutlineOperation newOp = new OptimizedOutlineOperation(OutlineOperation.Type.ADD, polygonShapes);
             newOp.populateMetadata();
             addOperations.add(newOp);
@@ -448,12 +462,12 @@ public class OptimizedAreaEngine implements OutlineEngine {
      * @param addOperations
      * @return the new result, which may or may not be the same as the argument.
      */
-    private Area flushAdds2(Area result, List<OptimizedOutlineOperation> addOperations) {
+    private Shape flushAdds2(Shape result, List<OptimizedOutlineOperation> addOperations) {
         class MergeShapesCallable implements Callable<OptimizedOutlineOperation> {
             OptimizedOutlineOperation op1, op2;
-            Area result;
+            Shape result;
             RectangleMask2D resultBounds;
-            public MergeShapesCallable(Area result, RectangleMask2D resultBounds, OptimizedOutlineOperation op1, OptimizedOutlineOperation op2) {
+            public MergeShapesCallable(Shape result, RectangleMask2D resultBounds, OptimizedOutlineOperation op1, OptimizedOutlineOperation op2) {
                 this.op1 = op1;
                 this.op2 = op2;
                 this.result = result;
@@ -477,10 +491,11 @@ public class OptimizedAreaEngine implements OutlineEngine {
                 if (op2 == null)
                     return op1;
 
-                Area area1 = new Area(op1.shape);
-                Area area2 = new Area(op2.shape);
-                area1.add(area2);
-                OptimizedOutlineOperation op = new OptimizedOutlineOperation(OutlineOperation.Type.ADD, area1);
+                Shape newShape = execute(OutlineOperation.Type.ADD, op1.shape, op2.shape);
+                if (newShape == null) {
+                    return null;
+                }
+                OptimizedOutlineOperation op = new OptimizedOutlineOperation(OutlineOperation.Type.ADD, newShape);
                 op.populateMetadata(op1, op2);
                 return op;
             }
@@ -492,13 +507,10 @@ public class OptimizedAreaEngine implements OutlineEngine {
         while(!addOperations.isEmpty()) {
             // we only change result on this thread here:
             OptimizedOutlineOperation op = addOperations.remove(0);
-            if (result == null || result.isEmpty()) {
-                // a very small optimization:
-                // calling Area.add(..) ALWAYS fires off some complex calculations. If the LHS
-                // Area starts out empty: there's no need to calculate anything.
-                result = new Area(op.shape);
+            if (result == null || ShapeUtils.isEmpty(result)) {
+                result = op.shape;
             } else {
-                result.add(new Area(op.shape));
+                result = execute(OutlineOperation.Type.ADD, result, op.shape);
             }
             RectangleMask2D resultBounds = new RectangleMask2D(result.getBounds2D());
 
@@ -519,10 +531,24 @@ public class OptimizedAreaEngine implements OutlineEngine {
 
             addOperations.addAll(flushFutures(futures));
 
+            // remove null elements:
+            iter = addOperations.iterator();
+            while (iter.hasNext()) {
+                if (iter.next() == null)
+                    iter.remove();
+            }
+
             // now with some newly merged shapes: identify the new sorted order
             Collections.sort(addOperations, AREA_ORDER_COMPARATOR);
         }
         return result;
+    }
+
+    protected Shape execute(OutlineOperation.Type type,Shape shape1, Shape shape2) {
+        List<OutlineOperation> ops = new LinkedList<>();
+        ops.add(delegateEngine.createOperation(OutlineOperation.Type.ADD, shape1));
+        ops.add(delegateEngine.createOperation(type, shape2));
+        return delegateEngine.calculate(ops);
     }
 
     protected <T> List<T> flushFutures(List<Future<T>> futures) {
@@ -571,10 +597,17 @@ public class OptimizedAreaEngine implements OutlineEngine {
 
     @Override
     public String toString() {
-        if (workerThreadCount <= 1) {
+        if (workerThreadCount <= 1 && delegateEngine instanceof PlainAreaEngine) {
             return getClass().getSimpleName();
-        } else {
-            return getClass().getSimpleName()+"[ workerThreadCount = "+workerThreadCount+"]";
+        } else if (delegateEngine instanceof PlainAreaEngine) {
+            return getClass().getSimpleName() + "[ workerThreadCount = " + workerThreadCount + "]";
+        } else if (workerThreadCount == 1) {
+            return getClass().getSimpleName() + "[ engine = "+delegateEngine+"]";
         }
+        return getClass().getSimpleName() + "[ engine = "+delegateEngine+" workerThreadCount = " + workerThreadCount + "]";
+    }
+
+    public OutlineEngine getDelegateEngine() {
+        return delegateEngine;
     }
 }

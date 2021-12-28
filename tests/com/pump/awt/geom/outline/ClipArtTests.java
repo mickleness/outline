@@ -271,7 +271,12 @@ public class ClipArtTests extends OutlineTests {
                 result.addEngineTime(engine, medianTime);
                 String expectedName = clipArt.name;
                 String actualName = clipArt.name+"-"+engine.toString();
-                boolean highPrecision = engine instanceof ScaledMaskOutlineEngine ? false : true;
+                boolean highPrecision = true;
+                if (engine instanceof ScaledMaskOutlineEngine)
+                    highPrecision = false;
+                if (engine instanceof OptimizedAreaEngine && ((OptimizedAreaEngine)engine).getDelegateEngine() instanceof ScaledMaskOutlineEngine)
+                    highPrecision = false;
+
                 ShapeUtilsTest.testEquals(expectedName, actualName, result.baselineShape, lastSum, highPrecision);
             }
         }

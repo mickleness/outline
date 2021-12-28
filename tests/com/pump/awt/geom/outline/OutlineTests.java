@@ -1,17 +1,10 @@
 package com.pump.awt.geom.outline;
 
-import com.pump.awt.geom.outline.OptimizedAreaEngine;
-import com.pump.awt.geom.outline.Outline;
-import com.pump.awt.geom.outline.OutlineEngine;
-import com.pump.awt.geom.outline.PlainAreaEngine;
 import junit.framework.TestCase;
 
-import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
-import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.Random;
 
@@ -37,7 +30,9 @@ public abstract class OutlineTests extends TestCase {
                 new OptimizedAreaEngine(1),
                 new OptimizedAreaEngine(4),
                 new ScaledMaskOutlineEngine(2),
-                new ScaledMaskOutlineEngine(4) };
+                new ScaledMaskOutlineEngine(4),
+                new OptimizedAreaEngine(new ScaledMaskOutlineEngine(2), 1),
+                new OptimizedAreaEngine(new ScaledMaskOutlineEngine(4), 4) };
     }
 
     /**
