@@ -5,6 +5,8 @@ import com.pump.awt.geom.mask.RectangleMask2D;
 
 import java.awt.*;
 import java.awt.geom.*;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -170,8 +172,6 @@ public class MaskedOutlineEngine implements OutlineEngine {
         }
     }
 
-    static int ctr = 0;
-
     class ShapeInfo {
         Shape shape;
 
@@ -191,6 +191,8 @@ public class MaskedOutlineEngine implements OutlineEngine {
          */
 //        RectangleMask2D mask;
 
+        double originalArea;
+
         public ShapeInfo() {
             reset(null);
         }
@@ -206,6 +208,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
 
             Rectangle2D rect = ShapeUtils.getBounds2D(shape);
             bounds = new RectangleMask2D(rect);
+            originalArea = rect.getWidth() * rect.getHeight();
 
             double area = Math.max(.000000001, rect.getWidth()) * Math.max(.000000001, rect.getHeight());
             double maxSegmentArea = area / 64;
@@ -321,28 +324,70 @@ public class MaskedOutlineEngine implements OutlineEngine {
         this.parentEngine = parentEngine;
     }
 
+    private static Comparator<MaskedOutlineOperation> SMALLEST_AREA = new Comparator<MaskedOutlineOperation>() {
+        @Override
+        public int compare(MaskedOutlineOperation o1, MaskedOutlineOperation o2) {
+            return Double.compare(o1.info.originalArea, o2.info.originalArea);
+        }
+    };
+
+    private static Comparator<MaskedOutlineOperation> LARGEST_AREA = new Comparator<MaskedOutlineOperation>() {
+        @Override
+        public int compare(MaskedOutlineOperation o1, MaskedOutlineOperation o2) {
+            return -Double.compare(o1.info.originalArea, o2.info.originalArea);
+        }
+    };
+
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
         ShapeInfo returnValue = new ShapeInfo(new Path2D.Double());
-        for(OutlineOperation op : operationQueue) {
-            switch (op.type) {
-                case ADD:
-                    add(returnValue, op);
-                    break;
-                case SUBTRACT:
-                    subtract(returnValue, op);
-                    break;
-                case INTERSECT:
-                    intersect(returnValue, op);
-                    break;
-                case XOR:
-                    xor(returnValue, op);
-                    break;
-                default:
-                    throw new RuntimeException("Unrecognized operation type: "+op.type);
+
+        for(List<MaskedOutlineOperation> run : getRunsOfSameType(operationQueue)) {
+            if (run.get(0).type == OutlineOperation.Type.INTERSECT || run.get(0).type == OutlineOperation.Type.XOR) {
+                // clip to the smallest size first to maybe make other ops redundant
+                // (not sure if any sorting can help xor ops?)
+                Collections.sort(run, SMALLEST_AREA);
+            } else {
+                // do the largest ops first, and hopefully then smaller ops become null ops
+                Collections.sort(run, LARGEST_AREA);
+            }
+
+            for(OutlineOperation op : run) {
+                switch (op.type) {
+                    case ADD:
+                        add(returnValue, op);
+                        break;
+                    case SUBTRACT:
+                        subtract(returnValue, op);
+                        break;
+                    case INTERSECT:
+                        intersect(returnValue, op);
+                        break;
+                    case XOR:
+                        xor(returnValue, op);
+                        break;
+                    default:
+                        throw new RuntimeException("Unrecognized operation type: "+op.type);
+                }
             }
         }
         return returnValue.shape;
+    }
+
+    private List<List<MaskedOutlineOperation>> getRunsOfSameType(List<OutlineOperation> allOperations) {
+        List<List<MaskedOutlineOperation>> returnValue = new LinkedList<>();
+
+        while (!allOperations.isEmpty()) {
+            List<MaskedOutlineOperation> currentRun = new LinkedList<>();
+            currentRun.add( (MaskedOutlineOperation) allOperations.remove(0));
+            OutlineOperation.Type runType = currentRun.get(0).type;
+            while( !allOperations.isEmpty() && allOperations.get(0).type == runType) {
+                currentRun.add( (MaskedOutlineOperation) allOperations.remove(0));
+            }
+            returnValue.add(currentRun);
+        }
+
+        return returnValue;
     }
 
     private void add(ShapeInfo returnValue, OutlineOperation op) {
