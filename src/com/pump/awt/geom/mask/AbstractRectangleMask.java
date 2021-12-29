@@ -234,7 +234,7 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
 
     @Override
     public boolean contains(Rectangle2D r) {
-        return r.contains(r.getX(), r.getY(), r.getWidth(), r.getHeight());
+        return contains(r.getX(), r.getY(), r.getWidth(), r.getHeight());
     }
 
     /**
