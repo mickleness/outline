@@ -1,5 +1,6 @@
 package com.pump.awt.geom.mask;
 
+import com.pump.awt.geom.RectangularTransform;
 import com.pump.math.NumberLineDoubleMask;
 import com.pump.math.NumberLineIntegerMask;
 import com.pump.util.RangeDouble;
@@ -549,5 +550,26 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         RectangleMask2D copy = new RectangleMask2D();
         copy.add(this);
         return copy;
+    }
+
+    /**
+     * Transform this mask.
+     */
+    public void transform(RectangularTransform transform) {
+        cachedBounds = null;
+
+        // TODO: we could optimize this further when scaleX and scaleY are positive
+
+        RectangleMask2D newMask = new RectangleMask2D();
+        Iterator<Rectangle2D.Double> iter = iterator();
+        while (iter.hasNext()) {
+            Rectangle2D.Double rect = iter.next();
+            transform.transform(rect, rect);
+            newMask.add(rect);
+        }
+        rows.clear();
+        rows.putAll(newMask.rows);
+        modCount++;
+        collapseRows();
     }
 }
