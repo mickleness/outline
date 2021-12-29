@@ -189,7 +189,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
          * shapes may actually show many configurations in which pieces don't
          * overlap.
          */
-        RectangleMask2D mask;
+//        RectangleMask2D mask;
 
         public ShapeInfo() {
             reset(null);
@@ -209,7 +209,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
 
             double area = Math.max(.000000001, rect.getWidth()) * Math.max(.000000001, rect.getHeight());
             double maxSegmentArea = area / 64;
-            mask = new RectangleMask2D(shape, null, maxSegmentArea);
+//            mask = new RectangleMask2D(shape, null, maxSegmentArea);
         }
 
 
@@ -228,7 +228,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
             }
 
             bounds.add(rhs.bounds);
-            mask.add(rhs.mask);
+//            mask.add(rhs.mask);
         }
 
         /**
@@ -246,7 +246,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
             shape = parentEngine.calculate(ops);
 
             bounds.add(rhs.bounds);
-            mask.add(rhs.mask);
+//            mask.add(rhs.mask);
         }
 
         public void subtract(ShapeInfo rhs) {
@@ -353,14 +353,14 @@ public class MaskedOutlineEngine implements OutlineEngine {
             return;
         }
 
-        if (!returnValue.bounds.intersects(mop.info.bounds) || !returnValue.mask.intersects(mop.info.mask)) {
+        if (!returnValue.bounds.intersects(mop.info.bounds)) { // || !returnValue.mask.intersects(mop.info.mask)) {
             returnValue.append(mop.info);
             return;
         }
 
-        if (returnValue.bounds.contains(mop.info.bounds) && returnValue.mask.contains(mop.info.mask)) {
+        if (returnValue.bounds.contains(mop.info.bounds)) { // && returnValue.mask.contains(mop.info.mask)) {
             // that's a good preliminary sign, but it's not precise:
-            if (mop.info.bounds.isContainedBy(returnValue.shape) || mop.info.mask.isContainedBy(returnValue.shape)) {
+            if (mop.info.bounds.isContainedBy(returnValue.shape)) { // || mop.info.mask.isContainedBy(returnValue.shape)) {
                 // this is a null-op
                 return;
             }
@@ -371,7 +371,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
 
     private void subtract(ShapeInfo returnValue, OutlineOperation op) {
         MaskedOutlineOperation mop = (MaskedOutlineOperation) op;
-        if (mop.info.bounds.isEmpty() || !returnValue.bounds.intersects(mop.info.bounds) || !returnValue.mask.intersects(mop.info.mask)) {
+        if (mop.info.bounds.isEmpty() || !returnValue.bounds.intersects(mop.info.bounds)) { // || !returnValue.mask.intersects(mop.info.mask)) {
             // this is a null-op
             return;
         }
@@ -381,7 +381,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
 
     private void intersect(ShapeInfo returnValue, OutlineOperation op) {
         MaskedOutlineOperation mop = (MaskedOutlineOperation) op;
-        if (!returnValue.bounds.intersects(mop.info.bounds) || !returnValue.mask.intersects(mop.info.mask)) {
+        if (!returnValue.bounds.intersects(mop.info.bounds)) { // || !returnValue.mask.intersects(mop.info.mask)) {
             returnValue.reset(null);
             return;
         }
@@ -391,12 +391,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
 
     private void xor(ShapeInfo returnValue, OutlineOperation op) {
         MaskedOutlineOperation mop = (MaskedOutlineOperation) op;
-        if (!returnValue.bounds.intersects(mop.info.bounds)) {
-            returnValue.append(mop.info);
-            return;
-        }
-
-        if (!returnValue.mask.intersects(mop.info.mask)) {
+        if (!returnValue.bounds.intersects(mop.info.bounds)) { // || !returnValue.mask.intersects(mop.info.mask)) {
             returnValue.append(mop.info);
             return;
         }
