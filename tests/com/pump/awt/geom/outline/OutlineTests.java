@@ -30,9 +30,7 @@ public abstract class OutlineTests extends TestCase {
                 new OptimizedAreaEngine(1),
                 new OptimizedAreaEngine(4),
                 new ScaledMaskOutlineEngine(2),
-                new ScaledMaskOutlineEngine(4),
-                new OptimizedAreaEngine(new ScaledMaskOutlineEngine(2), 1),
-                new OptimizedAreaEngine(new ScaledMaskOutlineEngine(4), 4) };
+                new ScaledMaskOutlineEngine(4)};
     }
 
     /**
