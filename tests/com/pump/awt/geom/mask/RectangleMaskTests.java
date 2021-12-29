@@ -530,4 +530,67 @@ public class RectangleMaskTests extends TestCase {
         path.closePath();
         return path;
     }
+
+    public void testIntersects_innerOuter_topleft() {
+        RectangleMask big = new RectangleMask(0,0,100,100);
+        RectangleMask small = new RectangleMask(0,0,1,1);
+        assertTrue(big.intersects(small));
+        assertTrue(small.intersects(big));
+    }
+
+    public void testIntersects_innerOuter_topcenter() {
+        RectangleMask big = new RectangleMask(0,0,100,100);
+        RectangleMask small = new RectangleMask(40,0,1,1);
+        assertTrue(big.intersects(small));
+        assertTrue(small.intersects(big));
+    }
+
+    public void testIntersects_innerOuter_topright() {
+        RectangleMask big = new RectangleMask(0,0,100,100);
+        RectangleMask small = new RectangleMask(99,0,1,1);
+        assertTrue(big.intersects(small));
+        assertTrue(small.intersects(big));
+    }
+
+    public void testIntersects_innerOuter_centerleft() {
+        RectangleMask big = new RectangleMask(0,0,100,100);
+        RectangleMask small = new RectangleMask(0,40,1,1);
+        assertTrue(big.intersects(small));
+        assertTrue(small.intersects(big));
+    }
+
+    public void testIntersects_innerOuter_center() {
+        RectangleMask big = new RectangleMask(0,0,100,100);
+        RectangleMask small = new RectangleMask(40,40,1,1);
+        assertTrue(big.intersects(small));
+        assertTrue(small.intersects(big));
+    }
+
+    public void testIntersects_innerOuter_centerright() {
+        RectangleMask big = new RectangleMask(0,0,100,100);
+        RectangleMask small = new RectangleMask(99,40,1,1);
+        assertTrue(big.intersects(small));
+        assertTrue(small.intersects(big));
+    }
+
+    public void testIntersects_innerOuter_bottomleft() {
+        RectangleMask big = new RectangleMask(0,0,100,100);
+        RectangleMask small = new RectangleMask(0,99,1,1);
+        assertTrue(big.intersects(small));
+        assertTrue(small.intersects(big));
+    }
+
+    public void testIntersects_innerOuter_bottomcenter() {
+        RectangleMask big = new RectangleMask(0,0,100,100);
+        RectangleMask small = new RectangleMask(40,99,1,1);
+        assertTrue(big.intersects(small));
+        assertTrue(small.intersects(big));
+    }
+
+    public void testIntersects_innerOuter_bottomright() {
+        RectangleMask big = new RectangleMask(0,0,100,100);
+        RectangleMask small = new RectangleMask(99,99,1,1);
+        assertTrue(big.intersects(small));
+        assertTrue(small.intersects(big));
+    }
 }

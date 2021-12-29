@@ -283,7 +283,7 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
     public boolean intersects(AbstractRectangleMask<R> mask) {
         Iterator<R> iter = mask.iterator();
         while(iter.hasNext()) {
-            if (!intersects(iter.next()))
+            if (intersects(iter.next()))
                 return true;
         }
         return false;
