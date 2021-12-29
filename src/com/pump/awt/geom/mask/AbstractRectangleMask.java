@@ -269,6 +269,9 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
      * Return true if this mask contains the argument.
      */
     public boolean contains(AbstractRectangleMask<R> mask) {
+        if (isEmpty() || mask.isEmpty())
+            return false;
+
         Iterator<R> iter = mask.iterator();
         while(iter.hasNext()) {
             if (!contains(iter.next()))
@@ -281,6 +284,9 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
      * Return true if this mask intersects the argument.
      */
     public boolean intersects(AbstractRectangleMask<R> mask) {
+        if (isEmpty() || mask.isEmpty())
+            return false;
+
         Iterator<R> iter = mask.iterator();
         while(iter.hasNext()) {
             if (intersects(iter.next()))
@@ -295,6 +301,9 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
      * @return true if this operation changed this mask.
      */
     public boolean add(AbstractRectangleMask<R> mask) {
+        if (mask.isEmpty())
+            return false;
+
         // TODO: optimize mask-based operations if either operand is empty
         suspendAutoCollapseRows();
         try {
@@ -317,6 +326,9 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
      * @return true if this operation changed this mask.
      */
     public boolean subtract(AbstractRectangleMask<R> mask) {
+        if (mask.isEmpty())
+            return false;
+
         suspendAutoCollapseRows();
         try {
             Iterator<R> iter = mask.iterator();
@@ -338,6 +350,9 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
      * @return true if this operation changed this mask.
      */
     public boolean xor(AbstractRectangleMask<R> mask) {
+        if (mask.isEmpty())
+            return false;
+
         suspendAutoCollapseRows();
         try {
             Iterator<R> iter = mask.iterator();
@@ -446,7 +461,14 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
      * This is more computationally expensive than {@link #add(AbstractRectangleMask)}
      * or {@link #subtract(AbstractRectangleMask)}.
      */
-    public void clip(AbstractRectangleMask<R> mask) {
+    public boolean clip(AbstractRectangleMask<R> mask) {
+        if (isEmpty())
+            return false;
+        if (mask.isEmpty()) {
+            clear();
+            return true;
+        }
+
         AbstractRectangleMask<R> src = clone();
 
         clear();
@@ -473,6 +495,7 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
         }
 
         resumeAutoCollapseRows();
+        return true;
     }
 
     public abstract AbstractRectangleMask<R> clone();
