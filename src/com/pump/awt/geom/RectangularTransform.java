@@ -123,6 +123,17 @@ public class RectangularTransform implements Serializable {
         return new RectangularTransform(scaleX, scaleY, 0, 0);
     }
 
+    /**
+     * Return a RectangularTransform that is equivalent to the argument, or null if the argument
+     * cannot be converted to a RectangularTransform because it contains a shearing/rotation component.
+     */
+    public static RectangularTransform get(AffineTransform t) {
+        double ulp = Math.ulp(0);
+        if (Math.abs(t.getShearX()) < 10 * ulp && Math.abs(t.getShearY()) < 10 * ulp)
+            return new RectangularTransform(t.getScaleX(), t.getScaleY(), t.getTranslateX(), t.getTranslateY());
+        return null;
+    }
+
     /** Transforms the source argument. */
     public Rectangle2D transform(Rectangle2D src) {
         return transform(src, null, scaleX, scaleY, translateX, translateY);
