@@ -438,4 +438,11 @@ public class ShapeUtils {
         PathIterator pi = shape.getPathIterator(null);
         return pi.isDone();
     }
+
+    public static Rectangle2D getBounds2D(Shape shape) {
+        if (shape instanceof Area) {
+            return ((Area) shape).getBounds2D();
+        }
+        return getBounds2D(shape.getPathIterator(null));
+    }
 }
