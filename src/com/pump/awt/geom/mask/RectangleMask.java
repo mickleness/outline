@@ -573,4 +573,24 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         copy.add(this);
         return copy;
     }
+
+    @Override
+    public boolean intersects(Rectangle2D r) {
+        if (r instanceof Rectangle) {
+            // this one instanceof check can save us some autoboxing and some
+            // subsequent Math.floor(double) and Math.ceil(double) calls
+            Rectangle r2 = (Rectangle) r;
+            return intersects(r2.x, r2.y, r2.width, r2.height);
+        }
+        return intersects(r.getX(), r.getY(), r.getWidth(), r.getHeight());
+    }
+
+    @Override
+    public boolean contains(Rectangle2D r) {
+        if (r instanceof Rectangle) {
+            Rectangle r2 = (Rectangle) r;
+            return contains(r2.x, r2.y, r2.width, r2.height);
+        }
+        return contains(r.getX(), r.getY(), r.getWidth(), r.getHeight());
+    }
 }
