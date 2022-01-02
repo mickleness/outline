@@ -455,4 +455,20 @@ public class NumberLine%name%Mask implements Serializable {
 
         return returnValue;
     }
+
+    public boolean contains(NumberLine%name%Mask other) {
+        for(Range%name% otherRange : other.ranges.values()) {
+            if (!contains(otherRange.min, otherRange.max))
+                return false;
+        }
+        return true;
+    }
+
+    public boolean intersects(NumberLine%name%Mask other) {
+        for(Range%name% otherRange : other.ranges.values()) {
+            if (intersects(otherRange.min, otherRange.max))
+                return true;
+        }
+        return false;
+    }
 }

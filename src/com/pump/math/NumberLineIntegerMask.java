@@ -1,6 +1,8 @@
 package com.pump.math;
 
+import com.pump.util.RangeDouble;
 import com.pump.util.RangeInteger;
+import com.pump.util.TandemIterator;
 
 import java.io.IOException;
 import java.io.Serial;
@@ -454,5 +456,91 @@ public class NumberLineIntegerMask implements Serializable {
         }
 
         return returnValue;
+    }
+
+//    public boolean contains(NumberLineIntegerMask other) {
+//        for(RangeInteger otherRange : other.ranges.values()) {
+//            if (!contains(otherRange.min, otherRange.max))
+//                return false;
+//        }
+//        return true;
+//    }
+//
+//    public boolean intersects(NumberLineIntegerMask other) {
+//        for(RangeInteger otherRange : other.ranges.values()) {
+//            if (intersects(otherRange.min, otherRange.max))
+//                return true;
+//        }
+//        return false;
+//    }
+
+    public boolean contains(NumberLineIntegerMask other) {
+        if (isEmpty() || other.isEmpty())
+            return false;
+
+//        TandemIterator<RangeInteger> tandemIterator = new TandemIterator<>(ranges.values().iterator(), other.ranges.values().iterator());
+
+        Iterator<RangeInteger> myIter;
+
+        Integer myFloorKey = ranges.floorKey(other.ranges.firstKey());
+        Integer myCeilKey = ranges.ceilingKey(other.ranges.lastKey());
+        if (myFloorKey != null && myCeilKey != null) {
+            myIter = ranges.subMap(myFloorKey, true, myCeilKey, true).values().iterator();
+        } else if (myFloorKey != null) {
+            myIter = ranges.tailMap(myFloorKey, true).values().iterator();
+        }  else {
+            myIter = ranges.values().iterator();
+        }
+
+        TandemIterator<RangeInteger> tandemIterator = new TandemIterator<>(myIter, other.ranges.values().iterator());
+
+        List<RangeInteger> l = new ArrayList<>(2);
+        while (tandemIterator.hasNext()) {
+            tandemIterator.next(l);
+            if (l.get(0) == null)
+                return false;
+            if (l.get(1) == null)
+                continue;
+            if (!l.get(0).contains(l.get(1)))
+                return false;
+        }
+
+        return true;
+    }
+
+    public boolean intersects(NumberLineIntegerMask other) {
+        if (isEmpty() || other.isEmpty())
+            return false;
+
+//        TandemIterator<RangeInteger> tandemIterator = new TandemIterator<>(ranges.values().iterator(), other.ranges.values().iterator());
+        Iterator<RangeInteger> myIter;
+
+        Integer myFloorKey = ranges.floorKey(other.ranges.firstKey());
+        Integer myCeilKey = ranges.ceilingKey(other.ranges.lastKey());
+        if (myFloorKey != null && myCeilKey != null) {
+            myIter = ranges.subMap(myFloorKey, true, myCeilKey, true).values().iterator();
+        } else if (myFloorKey != null) {
+            myIter = ranges.tailMap(myFloorKey, true).values().iterator();
+        }  else {
+            myIter = ranges.values().iterator();
+        }
+
+        TandemIterator<RangeInteger> tandemIterator = new TandemIterator<>(myIter, other.ranges.values().iterator());
+
+        List<RangeInteger> l = new ArrayList<>(2);
+        while (tandemIterator.hasNext()) {
+            tandemIterator.next(l);
+            if (l.get(0) == null)
+                continue;
+            if (l.get(1) == null) {
+                if (tandemIterator.isIterator2Finished())
+                    break;
+                continue;
+            }
+            if (l.get(0).intersects(l.get(1)))
+                return true;
+        }
+
+        return false;
     }
 }
