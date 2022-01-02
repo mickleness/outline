@@ -12,7 +12,7 @@ import java.io.Serializable;
  * as <code>new Rectangle(0, 0, 2, 2)</code>: we would fill in the first pixel and the second pixel but not the third.)
  * </p>
  */
-public class Range%name% implements Serializable {
+public class Range%name% implements Serializable, Comparable<Range%name%> {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -133,5 +133,14 @@ public class Range%name% implements Serializable {
         } else {
             throw new IOException("Unsupported internal version: "+internalVersion);
         }
+    }
+
+    @Override
+    public int compareTo(Range%name% o) {
+        int k = %name%.compare(min, o.min);
+        if (k != 0)
+            return k;
+        k = %name%.compare(max, o.max);
+        return k;
     }
 }
