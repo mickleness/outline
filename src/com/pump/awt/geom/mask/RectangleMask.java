@@ -2,8 +2,10 @@ package com.pump.awt.geom.mask;
 
 import com.pump.awt.geom.ClosedPathIterator;
 import com.pump.awt.geom.MonotonicPathIterator;
+import com.pump.math.NumberLineDoubleMask;
 import com.pump.math.NumberLineIntegerMask;
 import com.pump.util.RangeInteger;
+import com.pump.util.TandemIterator;
 
 import java.awt.*;
 import java.awt.geom.*;
@@ -226,16 +228,18 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         return false;
     }
 
-    private void ensureRow(int y) {
+    private NumberLineIntegerMask ensureRow(int y) {
         Map.Entry<Integer, NumberLineIntegerMask> nearestRow = rows.floorEntry(y);
         if (nearestRow == null) {
             NumberLineIntegerMask newRow = new NumberLineIntegerMask();
             rows.put( Integer.valueOf(y), newRow);
+            return newRow;
         } else if (nearestRow.getKey().intValue() == y) {
-            // intentionally empty
+            return nearestRow.getValue();
         } else {
             NumberLineIntegerMask newRow = new NumberLineIntegerMask(nearestRow.getValue());
             rows.put(y, newRow);
+            return newRow;
         }
     }
 
@@ -592,5 +596,43 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
             return contains(r2.x, r2.y, r2.width, r2.height);
         }
         return contains(r.getX(), r.getY(), r.getWidth(), r.getHeight());
+    }
+
+    public boolean contains(RectangleMask mask) {
+        if (isEmpty() || mask.isEmpty())
+            return false;
+
+        TandemIterator<Map.Entry<Integer, NumberLineIntegerMask>> tandemIter = new TandemIterator<>(rows.entrySet().iterator(), mask.rows.entrySet().iterator());
+        List<Map.Entry<Integer, NumberLineIntegerMask>> l = new ArrayList<>(2);
+        while (tandemIter.hasNext()) {
+            tandemIter.next(l);
+            if (l.get(0) == null)
+                return false;
+            if (l.get(1) == null)
+                continue;
+
+            if (!l.get(0).getValue().contains(l.get(1).getValue()))
+                return false;
+        }
+
+        return true;
+    }
+
+    public boolean intersects(RectangleMask mask) {
+        if (isEmpty() || mask.isEmpty())
+            return false;
+
+        TandemIterator<Map.Entry<Integer, NumberLineIntegerMask>> tandemIter = new TandemIterator<>(rows.entrySet().iterator(), mask.rows.entrySet().iterator());
+        List<Map.Entry<Integer, NumberLineIntegerMask>> l = new ArrayList<>(2);
+        while (tandemIter.hasNext()) {
+            tandemIter.next(l);
+            if (l.get(0) == null || l.get(1) == null)
+                continue;
+
+            if (!l.get(0).getValue().intersects(l.get(1).getValue()))
+                return true;
+        }
+
+        return false;
     }
 }

@@ -5,6 +5,7 @@ import com.pump.math.NumberLineDoubleMask;
 import com.pump.math.NumberLineIntegerMask;
 import com.pump.util.RangeDouble;
 import com.pump.util.RangeInteger;
+import com.pump.util.TandemIterator;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -229,16 +230,18 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         return false;
     }
 
-    private void ensureRow(double y) {
+    private NumberLineDoubleMask ensureRow(double y) {
         Map.Entry<Double, NumberLineDoubleMask> nearestRow = rows.floorEntry(y);
         if (nearestRow == null) {
             NumberLineDoubleMask newRow = new NumberLineDoubleMask();
             rows.put( Double.valueOf(y), newRow);
+            return newRow;
         } else if (nearestRow.getKey().doubleValue() == y) {
-            // intentionally empty
+            return nearestRow.getValue();
         } else {
             NumberLineDoubleMask newRow = new NumberLineDoubleMask(nearestRow.getValue());
             rows.put(y, newRow);
+            return newRow;
         }
     }
 
@@ -571,5 +574,61 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         rows.putAll(newMask.rows);
         modCount++;
         collapseRows();
+    }
+
+    static boolean useTandem = false;
+
+    public boolean contains(RectangleMask2D mask) {
+        if (isEmpty() || mask.isEmpty())
+            return false;
+
+        if (useTandem) {
+            TandemIterator<Map.Entry<Double, NumberLineDoubleMask>> tandemIter = new TandemIterator<>(rows.entrySet().iterator(), mask.rows.entrySet().iterator());
+            List<Map.Entry<Double, NumberLineDoubleMask>> l = new ArrayList<>(2);
+            while (tandemIter.hasNext()) {
+                tandemIter.next(l);
+                if (l.get(0) == null)
+                    return false;
+                if (l.get(1) == null)
+                    continue;
+
+                if (!l.get(0).getValue().contains(l.get(1).getValue()))
+                    return false;
+            }
+        } else {
+            Iterator<Rectangle2D.Double> iter = mask.iterator();
+            while (iter.hasNext()) {
+                if (!contains(iter.next()))
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    public boolean intersects(RectangleMask2D mask) {
+        if (isEmpty() || mask.isEmpty())
+            return false;
+
+        if (useTandem) {
+            TandemIterator<Map.Entry<Double, NumberLineDoubleMask>> tandemIter = new TandemIterator<>(rows.entrySet().iterator(), mask.rows.entrySet().iterator());
+            List<Map.Entry<Double, NumberLineDoubleMask>> l = new ArrayList<>(2);
+            while (tandemIter.hasNext()) {
+                tandemIter.next(l);
+                if (l.get(0) == null || l.get(1) == null)
+                    continue;
+
+                if (!l.get(0).getValue().intersects(l.get(1).getValue()))
+                    return true;
+            }
+        } else {
+            Iterator<Rectangle2D.Double> iter = mask.iterator();
+            while (iter.hasNext()) {
+                if (intersects(iter.next()))
+                    return true;
+            }
+        }
+
+        return false;
     }
 }

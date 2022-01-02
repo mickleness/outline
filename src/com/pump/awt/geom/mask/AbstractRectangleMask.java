@@ -266,36 +266,6 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
     public abstract boolean clip(R rect);
 
     /**
-     * Return true if this mask contains the argument.
-     */
-    public boolean contains(AbstractRectangleMask<R> mask) {
-        if (isEmpty() || mask.isEmpty())
-            return false;
-
-        Iterator<R> iter = mask.iterator();
-        while(iter.hasNext()) {
-            if (!contains(iter.next()))
-                return false;
-        }
-        return true;
-    }
-
-    /**
-     * Return true if this mask intersects the argument.
-     */
-    public boolean intersects(AbstractRectangleMask<R> mask) {
-        if (isEmpty() || mask.isEmpty())
-            return false;
-
-        Iterator<R> iter = mask.iterator();
-        while(iter.hasNext()) {
-            if (intersects(iter.next()))
-                return true;
-        }
-        return false;
-    }
-
-    /**
      * Add another mask to this mask.
      *
      * @return true if this operation changed this mask.
