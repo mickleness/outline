@@ -477,7 +477,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        RectangleMask rMask = (RectangleMask) o;
+        RectangleMask2D rMask = (RectangleMask2D) o;
         return Objects.equals(rows, rMask.rows);
     }
 
