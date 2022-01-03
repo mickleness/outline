@@ -703,6 +703,52 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         }
     }
 
+    /**
+     * Subtract another mask from this mask.
+     *
+     * @return true if this operation changed this mask.
+     */
+    public boolean subtract(RectangleMask rhs) {
+        if (rhs.isEmpty() || isEmpty() || !getBounds().intersects(rhs.getBounds()))
+            return false;
+
+        suspendAutoCollapseRows();
+        try {
+            boolean returnValue = false;
+            for (Map.Entry<Integer, NumberLineIntegerMask> otherRow : rhs.rows.entrySet()) {
+                ensureRow(otherRow.getKey().intValue());
+            }
+
+            Iterator<Map.Entry<Integer, NumberLineIntegerMask>> myIter = rows.subMap(rhs.rows.firstKey(), true, rhs.rows.lastKey(), true).entrySet().iterator();
+            NumberLineIntegerMask mostRecentOtherRow = null;
+            while (myIter.hasNext()) {
+                Map.Entry<Integer, NumberLineIntegerMask> myRow = myIter.next();
+                NumberLineIntegerMask otherRow = rhs.rows.get(myRow.getKey());
+                if (otherRow != null) {
+                    mostRecentOtherRow = otherRow;
+                }
+                if (mostRecentOtherRow != null && myRow.getValue().subtract(mostRecentOtherRow))
+                    returnValue = true;
+            }
+
+            if (touchedRows == null) {
+                touchedRows = new int[] {rhs.rows.firstKey().intValue(), rhs.rows.lastKey().intValue()};
+            } else {
+                touchedRows[0] = Math.min(touchedRows[0], rhs.rows.firstKey().intValue());
+                touchedRows[1] = Math.max(touchedRows[1], rhs.rows.lastKey().intValue());
+            }
+
+            if (returnValue) {
+                modCount++;
+                cachedBounds = null;
+            }
+
+            return returnValue;
+        } finally {
+            resumeAutoCollapseRows();
+        }
+    }
+
     private boolean isAboveOrBelow(RectangleMask other) {
         return rows.lastKey().intValue() < other.rows.firstKey().intValue() || rows.firstKey().intValue() > other.rows.lastKey().intValue();
     }

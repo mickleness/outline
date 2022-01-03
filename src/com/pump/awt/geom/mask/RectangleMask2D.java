@@ -693,6 +693,52 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         }
     }
 
+    /**
+     * Subtract another mask from this mask.
+     *
+     * @return true if this operation changed this mask.
+     */
+    public boolean subtract(RectangleMask2D rhs) {
+        if (rhs.isEmpty() || isEmpty() || !getBounds2D().intersects(rhs.getBounds2D()))
+            return false;
+
+        suspendAutoCollapseRows();
+        try {
+            boolean returnValue = false;
+            for (Map.Entry<Double, NumberLineDoubleMask> otherRow : rhs.rows.entrySet()) {
+                ensureRow(otherRow.getKey().doubleValue());
+            }
+
+            Iterator<Map.Entry<Double, NumberLineDoubleMask>> myIter = rows.subMap(rhs.rows.firstKey(), true, rhs.rows.lastKey(), true).entrySet().iterator();
+            NumberLineDoubleMask mostRecentOtherRow = null;
+            while (myIter.hasNext()) {
+                Map.Entry<Double, NumberLineDoubleMask> myRow = myIter.next();
+                NumberLineDoubleMask otherRow = rhs.rows.get(myRow.getKey());
+                if (otherRow != null) {
+                    mostRecentOtherRow = otherRow;
+                }
+                if (mostRecentOtherRow != null && myRow.getValue().subtract(mostRecentOtherRow))
+                    returnValue = true;
+            }
+
+            if (touchedRows == null) {
+                touchedRows = new double[] {rhs.rows.firstKey().doubleValue(), rhs.rows.lastKey().doubleValue()};
+            } else {
+                touchedRows[0] = Math.min(touchedRows[0], rhs.rows.firstKey().doubleValue());
+                touchedRows[1] = Math.max(touchedRows[1], rhs.rows.lastKey().doubleValue());
+            }
+
+            if (returnValue) {
+                modCount++;
+                cachedBounds = null;
+            }
+
+            return returnValue;
+        } finally {
+            resumeAutoCollapseRows();
+        }
+    }
+
     private boolean isAboveOrBelow(RectangleMask2D other) {
         return rows.lastKey().doubleValue() < other.rows.firstKey().doubleValue() || rows.firstKey().doubleValue() > other.rows.lastKey().doubleValue();
     }
