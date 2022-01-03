@@ -531,6 +531,8 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         Iterator<Map.Entry<Double, NumberLineDoubleMask>> iter;
         if (k1 == null) {
             iter = rows.entrySet().iterator();
+        } else if (k2 == null) {
+            iter = rows.tailMap(k1, true).entrySet().iterator();
         } else {
             iter = rows.subMap(k1, true, k2, true).entrySet().iterator();
         }

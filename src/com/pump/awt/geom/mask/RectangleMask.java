@@ -554,6 +554,8 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter;
         if (k1 == null) {
             iter = rows.entrySet().iterator();
+        } else if (k2 == null) {
+            iter = rows.tailMap(k1, true).entrySet().iterator();
         } else {
             iter = rows.subMap(k1, true, k2, true).entrySet().iterator();
         }
