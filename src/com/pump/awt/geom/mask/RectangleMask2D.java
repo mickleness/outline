@@ -639,41 +639,61 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
      *
      * @return true if this operation changed this mask.
      */
-    public boolean add(RectangleMask2D mask) {
-        if (mask.isEmpty())
+    public boolean add(RectangleMask2D rhs) {
+        if (rhs.isEmpty())
             return false;
 
         suspendAutoCollapseRows();
         try {
-            for (Map.Entry<Double, NumberLineDoubleMask> otherRow : mask.rows.entrySet()) {
-                ensureRow(otherRow.getKey().doubleValue());
-            }
-
             boolean returnValue = false;
-            Iterator<Map.Entry<Double, NumberLineDoubleMask>> myIter = rows.subMap(mask.rows.firstKey(), true, mask.rows.lastKey(), true).entrySet().iterator();
-            NumberLineDoubleMask mostRecentOtherRow = null;
-            while (myIter.hasNext()) {
-                Map.Entry<Double, NumberLineDoubleMask> myRow = myIter.next();
-                NumberLineDoubleMask otherRow = mask.rows.get(myRow.getKey());
-                if (otherRow != null) {
-                    mostRecentOtherRow = otherRow;
+            if (isEmpty()) {
+                rows.clear();
+                for (Map.Entry<Double, NumberLineDoubleMask> entry : rhs.rows.entrySet()) {
+                    rows.put(entry.getKey(), new NumberLineDoubleMask(entry.getValue()));
                 }
-                if (mostRecentOtherRow != null && myRow.getValue().add(mostRecentOtherRow))
-                    returnValue = true;
+                returnValue = true;
+            } else if(isAboveOrBelow(rhs)) {
+                for (Map.Entry<Double, NumberLineDoubleMask> entry : rhs.rows.entrySet()) {
+                    rows.put(entry.getKey(), new NumberLineDoubleMask(entry.getValue()));
+                }
+                returnValue = true;
+            } else {
+                for (Map.Entry<Double, NumberLineDoubleMask> otherRow : rhs.rows.entrySet()) {
+                    ensureRow(otherRow.getKey().doubleValue());
+                }
+
+                Iterator<Map.Entry<Double, NumberLineDoubleMask>> myIter = rows.subMap(rhs.rows.firstKey(), true, rhs.rows.lastKey(), true).entrySet().iterator();
+                NumberLineDoubleMask mostRecentOtherRow = null;
+                while (myIter.hasNext()) {
+                    Map.Entry<Double, NumberLineDoubleMask> myRow = myIter.next();
+                    NumberLineDoubleMask otherRow = rhs.rows.get(myRow.getKey());
+                    if (otherRow != null) {
+                        mostRecentOtherRow = otherRow;
+                    }
+                    if (mostRecentOtherRow != null && myRow.getValue().add(mostRecentOtherRow))
+                        returnValue = true;
+                }
+
+                if (touchedRows == null) {
+                    touchedRows = new double[] {rhs.rows.firstKey().doubleValue(), rhs.rows.lastKey().doubleValue()};
+                } else {
+                    touchedRows[0] = Math.min(touchedRows[0], rhs.rows.firstKey().doubleValue());
+                    touchedRows[1] = Math.max(touchedRows[1], rhs.rows.lastKey().doubleValue());
+                }
             }
 
-            if (touchedRows == null) {
-                touchedRows = new double[] {mask.rows.firstKey().doubleValue(), mask.rows.lastKey().doubleValue()};
-            } else {
-                touchedRows[0] = Math.min(touchedRows[0], mask.rows.firstKey().doubleValue());
-                touchedRows[1] = Math.max(touchedRows[1], mask.rows.lastKey().doubleValue());
+            if (returnValue) {
+                modCount++;
+                cachedBounds = null;
             }
 
             return returnValue;
         } finally {
-            modCount++;
-            cachedBounds = null;
             resumeAutoCollapseRows();
         }
+    }
+
+    private boolean isAboveOrBelow(RectangleMask2D other) {
+        return rows.lastKey().doubleValue() < other.rows.firstKey().doubleValue() || rows.firstKey().doubleValue() > other.rows.lastKey().doubleValue();
     }
 }

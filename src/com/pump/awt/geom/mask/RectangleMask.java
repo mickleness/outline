@@ -643,47 +643,67 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
      *
      * @return true if this operation changed this mask.
      */
-    public boolean add(RectangleMask mask) {
+    public boolean add(RectangleMask rhs) {
         // TODO similarly remove all methods in AbstractRectangleMask
         // that take an AbstractRectangleMask as an arg and create
         // specialized methods like this one. It doesn't significantly
         // affect performance, but it adds a few ulps of accuracy
         // because we're not bouncing in and out of a Rectangle2D.
 
-        if (mask.isEmpty())
+        if (rhs.isEmpty())
             return false;
 
         suspendAutoCollapseRows();
         try {
             boolean returnValue = false;
-            for(Map.Entry<Integer, NumberLineIntegerMask> otherRow : mask.rows.entrySet()) {
-                ensureRow(otherRow.getKey().intValue());
-            }
-
-            Iterator<Map.Entry<Integer, NumberLineIntegerMask>> myIter = rows.subMap(mask.rows.firstKey(), true, mask.rows.lastKey(), true).entrySet().iterator();
-            NumberLineIntegerMask mostRecentOtherRow = null;
-            while (myIter.hasNext()) {
-                Map.Entry<Integer, NumberLineIntegerMask> myRow = myIter.next();
-                NumberLineIntegerMask otherRow = mask.rows.get(myRow.getKey());
-                if (otherRow != null) {
-                    mostRecentOtherRow = otherRow;
+            if (isEmpty()) {
+                rows.clear();
+                for (Map.Entry<Integer, NumberLineIntegerMask> entry : rhs.rows.entrySet()) {
+                    rows.put(entry.getKey(), new NumberLineIntegerMask(entry.getValue()));
                 }
-                if (mostRecentOtherRow != null && myRow.getValue().add(mostRecentOtherRow))
-                    returnValue = true;
+                returnValue = true;
+            } else if(isAboveOrBelow(rhs)) {
+                for (Map.Entry<Integer, NumberLineIntegerMask> entry : rhs.rows.entrySet()) {
+                    rows.put(entry.getKey(), new NumberLineIntegerMask(entry.getValue()));
+                }
+                returnValue = true;
+            } else {
+                for (Map.Entry<Integer, NumberLineIntegerMask> otherRow : rhs.rows.entrySet()) {
+                    ensureRow(otherRow.getKey().intValue());
+                }
+
+                Iterator<Map.Entry<Integer, NumberLineIntegerMask>> myIter = rows.subMap(rhs.rows.firstKey(), true, rhs.rows.lastKey(), true).entrySet().iterator();
+                NumberLineIntegerMask mostRecentOtherRow = null;
+                while (myIter.hasNext()) {
+                    Map.Entry<Integer, NumberLineIntegerMask> myRow = myIter.next();
+                    NumberLineIntegerMask otherRow = rhs.rows.get(myRow.getKey());
+                    if (otherRow != null) {
+                        mostRecentOtherRow = otherRow;
+                    }
+                    if (mostRecentOtherRow != null && myRow.getValue().add(mostRecentOtherRow))
+                        returnValue = true;
+                }
+
+                if (touchedRows == null) {
+                    touchedRows = new int[] {rhs.rows.firstKey().intValue(), rhs.rows.lastKey().intValue()};
+                } else {
+                    touchedRows[0] = Math.min(touchedRows[0], rhs.rows.firstKey().intValue());
+                    touchedRows[1] = Math.max(touchedRows[1], rhs.rows.lastKey().intValue());
+                }
             }
 
-            if (touchedRows == null) {
-                touchedRows = new int[] {mask.rows.firstKey().intValue(), mask.rows.lastKey().intValue()};
-            } else {
-                touchedRows[0] = Math.min(touchedRows[0], mask.rows.firstKey().intValue());
-                touchedRows[1] = Math.max(touchedRows[1], mask.rows.lastKey().intValue());
+            if (returnValue) {
+                modCount++;
+                cachedBounds = null;
             }
 
             return returnValue;
         } finally {
-            modCount++;
-            cachedBounds = null;
             resumeAutoCollapseRows();
         }
+    }
+
+    private boolean isAboveOrBelow(RectangleMask other) {
+        return rows.lastKey().intValue() < other.rows.firstKey().intValue() || rows.firstKey().intValue() > other.rows.lastKey().intValue();
     }
 }
