@@ -22,27 +22,27 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
     private static final long serialVersionUID = 1L;
 
     class MaskIterator implements Iterator<Rectangle> {
-        Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter;
+        Iterator<Row> iter;
         List<Rectangle> iteratorValues = new LinkedList<>();
-        Map.Entry<Integer, NumberLineIntegerMask> prevRow;
+        Row prevRow;
         final int expectedModCount;
 
         {
             expectedModCount = modCount;
-            iter = rows.entrySet().iterator();
+            iter = rows.iterator();
             prevRow = iter.hasNext() ? iter.next() : null;
             updateIteratorValues();
         }
 
         private void updateIteratorValues() {
             while (iter.hasNext()) {
-                Map.Entry<Integer, NumberLineIntegerMask> currentRow = iter.next();
+                Row currentRow = iter.next();
 
-                for (RangeInteger range : prevRow.getValue().getRanges()) {
+                for (RangeInteger range : prevRow.xMask.getRanges()) {
                     int x = range.min;
-                    int y = prevRow.getKey();
+                    int y = prevRow.y;
                     int x2 = range.max;
-                    int y2 = currentRow.getKey();
+                    int y2 = currentRow.y;
                     Rectangle rect = new Rectangle(x, y, x2 - x, y2 - y);
                     iteratorValues.add(rect);
                 }
@@ -73,7 +73,26 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         }
     }
 
-    protected final TreeMap<Integer, NumberLineIntegerMask> rows = new TreeMap<>();
+    protected static class Row implements Comparable<Row> {
+        int y;
+        NumberLineIntegerMask xMask;
+
+        public Row(int y) {
+            this.y = y;
+        }
+
+        public Row(int y, NumberLineIntegerMask xMask) {
+            this.y = y;
+            this.xMask = xMask;
+        }
+
+        @Override
+        public int compareTo(Row o) {
+            return Integer.compare(y, o.y);
+        }
+    }
+
+    protected final TreeSet<Row> rows = new TreeSet<>();
     protected int[] touchedRows;
 
     public RectangleMask() {
@@ -144,10 +163,10 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
             }
 
             public void run() {
-                Map.Entry<Integer, NumberLineIntegerMask> lastEntry = null;
-                for(Map.Entry<Integer, NumberLineIntegerMask> entry : rows.entrySet()) {
+                Row lastEntry = null;
+                for(Row entry : rows) {
                     if (lastEntry != null) {
-                        fill(lastEntry.getKey(), entry.getKey(), lastEntry.getValue());
+                        fill(lastEntry.y, entry.y, lastEntry.xMask);
                     }
 
                     lastEntry = entry;
@@ -220,7 +239,7 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         boolean uninitialized = rows.isEmpty();
         if (!isEmpty() || uninitialized) {
             rows.clear();
-            rows.put(0, new NumberLineIntegerMask());
+            rows.add(new Row(0, new NumberLineIntegerMask()));
             modCount++;
             cachedBounds = null;
             return true;
@@ -228,18 +247,16 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         return false;
     }
 
-    private NumberLineIntegerMask ensureRow(int y) {
-        Map.Entry<Integer, NumberLineIntegerMask> nearestRow = rows.floorEntry(y);
+    private void ensureRow(int y) {
+        Row nearestRow = rows.floor(new Row(y));
         if (nearestRow == null) {
-            NumberLineIntegerMask newRow = new NumberLineIntegerMask();
-            rows.put( Integer.valueOf(y), newRow);
-            return newRow;
-        } else if (nearestRow.getKey().intValue() == y) {
-            return nearestRow.getValue();
+            Row newRow = new Row(y, new NumberLineIntegerMask());
+            rows.add(newRow);
+        } else if (nearestRow.y == y) {
+            // intentionally empty
         } else {
-            NumberLineIntegerMask newRow = new NumberLineIntegerMask(nearestRow.getValue());
-            rows.put(y, newRow);
-            return newRow;
+            Row newRow = new Row(y, new NumberLineIntegerMask(nearestRow.xMask));
+            rows.add(newRow);
         }
     }
 
@@ -294,15 +311,15 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
 
         try {
             boolean returnValue = false;
-            for (Map.Entry<Integer, NumberLineIntegerMask> entry : rows.tailMap(y).entrySet()) {
-                if (entry.getKey().equals(y2))
+            for (Row entry : rows.tailSet(new Row(y))) {
+                if (entry.y == y2)
                     break;
 
                 boolean opResults = switch (op) {
-                    case ADD -> entry.getValue().add(x, x2);
-                    case SUBTRACT -> entry.getValue().subtract(x, x2);
-                    case CLIP -> entry.getValue().clip(x, x2);
-                    case XOR -> entry.getValue().xor(x, x2);
+                    case ADD -> entry.xMask.add(x, x2);
+                    case SUBTRACT -> entry.xMask.subtract(x, x2);
+                    case CLIP -> entry.xMask.clip(x, x2);
+                    case XOR -> entry.xMask.xor(x, x2);
                 };
 
                 if (opResults)
@@ -324,22 +341,22 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
     }
 
     private void removeRowsAboveAndBelow(int y1, int y2) {
-        Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter;
-        iter = rows.entrySet().iterator();
+        Iterator<Row> iter;
+        iter = rows.iterator();
 
         NumberLineIntegerMask prevRowMask = new NumberLineIntegerMask();
         while (iter.hasNext()) {
-            Map.Entry<Integer, NumberLineIntegerMask> entry = iter.next();
-            if (entry.getKey().intValue() < y1 || entry.getKey().intValue() > y2) {
+            Row entry = iter.next();
+            if (entry.y < y1 || entry.y > y2) {
                 iter.remove();
-            } else if (entry.getKey().compareTo(y2) == 0) {
+            } else if (entry.y == y2) {
                 if (prevRowMask != null && prevRowMask.isEmpty()) {
                     iter.remove();
-                } else if (!entry.getValue().isEmpty()) {
-                    entry.getValue().clear();
+                } else if (!entry.xMask.isEmpty()) {
+                    entry.xMask.clear();
                 }
             } else {
-                NumberLineIntegerMask currentMask = entry.getValue();
+                NumberLineIntegerMask currentMask = entry.xMask;
                 if (currentMask.equals(prevRowMask)) {
                     iter.remove();
                 }
@@ -347,43 +364,43 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
             }
         }
 
-        if (!rows.isEmpty() && !rows.lastEntry().getValue().isEmpty()) {
-            rows.put(y2, new NumberLineIntegerMask());
+        if (!rows.isEmpty() && !rows.last().xMask.isEmpty()) {
+            rows.add(new Row(y2, new NumberLineIntegerMask()));
         }
     }
 
     @Override
     protected Rectangle createBounds() {
-        if (rows.isEmpty() || (rows.size()==1 && rows.entrySet().iterator().next().getValue().isEmpty()) ) {
+        if (rows.isEmpty() || (rows.size()==1 && rows.iterator().next().xMask.isEmpty()) ) {
             return new Rectangle();
         }
 
         int x1, y1, x2, y2;
         x1 = y1 = x2 = y2 = 0;
         boolean undefined = true;
-        for(Map.Entry<Integer, NumberLineIntegerMask> rowEntry : rows.entrySet()) {
-            NumberLineIntegerMask row = rowEntry.getValue();
+        for(Row rowEntry : rows) {
+            NumberLineIntegerMask row = rowEntry.xMask;
             if (undefined) {
                 undefined = false;
-                y1 = rowEntry.getKey();
+                y1 = rowEntry.y;
                 x1 = row.getMin();
                 x2 = row.getMax();
             }
             if (!row.isEmpty()) {
-                x1 = x1 < rowEntry.getValue().getMin() ? x1 : rowEntry.getValue().getMin();
-                x2 = x2 > rowEntry.getValue().getMax() ? x2 : rowEntry.getValue().getMax();
+                x1 = x1 < rowEntry.xMask.getMin() ? x1 : rowEntry.xMask.getMin();
+                x2 = x2 > rowEntry.xMask.getMax() ? x2 : rowEntry.xMask.getMax();
             }
-            y2 = rowEntry.getKey();
+            y2 = rowEntry.y;
         }
 
         return new Rectangle(x1, y1, x2 - x1, y2 - y1);
     }
 
     public boolean contains(int x, int y) {
-        Map.Entry<Integer, NumberLineIntegerMask> floorRow = rows.floorEntry(y);
+        Row floorRow = rows.floor(new Row(y));
         if (floorRow == null)
             return false;
-        return floorRow.getValue().contains(x);
+        return floorRow.xMask.contains(x);
     }
 
     public boolean contains(int x, int y, int width,int height) {
@@ -394,16 +411,16 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         if (width == 0 || height == 0)
             return false;
 
-        Integer floorKey = rows.floorKey(y);
-        if (floorKey == null)
+        Row floor = rows.floor(new Row(y));
+        if (floor == null)
             return false;
         int y2 = y + height;
         int x2 = x + width;
-        for (Map.Entry<Integer, NumberLineIntegerMask> entry : rows.tailMap(floorKey, true).entrySet()) {
-            if (entry.getKey().compareTo(y2) >= 0)
+        for (Row entry : rows.tailSet(floor, true)) {
+            if (entry.y >= y2)
                 return true;
 
-            if (!entry.getValue().contains(x, x2)) {
+            if (!entry.xMask.contains(x, x2)) {
                 return false;
             }
         }
@@ -418,18 +435,18 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         if (width == 0 || height == 0)
             return false;
 
-        Integer floorKey = rows.floorKey(y);
-        Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter = floorKey == null ?
-                rows.entrySet().iterator() :
-                rows.tailMap(floorKey, true).entrySet().iterator();
+        Row floor = rows.floor(new Row(y));
+        Iterator<Row> iter = floor == null ?
+                rows.iterator() :
+                rows.tailSet(floor, true).iterator();
         int y2 = y + height;
         int x2 = x + width;
         while (iter.hasNext()) {
-            Map.Entry<Integer, NumberLineIntegerMask> entry = iter.next();
-            if (entry.getKey().compareTo(y2) >= 0)
+            Row entry = iter.next();
+            if (entry.y >= y2)
                 return false;
 
-            if (entry.getValue().intersects(x, x2)) {
+            if (entry.xMask.intersects(x, x2)) {
                 return true;
             }
         }
@@ -438,28 +455,28 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
 
     @Override
     public boolean isEmpty() {
-        return rows.isEmpty() || rows.firstEntry().getValue().isEmpty();
+        return rows.isEmpty() || rows.first().xMask.isEmpty();
     }
 
     @Override
     protected Rectangle toRectangle() {
         int x1, y1, x2, y2;
-        Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter = rows.entrySet().iterator();
+        Iterator<Row> iter = rows.iterator();
         if (!iter.hasNext())
             return null;
-        Map.Entry<Integer, NumberLineIntegerMask> firstEntry = iter.next();
+        Row firstEntry = iter.next();
 
-        y1 = firstEntry.getKey();
-        x1 = firstEntry.getValue().getMin();
-        x2 = firstEntry.getValue().getMax();
+        y1 = firstEntry.y;
+        x1 = firstEntry.xMask.getMin();
+        x2 = firstEntry.xMask.getMax();
 
         if (!iter.hasNext())
             return null;
 
-        Map.Entry<Integer, NumberLineIntegerMask> secondEntry = iter.next();
-        if (!secondEntry.getValue().isEmpty())
+        Row secondEntry = iter.next();
+        if (!secondEntry.xMask.isEmpty())
             return null;
-        y2 = secondEntry.getKey();
+        y2 = secondEntry.y;
 
         return new Rectangle(x1, y1, x2 - x1, y2 - y1);
     }
@@ -538,34 +555,34 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
     protected void collapseRows() {
         if (touchedRows == null)
             return;
-        Integer k1 = rows.floorKey(touchedRows[0]);
-        Integer k2 = rows.ceilingKey(touchedRows[1]);
+        Row k1 = rows.floor(new Row(touchedRows[0]));
+        Row k2 = rows.ceiling(new Row(touchedRows[1]));
 
         if (k1 != null) {
-            k1 = rows.lowerKey(k1);
+            k1 = rows.lower(k1);
         }
 
         if (k2 != null) {
-            Integer k3 = rows.higherKey(k2);
+            Row k3 = rows.higher(k2);
             if (k3 != null)
                 k2 = k3;
         }
 
-        Iterator<Map.Entry<Integer, NumberLineIntegerMask>> iter;
+        Iterator<Row> iter;
         if (k1 == null) {
-            iter = rows.entrySet().iterator();
+            iter = rows.iterator();
         } else if (k2 == null) {
-            iter = rows.tailMap(k1, true).entrySet().iterator();
+            iter = rows.tailSet(k1, true).iterator();
         } else {
-            iter = rows.subMap(k1, true, k2, true).entrySet().iterator();
+            iter = rows.subSet(k1, true, k2, true).iterator();
         }
 
-        Map.Entry<Integer, NumberLineIntegerMask> lowerEntry = k1 == null ? null : rows.lowerEntry(k1);
-        NumberLineIntegerMask prevRowMask = lowerEntry == null ? new NumberLineIntegerMask() : lowerEntry.getValue();
+        Row lowerEntry = k1 == null ? null : rows.lower(k1);
+        NumberLineIntegerMask prevRowMask = lowerEntry == null ? new NumberLineIntegerMask() : lowerEntry.xMask;
 
         while (iter.hasNext()) {
-            Map.Entry<Integer, NumberLineIntegerMask> entry = iter.next();
-            NumberLineIntegerMask currentMask = entry.getValue();
+            Row entry = iter.next();
+            NumberLineIntegerMask currentMask = entry.xMask;
             if (currentMask.equals(prevRowMask)) {
                 iter.remove();
             }
@@ -604,16 +621,9 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         if (isEmpty() || mask.isEmpty())
             return false;
 
-        TandemIterator<Map.Entry<Integer, NumberLineIntegerMask>> tandemIter = new TandemIterator<>(rows.entrySet().iterator(), mask.rows.entrySet().iterator());
-        List<Map.Entry<Integer, NumberLineIntegerMask>> l = new ArrayList<>(2);
-        while (tandemIter.hasNext()) {
-            tandemIter.next(l);
-            if (l.get(0) == null)
-                return false;
-            if (l.get(1) == null)
-                continue;
-
-            if (!l.get(0).getValue().contains(l.get(1).getValue()))
+        Iterator<Rectangle> iter = mask.iterator();
+        while (iter.hasNext()) {
+            if (!contains(iter.next()))
                 return false;
         }
 
@@ -624,14 +634,9 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         if (isEmpty() || mask.isEmpty())
             return false;
 
-        TandemIterator<Map.Entry<Integer, NumberLineIntegerMask>> tandemIter = new TandemIterator<>(rows.entrySet().iterator(), mask.rows.entrySet().iterator());
-        List<Map.Entry<Integer, NumberLineIntegerMask>> l = new ArrayList<>(2);
-        while (tandemIter.hasNext()) {
-            tandemIter.next(l);
-            if (l.get(0) == null || l.get(1) == null)
-                continue;
-
-            if (!l.get(0).getValue().intersects(l.get(1).getValue()))
+        Iterator<Rectangle> iter = mask.iterator();
+        while (iter.hasNext()) {
+            if (intersects(iter.next()))
                 return true;
         }
 
@@ -658,37 +663,33 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
             boolean returnValue = false;
             if (isEmpty()) {
                 rows.clear();
-                for (Map.Entry<Integer, NumberLineIntegerMask> entry : rhs.rows.entrySet()) {
-                    rows.put(entry.getKey(), new NumberLineIntegerMask(entry.getValue()));
+                for (Row entry : rhs.rows) {
+                    rows.add(new Row(entry.y, new NumberLineIntegerMask(entry.xMask)));
                 }
                 returnValue = true;
             } else if(isAboveOrBelow(rhs)) {
-                for (Map.Entry<Integer, NumberLineIntegerMask> entry : rhs.rows.entrySet()) {
-                    rows.put(entry.getKey(), new NumberLineIntegerMask(entry.getValue()));
+                for (Row entry : rhs.rows) {
+                    rows.add(new Row(entry.y, new NumberLineIntegerMask(entry.xMask)));
                 }
                 returnValue = true;
             } else {
-                for (Map.Entry<Integer, NumberLineIntegerMask> otherRow : rhs.rows.entrySet()) {
-                    ensureRow(otherRow.getKey().intValue());
+                for (Row otherRow : rhs.rows) {
+                    ensureRow(otherRow.y);
                 }
 
-                Iterator<Map.Entry<Integer, NumberLineIntegerMask>> myIter = rows.subMap(rhs.rows.firstKey(), true, rhs.rows.lastKey(), true).entrySet().iterator();
-                NumberLineIntegerMask mostRecentOtherRow = null;
+                Iterator<Row> myIter = rows.subSet(rhs.rows.first(), true, rhs.rows.last(), true).iterator();
                 while (myIter.hasNext()) {
-                    Map.Entry<Integer, NumberLineIntegerMask> myRow = myIter.next();
-                    NumberLineIntegerMask otherRow = rhs.rows.get(myRow.getKey());
-                    if (otherRow != null) {
-                        mostRecentOtherRow = otherRow;
-                    }
-                    if (mostRecentOtherRow != null && myRow.getValue().add(mostRecentOtherRow))
+                    Row myRow = myIter.next();
+                    Row otherRow = rhs.rows.floor(myRow);
+                    if (otherRow != null && myRow.xMask.add(otherRow.xMask))
                         returnValue = true;
                 }
 
                 if (touchedRows == null) {
-                    touchedRows = new int[] {rhs.rows.firstKey().intValue(), rhs.rows.lastKey().intValue()};
+                    touchedRows = new int[] {rhs.rows.first().y, rhs.rows.last().y};
                 } else {
-                    touchedRows[0] = Math.min(touchedRows[0], rhs.rows.firstKey().intValue());
-                    touchedRows[1] = Math.max(touchedRows[1], rhs.rows.lastKey().intValue());
+                    touchedRows[0] = Math.min(touchedRows[0], rhs.rows.first().y);
+                    touchedRows[1] = Math.max(touchedRows[1], rhs.rows.last().y);
                 }
             }
 
@@ -715,27 +716,23 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
         suspendAutoCollapseRows();
         try {
             boolean returnValue = false;
-            for (Map.Entry<Integer, NumberLineIntegerMask> otherRow : rhs.rows.entrySet()) {
-                ensureRow(otherRow.getKey().intValue());
+            for (Row otherRow : rhs.rows) {
+                ensureRow(otherRow.y);
             }
 
-            Iterator<Map.Entry<Integer, NumberLineIntegerMask>> myIter = rows.subMap(rhs.rows.firstKey(), true, rhs.rows.lastKey(), true).entrySet().iterator();
-            NumberLineIntegerMask mostRecentOtherRow = null;
+            Iterator<Row> myIter = rows.subSet(rhs.rows.first(), true, rhs.rows.last(), true).iterator();
             while (myIter.hasNext()) {
-                Map.Entry<Integer, NumberLineIntegerMask> myRow = myIter.next();
-                NumberLineIntegerMask otherRow = rhs.rows.get(myRow.getKey());
-                if (otherRow != null) {
-                    mostRecentOtherRow = otherRow;
-                }
-                if (mostRecentOtherRow != null && myRow.getValue().subtract(mostRecentOtherRow))
+                Row myRow = myIter.next();
+                Row otherRow = rhs.rows.floor(myRow);
+                if (otherRow != null && myRow.xMask.subtract(otherRow.xMask))
                     returnValue = true;
             }
 
             if (touchedRows == null) {
-                touchedRows = new int[] {rhs.rows.firstKey().intValue(), rhs.rows.lastKey().intValue()};
+                touchedRows = new int[] {rhs.rows.first().y, rhs.rows.last().y};
             } else {
-                touchedRows[0] = Math.min(touchedRows[0], rhs.rows.firstKey().intValue());
-                touchedRows[1] = Math.max(touchedRows[1], rhs.rows.lastKey().intValue());
+                touchedRows[0] = Math.min(touchedRows[0], rhs.rows.first().y);
+                touchedRows[1] = Math.max(touchedRows[1], rhs.rows.last().y);
             }
 
             if (returnValue) {
@@ -750,6 +747,6 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
     }
 
     private boolean isAboveOrBelow(RectangleMask other) {
-        return rows.lastKey().intValue() < other.rows.firstKey().intValue() || rows.firstKey().intValue() > other.rows.lastKey().intValue();
+        return rows.last().y < other.rows.first().y || rows.first().y > other.rows.last().y;
     }
 }
