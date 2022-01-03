@@ -175,6 +175,8 @@ public class MaskedOutlineEngine implements OutlineEngine {
     class ShapeInfo {
         Shape shape;
 
+        int maxOrder;
+
         /**
          * This rectangle mask contains the bounds of shapes.
          * Initially a ShapeInfo object just represents one shape, so this represents
@@ -189,9 +191,11 @@ public class MaskedOutlineEngine implements OutlineEngine {
          * shapes may actually show many configurations in which pieces don't
          * overlap.
          */
-//        RectangleMask2D mask;
+        RectangleMask2D mask;
+        List<ShapeInfo> pendingMaskAdditions = new LinkedList<>();
 
         double originalArea;
+        Rectangle2D origRect;
 
         public ShapeInfo() {
             reset(null);
@@ -201,18 +205,42 @@ public class MaskedOutlineEngine implements OutlineEngine {
             reset(shape);
         }
 
+        public RectangleMask2D getMask() {
+            if (mask == null) {
+                Rectangle2D rect = bounds.getBounds2D();
+                double area = Math.max(.000000001, rect.getWidth()) * Math.max(.000000001, rect.getHeight());
+                double maxSegmentArea = area * divisor;
+                mask = new RectangleMask2D(shape, null, maxSegmentArea);
+            }
+
+            for(ShapeInfo i : pendingMaskAdditions) {
+                mask.add(i.getMask());
+            }
+            pendingMaskAdditions.clear();
+
+            return mask;
+        }
+
         public void reset(Shape shape) {
             if (shape == null)
                 shape = new Path2D.Double();
             this.shape = shape;
 
-            Rectangle2D rect = ShapeUtils.getBounds2D(shape);
-            bounds = new RectangleMask2D(rect);
-            originalArea = rect.getWidth() * rect.getHeight();
+            maxOrder = 0;
+            PathIterator pi = shape.getPathIterator(null);
+            double[] coords = new double[6];
+            while (!pi.isDone()) {
+                int k = pi.currentSegment(coords);
+                if (k == PathIterator.SEG_LINETO || k == PathIterator.SEG_QUADTO || k == PathIterator.SEG_CUBICTO) {
+                    maxOrder = Math.max(maxOrder, k);
+                }
+                pi.next();
+            }
 
-            double area = Math.max(.000000001, rect.getWidth()) * Math.max(.000000001, rect.getHeight());
-            double maxSegmentArea = area / 64;
-//            mask = new RectangleMask2D(shape, null, maxSegmentArea);
+            origRect = ShapeUtils.getBounds2D(shape);
+            bounds = new RectangleMask2D(origRect);
+            originalArea = origRect.getWidth() * origRect.getHeight();
+            mask = null;
         }
 
 
@@ -231,7 +259,8 @@ public class MaskedOutlineEngine implements OutlineEngine {
             }
 
             bounds.add(rhs.bounds);
-//            mask.add(rhs.mask);
+            pendingMaskAdditions.add(rhs);
+            maxOrder = Math.max(maxOrder, rhs.maxOrder);
         }
 
         /**
@@ -249,7 +278,8 @@ public class MaskedOutlineEngine implements OutlineEngine {
             shape = parentEngine.calculate(ops);
 
             bounds.add(rhs.bounds);
-//            mask.add(rhs.mask);
+            pendingMaskAdditions.add(rhs);
+            maxOrder = Math.max(maxOrder, rhs.maxOrder);
         }
 
         public void subtract(ShapeInfo rhs) {
@@ -315,25 +345,33 @@ public class MaskedOutlineEngine implements OutlineEngine {
     }
 
     OutlineEngine parentEngine;
+    double divisor;
 
-    public MaskedOutlineEngine() {
-        this(new PlainAreaEngine());
+    public MaskedOutlineEngine(double divisor) {
+        this(new PlainAreaEngine(), divisor);
     }
 
-    public MaskedOutlineEngine(OutlineEngine parentEngine) {
+    public MaskedOutlineEngine(OutlineEngine parentEngine, double divisor) {
         this.parentEngine = parentEngine;
+        this.divisor = divisor;
     }
 
-    private static Comparator<MaskedOutlineOperation> SMALLEST_AREA = new Comparator<MaskedOutlineOperation>() {
+    private static Comparator<MaskedOutlineOperation> SIMPLEST_SHAPE_SMALLEST_AREA = new Comparator<MaskedOutlineOperation>() {
         @Override
         public int compare(MaskedOutlineOperation o1, MaskedOutlineOperation o2) {
+            int k = Integer.compare(o1.info.maxOrder, o2.info.maxOrder);
+            if (k != 0)
+                return k;
             return Double.compare(o1.info.originalArea, o2.info.originalArea);
         }
     };
 
-    private static Comparator<MaskedOutlineOperation> LARGEST_AREA = new Comparator<MaskedOutlineOperation>() {
+    private static Comparator<MaskedOutlineOperation> SIMPLEST_SHAPE_LARGEST_AREA = new Comparator<MaskedOutlineOperation>() {
         @Override
         public int compare(MaskedOutlineOperation o1, MaskedOutlineOperation o2) {
+            int k = Integer.compare(o1.info.maxOrder, o2.info.maxOrder);
+            if (k != 0)
+                return k;
             return -Double.compare(o1.info.originalArea, o2.info.originalArea);
         }
     };
@@ -346,10 +384,10 @@ public class MaskedOutlineEngine implements OutlineEngine {
             if (run.get(0).type == OutlineOperation.Type.INTERSECT || run.get(0).type == OutlineOperation.Type.XOR) {
                 // clip to the smallest size first to maybe make other ops redundant
                 // (not sure if any sorting can help xor ops?)
-                Collections.sort(run, SMALLEST_AREA);
+                Collections.sort(run, SIMPLEST_SHAPE_SMALLEST_AREA);
             } else {
                 // do the largest ops first, and hopefully then smaller ops become null ops
-                Collections.sort(run, LARGEST_AREA);
+                Collections.sort(run, SIMPLEST_SHAPE_LARGEST_AREA);
             }
 
             for(OutlineOperation op : run) {
@@ -398,14 +436,28 @@ public class MaskedOutlineEngine implements OutlineEngine {
             return;
         }
 
-        if (!returnValue.bounds.intersects(mop.info.bounds)) { // || !returnValue.mask.intersects(mop.info.mask)) {
+        // first only consult bounds:
+        if (!returnValue.bounds.intersects(mop.info.bounds)) {
             returnValue.append(mop.info);
             return;
         }
 
-        if (returnValue.bounds.contains(mop.info.bounds)) { // && returnValue.mask.contains(mop.info.mask)) {
+        if (returnValue.bounds.contains(mop.info.bounds)) {
             // that's a good preliminary sign, but it's not precise:
-            if (mop.info.bounds.isContainedBy(returnValue.shape)) { // || mop.info.mask.isContainedBy(returnValue.shape)) {
+            if (mop.info.bounds.isContainedBy(returnValue.shape)) {
+                // this is a null-op
+                return;
+            }
+        }
+
+        // now same checks but consult (more expensive) mask:
+        if (!returnValue.getMask().intersects(mop.info.getMask())) {
+            returnValue.append(mop.info);
+            return;
+        }
+
+        if (returnValue.getMask().contains(mop.info.getMask())) {
+            if (mop.info.getMask().isContainedBy(returnValue.shape)) {
                 // this is a null-op
                 return;
             }
@@ -416,7 +468,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
 
     private void subtract(ShapeInfo returnValue, OutlineOperation op) {
         MaskedOutlineOperation mop = (MaskedOutlineOperation) op;
-        if (mop.info.bounds.isEmpty() || !returnValue.bounds.intersects(mop.info.bounds)) { // || !returnValue.mask.intersects(mop.info.mask)) {
+        if (mop.info.bounds.isEmpty() || !returnValue.bounds.intersects(mop.info.bounds) || !returnValue.getMask().intersects(mop.info.getMask())) {
             // this is a null-op
             return;
         }
@@ -426,7 +478,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
 
     private void intersect(ShapeInfo returnValue, OutlineOperation op) {
         MaskedOutlineOperation mop = (MaskedOutlineOperation) op;
-        if (!returnValue.bounds.intersects(mop.info.bounds)) { // || !returnValue.mask.intersects(mop.info.mask)) {
+        if (!returnValue.bounds.intersects(mop.info.bounds) || !returnValue.getMask().intersects(mop.info.getMask())) {
             returnValue.reset(null);
             return;
         }
@@ -436,7 +488,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
 
     private void xor(ShapeInfo returnValue, OutlineOperation op) {
         MaskedOutlineOperation mop = (MaskedOutlineOperation) op;
-        if (!returnValue.bounds.intersects(mop.info.bounds)) { // || !returnValue.mask.intersects(mop.info.mask)) {
+        if (!returnValue.bounds.intersects(mop.info.bounds) || !returnValue.getMask().intersects(mop.info.getMask())) {
             returnValue.append(mop.info);
             return;
         }
@@ -451,6 +503,6 @@ public class MaskedOutlineEngine implements OutlineEngine {
 
     @Override
     public String toString() {
-        return getClass().getSimpleName();
+        return getClass().getSimpleName()+"[ divisor = "+divisor+"]";
     }
 }
