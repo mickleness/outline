@@ -631,4 +631,47 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
 
         return false;
     }
+
+    /**
+     * Add another mask to this mask.
+     *
+     * @return true if this operation changed this mask.
+     */
+    public boolean add(RectangleMask2D mask) {
+        if (mask.isEmpty())
+            return false;
+
+        suspendAutoCollapseRows();
+        try {
+            for (Map.Entry<Double, NumberLineDoubleMask> otherRow : mask.rows.entrySet()) {
+                ensureRow(otherRow.getKey().doubleValue());
+            }
+
+            boolean returnValue = false;
+            Iterator<Map.Entry<Double, NumberLineDoubleMask>> myIter = rows.subMap(mask.rows.firstKey(), true, mask.rows.lastKey(), true).entrySet().iterator();
+            NumberLineDoubleMask mostRecentOtherRow = null;
+            while (myIter.hasNext()) {
+                Map.Entry<Double, NumberLineDoubleMask> myRow = myIter.next();
+                NumberLineDoubleMask otherRow = mask.rows.get(myRow.getKey());
+                if (otherRow != null) {
+                    mostRecentOtherRow = otherRow;
+                }
+                if (mostRecentOtherRow != null && myRow.getValue().add(mostRecentOtherRow))
+                    returnValue = true;
+            }
+
+            if (touchedRows == null) {
+                touchedRows = new double[] {mask.rows.firstKey().doubleValue(), mask.rows.lastKey().doubleValue()};
+            } else {
+                touchedRows[0] = Math.min(touchedRows[0], mask.rows.firstKey().doubleValue());
+                touchedRows[1] = Math.max(touchedRows[1], mask.rows.lastKey().doubleValue());
+            }
+
+            return returnValue;
+        } finally {
+            modCount++;
+            cachedBounds = null;
+            resumeAutoCollapseRows();
+        }
+    }
 }

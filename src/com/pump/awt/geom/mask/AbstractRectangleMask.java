@@ -266,31 +266,6 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
     public abstract boolean clip(R rect);
 
     /**
-     * Add another mask to this mask.
-     *
-     * @return true if this operation changed this mask.
-     */
-    public boolean add(AbstractRectangleMask<R> mask) {
-        if (mask.isEmpty())
-            return false;
-
-        // TODO: optimize mask-based operations if either operand is empty
-        suspendAutoCollapseRows();
-        try {
-            Iterator<R> iter = mask.iterator();
-            boolean returnValue = false;
-            while(iter.hasNext()) {
-                R r = iter.next();
-                if (add(r))
-                    returnValue = true;
-            }
-            return returnValue;
-        } finally {
-            resumeAutoCollapseRows();
-        }
-    }
-
-    /**
      * Subtract another mask from this mask.
      *
      * @return true if this operation changed this mask.
