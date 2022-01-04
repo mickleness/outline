@@ -20,7 +20,7 @@ public class NumberLineIntegerMask implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    protected TreeMap<Integer, RangeInteger> ranges;
+    protected TreeSet<RangeInteger> ranges;
 
     public NumberLineIntegerMask() {
         initialize();
@@ -28,24 +28,24 @@ public class NumberLineIntegerMask implements Serializable {
 
     public NumberLineIntegerMask(NumberLineIntegerMask maskToCopy) {
         initialize();
-        ranges.putAll(maskToCopy.ranges);
+        ranges.addAll(maskToCopy.ranges);
     }
 
     protected void initialize() {
-        ranges = new TreeMap<>();
+        ranges = new TreeSet<>();
     }
 
     @Override
     public String toString() {
-        return ranges.values().toString();
+        return ranges.toString();
     }
 
     /**
      * Return true if the argument is contained inside this NumberLineInteger.
      */
     public boolean contains(int x) {
-        Map.Entry<Integer, RangeInteger> floorEntry = ranges.floorEntry(Integer.valueOf(x));
-        RangeInteger range = floorEntry == null ? null : floorEntry.getValue();
+        RangeInteger floorEntry = ranges.floor(new RangeInteger(x, Integer.MAX_VALUE));
+        RangeInteger range = floorEntry == null ? null : floorEntry;
         if (range == null)
             return false;
         return range.contains(x);
@@ -62,8 +62,8 @@ public class NumberLineIntegerMask implements Serializable {
      * Return true if the argument is contained inside this NumberLineIntegerMask.
      */
     public boolean contains(int min, int max) {
-        Map.Entry<Integer, RangeInteger> floorEntry = ranges.floorEntry(Integer.valueOf(min));
-        RangeInteger range = floorEntry == null ? null : floorEntry.getValue();
+        RangeInteger floorEntry = ranges.floor(new RangeInteger(min, Integer.MAX_VALUE));
+        RangeInteger range = floorEntry == null ? null : floorEntry;
         if (range == null)
             return false;
         return range.contains(min, max);
@@ -80,13 +80,13 @@ public class NumberLineIntegerMask implements Serializable {
      * Return true if the argument intersects this NumberLine.
      */
     public boolean intersects(int min, int max) {
-        Map.Entry<Integer, RangeInteger> floorEntry = ranges.floorEntry(Integer.valueOf(min));
+        RangeInteger floorEntry = ranges.floor(new RangeInteger(min, Integer.MAX_VALUE));
 
         Iterator<RangeInteger> iter;
         if (floorEntry == null) {
-            iter = ranges.values().iterator();
+            iter = ranges.iterator();
         } else {
-            iter = ranges.tailMap(floorEntry.getKey()).values().iterator();
+            iter = ranges.tailSet(floorEntry).iterator();
         }
         while (iter.hasNext()) {
             RangeInteger range = iter.next();
@@ -108,19 +108,18 @@ public class NumberLineIntegerMask implements Serializable {
         while (repeat) {
             repeat = false;
 
-            Map.Entry<Integer, RangeInteger> floorEntry = ranges.floorEntry(Integer.valueOf(x1));
-            Map.Entry<Integer, RangeInteger> ceilingEntry = ranges.ceilingEntry(Integer.valueOf(x2));
+            RangeInteger floorEntry = ranges.floor(new RangeInteger(x1, Integer.MAX_VALUE));
+            RangeInteger ceilingEntry = ranges.ceiling(new RangeInteger(x2, Integer.MAX_VALUE));
 
-            Iterator<Map.Entry<Integer, RangeInteger>> iter;
+            Iterator<RangeInteger> iter;
             if (floorEntry != null) {
-                iter = ranges.tailMap(floorEntry.getKey(), true).entrySet().iterator();
+                iter = ranges.tailSet(floorEntry, true).iterator();
             } else {
-                iter = ranges.entrySet().iterator();
+                iter = ranges.iterator();
             }
 
             while (iter.hasNext()) {
-                Map.Entry<Integer, RangeInteger> entry = iter.next();
-                RangeInteger existingRange = entry.getValue();
+                RangeInteger existingRange = iter.next();
                 if (existingRange.contains(x1, x2)) {
                     return returnValue;
                 } else if (existingRange.intersects(x1, x2) ||
@@ -134,12 +133,12 @@ public class NumberLineIntegerMask implements Serializable {
                         x2 = existingRange.max;
                     repeat = true;
                 }
-                if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
+                if (ceilingEntry != null && existingRange == ceilingEntry) {
                     break;
                 }
             }
 
-            ranges.put(x1, new RangeInteger(x1, x2));
+            ranges.add(new RangeInteger(x1, x2));
             return true;
         }
         return returnValue;
@@ -178,19 +177,18 @@ public class NumberLineIntegerMask implements Serializable {
         while (repeat) {
             repeat = false;
 
-            Map.Entry<Integer, RangeInteger> floorEntry = ranges.floorEntry(Integer.valueOf(range.min));
-            Map.Entry<Integer, RangeInteger> ceilingEntry = ranges.ceilingEntry(Integer.valueOf(range.max));
+            RangeInteger floorEntry = ranges.floor(range);
+            RangeInteger ceilingEntry = ranges.ceiling(new RangeInteger(range.max, Integer.MAX_VALUE));
 
-            Iterator<Map.Entry<Integer, RangeInteger>> iter;
+            Iterator<RangeInteger> iter;
             if (floorEntry != null) {
-                iter = ranges.tailMap(floorEntry.getKey(), true).entrySet().iterator();
+                iter = ranges.tailSet(floorEntry, true).iterator();
             } else {
-                iter = ranges.entrySet().iterator();
+                iter = ranges.iterator();
             }
 
             while (iter.hasNext()) {
-                Map.Entry<Integer, RangeInteger> entry = iter.next();
-                RangeInteger existingRange = entry.getValue();
+                RangeInteger existingRange = iter.next();
                 boolean addLeftEdge = false;
                 boolean addRightEdge = false;
                 try {
@@ -231,14 +229,14 @@ public class NumberLineIntegerMask implements Serializable {
                     }
                 } finally {
                     if (addLeftEdge) {
-                        ranges.put(existingRange.min, new RangeInteger(existingRange.min, range.min));
+                        ranges.add(new RangeInteger(existingRange.min, range.min));
                     }
                     if (addRightEdge) {
-                        ranges.put(range.max, new RangeInteger(range.max, existingRange.max));
+                        ranges.add(new RangeInteger(range.max, existingRange.max));
                     }
                 }
 
-                if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
+                if (ceilingEntry != null && existingRange == ceilingEntry) {
                     break;
                 }
             }
@@ -283,10 +281,10 @@ public class NumberLineIntegerMask implements Serializable {
             return true;
         }
 
-        int minA = ranges.firstEntry().getValue().min;
-        int minB = other.ranges.firstEntry().getValue().min;
-        int maxA = ranges.lastEntry().getValue().max;
-        int maxB = other.ranges.lastEntry().getValue().max;
+        int minA = ranges.first().min;
+        int minB = other.ranges.first().min;
+        int maxA = ranges.last().max;
+        int maxB = other.ranges.last().max;
         int min = minA < minB ? minA : minB;
         int max = maxA > maxB ? maxA : maxB;
         NumberLineIntegerMask scratch = new NumberLineIntegerMask();
@@ -303,7 +301,7 @@ public class NumberLineIntegerMask implements Serializable {
     public int getMin() {
         if (ranges.isEmpty())
             throw new EmptyNumberLineMaskException();
-        return ranges.firstEntry().getValue().min;
+        return ranges.first().min;
     }
 
     /**
@@ -315,7 +313,7 @@ public class NumberLineIntegerMask implements Serializable {
     public int getMax() {
         if (ranges.isEmpty())
             throw new EmptyNumberLineMaskException();
-        return ranges.lastEntry().getValue().max;
+        return ranges.last().max;
     }
 
     /**
@@ -336,14 +334,14 @@ public class NumberLineIntegerMask implements Serializable {
      * Return all the RangeIntegers that make up this mask.
      */
     public RangeInteger[] getRanges() {
-        return ranges.values().toArray(new RangeInteger[0]);
+        return ranges.toArray(new RangeInteger[0]);
     }
 
     @Serial
     private void writeObject(java.io.ObjectOutputStream out)
             throws IOException {
         out.writeInt(0);
-        RangeInteger[] array = ranges.values().toArray(new RangeInteger[0]);
+        RangeInteger[] array = ranges.toArray(new RangeInteger[0]);
         out.writeObject(array);
     }
 
@@ -356,7 +354,7 @@ public class NumberLineIntegerMask implements Serializable {
         if (internalVersion == 0) {
             RangeInteger[] array = (RangeInteger[]) in.readObject();
             for(RangeInteger range : array) {
-                ranges.put( Integer.valueOf(range.min), range);
+                ranges.add(range);
             }
         } else {
             throw new IOException("Unsupported internal version: "+internalVersion);
@@ -369,7 +367,7 @@ public class NumberLineIntegerMask implements Serializable {
     public boolean isEqual(RangeInteger range) {
         if (ranges.size() != 1)
             return false;
-        return ranges.entrySet().iterator().next().getValue().equals(range);
+        return ranges.first().equals(range);
     }
 
     @Override
@@ -394,11 +392,10 @@ public class NumberLineIntegerMask implements Serializable {
 
         Collection<RangeInteger> additions = new ArrayList<>();
 
-        Iterator<Map.Entry<Integer, RangeInteger>> iter = ranges.entrySet().iterator();
+        Iterator<RangeInteger> iter = ranges.iterator();
         Integer lastXinRange = null;
         while (iter.hasNext()) {
-            Map.Entry<Integer, RangeInteger> entry = iter.next();
-            RangeInteger existing = entry.getValue();
+            RangeInteger existing = iter.next();
 
             if (existing.max == x1) {
                 iter.remove();
@@ -451,15 +448,13 @@ public class NumberLineIntegerMask implements Serializable {
         if (uncommitted != null)
             additions.add(uncommitted);
 
-        for(RangeInteger r : additions) {
-            ranges.put(r.min, r);
-        }
+        ranges.addAll(additions);
 
         return returnValue;
     }
 
 //    public boolean contains(NumberLineIntegerMask other) {
-//        for(RangeInteger otherRange : other.ranges.values()) {
+//        for(RangeInteger otherRange : other.ranges) {
 //            if (!contains(otherRange.min, otherRange.max))
 //                return false;
 //        }
@@ -467,7 +462,7 @@ public class NumberLineIntegerMask implements Serializable {
 //    }
 //
 //    public boolean intersects(NumberLineIntegerMask other) {
-//        for(RangeInteger otherRange : other.ranges.values()) {
+//        for(RangeInteger otherRange : other.ranges) {
 //            if (intersects(otherRange.min, otherRange.max))
 //                return true;
 //        }
@@ -478,21 +473,19 @@ public class NumberLineIntegerMask implements Serializable {
         if (isEmpty() || other.isEmpty())
             return false;
 
-//        TandemIterator<RangeInteger> tandemIterator = new TandemIterator<>(ranges.values().iterator(), other.ranges.values().iterator());
-
         Iterator<RangeInteger> myIter;
 
-        Integer myFloorKey = ranges.floorKey(other.ranges.firstKey());
-        Integer myCeilKey = ranges.ceilingKey(other.ranges.lastKey());
-        if (myFloorKey != null && myCeilKey != null) {
-            myIter = ranges.subMap(myFloorKey, true, myCeilKey, true).values().iterator();
-        } else if (myFloorKey != null) {
-            myIter = ranges.tailMap(myFloorKey, true).values().iterator();
+        RangeInteger myFloor = ranges.floor(other.ranges.first());
+        RangeInteger myCeil = ranges.ceiling(other.ranges.last());
+        if (myFloor != null && myCeil != null) {
+            myIter = ranges.subSet(myFloor, true, myCeil, true).iterator();
+        } else if (myFloor != null) {
+            myIter = ranges.tailSet(myFloor, true).iterator();
         }  else {
-            myIter = ranges.values().iterator();
+            myIter = ranges.iterator();
         }
 
-        TandemIterator<RangeInteger> tandemIterator = new TandemIterator<>(myIter, other.ranges.values().iterator());
+        TandemIterator<RangeInteger> tandemIterator = new TandemIterator<>(myIter, other.ranges.iterator());
 
         List<RangeInteger> l = new ArrayList<>(2);
         while (tandemIterator.hasNext()) {
@@ -512,20 +505,19 @@ public class NumberLineIntegerMask implements Serializable {
         if (isEmpty() || other.isEmpty())
             return false;
 
-//        TandemIterator<RangeInteger> tandemIterator = new TandemIterator<>(ranges.values().iterator(), other.ranges.values().iterator());
         Iterator<RangeInteger> myIter;
 
-        Integer myFloorKey = ranges.floorKey(other.ranges.firstKey());
-        Integer myCeilKey = ranges.ceilingKey(other.ranges.lastKey());
-        if (myFloorKey != null && myCeilKey != null) {
-            myIter = ranges.subMap(myFloorKey, true, myCeilKey, true).values().iterator();
-        } else if (myFloorKey != null) {
-            myIter = ranges.tailMap(myFloorKey, true).values().iterator();
+        RangeInteger myFloor = ranges.floor(other.ranges.first());
+        RangeInteger myCeil = ranges.ceiling(other.ranges.last());
+        if (myFloor != null && myCeil != null) {
+            myIter = ranges.subSet(myFloor, true, myCeil, true).iterator();
+        } else if (myFloor != null) {
+            myIter = ranges.tailSet(myFloor, true).iterator();
         }  else {
-            myIter = ranges.values().iterator();
+            myIter = ranges.iterator();
         }
 
-        TandemIterator<RangeInteger> tandemIterator = new TandemIterator<>(myIter, other.ranges.values().iterator());
+        TandemIterator<RangeInteger> tandemIterator = new TandemIterator<>(myIter, other.ranges.iterator());
 
         List<RangeInteger> l = new ArrayList<>(2);
         while (tandemIterator.hasNext()) {
