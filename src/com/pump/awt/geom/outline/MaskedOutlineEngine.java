@@ -356,7 +356,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
         this.divisor = divisor;
     }
 
-    private static Comparator<MaskedOutlineOperation> SIMPLEST_SHAPE_SMALLEST_AREA = new Comparator<MaskedOutlineOperation>() {
+    private static Comparator<MaskedOutlineOperation> SIMPLEST_ORDER_SIMPLEST_SHAPE_SMALLEST_AREA = new Comparator<MaskedOutlineOperation>() {
         @Override
         public int compare(MaskedOutlineOperation o1, MaskedOutlineOperation o2) {
             int k = Integer.compare(o1.info.maxOrder, o2.info.maxOrder);
@@ -366,7 +366,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
         }
     };
 
-    private static Comparator<MaskedOutlineOperation> SIMPLEST_SHAPE_LARGEST_AREA = new Comparator<MaskedOutlineOperation>() {
+    private static Comparator<MaskedOutlineOperation> SIMPLEST_ORDER_SIMPLEST_SHAPE_LARGEST_AREA = new Comparator<MaskedOutlineOperation>() {
         @Override
         public int compare(MaskedOutlineOperation o1, MaskedOutlineOperation o2) {
             int k = Integer.compare(o1.info.maxOrder, o2.info.maxOrder);
@@ -384,10 +384,10 @@ public class MaskedOutlineEngine implements OutlineEngine {
             if (run.get(0).type == OutlineOperation.Type.INTERSECT || run.get(0).type == OutlineOperation.Type.XOR) {
                 // clip to the smallest size first to maybe make other ops redundant
                 // (not sure if any sorting can help xor ops?)
-                Collections.sort(run, SIMPLEST_SHAPE_SMALLEST_AREA);
+                Collections.sort(run, SIMPLEST_ORDER_SIMPLEST_SHAPE_SMALLEST_AREA);
             } else {
                 // do the largest ops first, and hopefully then smaller ops become null ops
-                Collections.sort(run, SIMPLEST_SHAPE_LARGEST_AREA);
+                Collections.sort(run, SIMPLEST_ORDER_SIMPLEST_SHAPE_LARGEST_AREA);
             }
 
             for(OutlineOperation op : run) {
