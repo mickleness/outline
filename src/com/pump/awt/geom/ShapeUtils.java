@@ -1,5 +1,7 @@
 package com.pump.awt.geom;
 
+import com.pump.util.RangeDouble;
+
 import java.awt.*;
 import java.awt.geom.*;
 import java.util.ArrayList;
@@ -444,5 +446,223 @@ public class ShapeUtils {
             return ((Area) shape).getBounds2D();
         }
         return getBounds2D(shape.getPathIterator(null));
+    }
+
+    public enum Relationship {
+        /**
+         * This indicates a quick scan shows two shapes might intersect.
+         */
+        MAY_INTERSECT,
+
+        /**
+         * This indicates the left hand side shape contains the right hand side shape.
+         */
+        LHS_CONTAINS_RHS,
+
+        /**
+         * This indicates the right hand side shape contains the left hand side shape.
+         */
+        RHS_CONTAINS_LHS,
+
+        /**
+         * This indicates other enum options may not describe the relationship between two shapes.
+         * This can happen when there are multiple subpaths in both shapes.
+         */
+        OTHER,
+
+        /**
+         * This indicates two shapes do not intersect.
+         */
+        NONE
+    }
+
+    public static Relationship getRelationship(Shape shape1, Shape shape2) {
+        return getRelationship(shape1, getBounds2D(shape1), shape2, getBounds2D(shape2));
+    }
+
+    public static Relationship getRelationship(Shape shape1, Rectangle2D shapeBounds1, Shape shape2, Rectangle2D shapeBounds2) {
+        if (!shapeBounds1.intersects(shapeBounds2))
+            return Relationship.NONE;
+
+        int shape1containCtr = 0;
+        int shape2containCtr = 0;
+        int subpathCtr1 = 0;
+        int subpathCtr2 = 0;
+
+        double[] coords = new double[6];
+
+        PathIterator pi1 = shape1.getPathIterator(null);
+        while (!pi1.isDone()) {
+            int k = pi1.currentSegment(coords);
+            if (k == PathIterator.SEG_MOVETO) {
+                subpathCtr1++;
+
+                if (shape2.contains(coords[0], coords[1])) {
+                    shape2containCtr++;
+                }
+            }
+            pi1.next();
+        }
+
+        PathIterator pi2 = shape2.getPathIterator(null);
+        while (!pi2.isDone()) {
+            int k = pi2.currentSegment(coords);
+            if (k == PathIterator.SEG_MOVETO) {
+                subpathCtr2++;
+
+                if (shape1.contains(coords[0], coords[1])) {
+                    shape1containCtr++;
+
+                    if (shape2containCtr > 0)
+                        return Relationship.OTHER;
+                }
+            }
+            pi2.next();
+        }
+
+        pi1 = new ClosedPathIterator(shape1.getPathIterator(null));
+        Rectangle2D r1 = new Rectangle2D.Double();
+        Rectangle2D r2 = new Rectangle2D.Double();
+        double lastX1 = -1;
+        double lastY1 = -1;
+        double lastX2 = -1;
+        double lastY2 = -1;
+        while (!pi1.isDone()) {
+            int k = pi1.currentSegment(coords);
+            pi1.next();
+
+            switch(k) {
+                case PathIterator.SEG_MOVETO:
+                    lastX1 = coords[0];
+                    lastY1 = coords[1];
+                    continue;
+                case PathIterator.SEG_LINETO:
+                    r1.setFrame(coords[0], coords[1], 0, 0);
+                    r1.add(lastX1, lastY1);
+                    lastX1 = coords[0];
+                    lastY1 = coords[1];
+                    break;
+                case PathIterator.SEG_QUADTO:
+                    r1.setFrame(coords[0], coords[1], 0, 0);
+                    r1.add(coords[2], coords[3]);
+                    r1.add(lastX1, lastY1);
+                    lastX1 = coords[2];
+                    lastY1 = coords[3];
+                    break;
+                case PathIterator.SEG_CUBICTO:
+                    r1.setFrame(coords[0], coords[1], 0, 0);
+                    r1.add(coords[2], coords[3]);
+                    r1.add(coords[4], coords[5]);
+                    r1.add(lastX1, lastY1);
+                    lastX1 = coords[4];
+                    lastY1 = coords[5];
+                    break;
+            }
+
+            if (intersects(r1, shapeBounds2)) {
+                pi2 = new ClosedPathIterator(shape2.getPathIterator(null));
+                while (!pi2.isDone()) {
+                    k = pi2.currentSegment(coords);
+                    pi2.next();
+                    switch (k) {
+                        case PathIterator.SEG_MOVETO:
+                            lastX2 = coords[0];
+                            lastY2 = coords[1];
+                            continue;
+                        case PathIterator.SEG_LINETO:
+                            r2.setFrame(coords[0], coords[1], 0, 0);
+                            r2.add(lastX2, lastY2);
+                            lastX2 = coords[0];
+                            lastY2 = coords[1];
+                            break;
+                        case PathIterator.SEG_QUADTO:
+                            r2.setFrame(coords[0], coords[1], 0, 0);
+                            r2.add(coords[2], coords[3]);
+                            r2.add(lastX2, lastY2);
+                            lastX2 = coords[2];
+                            lastY2 = coords[3];
+                            break;
+                        case PathIterator.SEG_CUBICTO:
+                            r2.setFrame(coords[0], coords[1], 0, 0);
+                            r2.add(coords[2], coords[3]);
+                            r2.add(coords[4], coords[5]);
+                            r2.add(lastX2, lastY2);
+                            lastX2 = coords[4];
+                            lastY2 = coords[5];
+                            break;
+                    }
+                    if (intersects(r1, r2))
+                        return Relationship.MAY_INTERSECT;
+                }
+            }
+        }
+        if (subpathCtr1 == shape2containCtr && subpathCtr1 > 0)
+            return Relationship.RHS_CONTAINS_LHS;
+        if (subpathCtr2 == shape1containCtr && subpathCtr2 > 0)
+            return Relationship.LHS_CONTAINS_RHS;
+        return Relationship.NONE;
+    }
+
+    /**
+     * This identifies whether two Rectangle2Ds intersect -- even if
+     * either or both of the arguments are lines with no width or height.
+     * (Rectangle2D#intersect returns false if either the width or height is zero,
+     * so it will return false if you ask if a vertical and horizontal line intersect.)
+     */
+    private static boolean intersects(Rectangle2D r1, Rectangle2D r2) {
+        double width1 = r1.getWidth();
+        double height1 = r1.getHeight();
+
+        if (width1 == 0 && height1 == 0)
+            return false;
+
+        double width2 = r2.getWidth();
+        double height2 = r2.getHeight();
+
+        if (width2 == 0 && height2 == 0) {
+            return false;
+        }
+
+        if (width1 == 0) {
+            return intersectsWithVerticalLine(r2, r1.getMinX(), r1.getMinY(), r1.getMaxY());
+        } else if (width2 == 0) {
+            return intersectsWithVerticalLine(r1, r2.getMinX(), r2.getMinY(), r2.getMaxY());
+        } else if (height1 == 0) {
+            return intersectsWithHorizontalLine(r2, r1.getMinY(), r1.getMinX(), r1.getMaxX());
+        } else if (height2 == 0) {
+            return intersectsWithHorizontalLine(r1, r2.getMinY(), r2.getMinX(), r2.getMaxX());
+        } else {
+            return r1.intersects(r2);
+        }
+    }
+
+    private static boolean intersectsWithVerticalLine(Rectangle2D r, double lineX, double lineMinY, double lineMaxY) {
+        if (r.getWidth() == 0) {
+            // r is a vert line too
+
+            double x2 = r.getMinX();
+            if (lineX == x2) {
+                return RangeDouble.intersects(lineMinY, lineMaxY, r.getMinY(), r.getMaxY());
+            }
+            return false;
+        }
+
+        return r.getMinX() <= lineX && lineX <= r.getMaxX() &&
+                RangeDouble.intersects(lineMinY, lineMaxY, r.getMinY(), r.getMaxY());
+    }
+
+    private static boolean intersectsWithHorizontalLine(Rectangle2D r, double lineY, double lineMinX, double lineMaxX) {
+        if (r.getHeight() == 0) {
+            // r is a horiz line too
+
+            double y2 = r.getMinY();
+            if (lineY == y2) {
+                return RangeDouble.intersects(lineMinX, lineMaxX, r.getMinX(), r.getMaxX());
+            }
+            return false;
+        }
+
+        return r.getMinY() <= lineY && lineY <= r.getMaxY() &&
+            RangeDouble.intersects(lineMinX, lineMaxX, r.getMinX(), r.getMaxX());
     }
 }

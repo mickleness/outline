@@ -60,14 +60,18 @@ public class RangeDouble implements Serializable, Comparable<RangeDouble> {
      * Return true if this RangeDouble intersects the arguments.
      */
     public boolean intersects(double otherX1, double otherX2) {
-        if (min == otherX2)
+        return intersects(min, max, otherX1, otherX2);
+    }
+
+    public static boolean intersects(double min1, double max1, double min2, double max2) {
+        if (min1 == max2)
             return false;
-        if (min > otherX2)
+        if (min1 > max2)
             return false;
 
-        if (max == otherX1)
+        if (max1 == min1)
             return false;
-        return max > otherX1;
+        return max1 > min2;
     }
 
     /**

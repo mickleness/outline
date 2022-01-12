@@ -60,14 +60,18 @@ public class RangeInteger implements Serializable, Comparable<RangeInteger> {
      * Return true if this RangeInteger intersects the arguments.
      */
     public boolean intersects(int otherX1, int otherX2) {
-        if (min == otherX2)
+        return intersects(min, max, otherX1, otherX2);
+    }
+
+    public static boolean intersects(int min1, int max1, int min2, int max2) {
+        if (min1 == max2)
             return false;
-        if (min > otherX2)
+        if (min1 > max2)
             return false;
 
-        if (max == otherX1)
+        if (max1 == min1)
             return false;
-        return max > otherX1;
+        return max1 > min2;
     }
 
     /**
