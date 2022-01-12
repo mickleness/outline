@@ -2,6 +2,7 @@ package com.pump.awt.geom.mask;
 
 import com.pump.awt.geom.RectangularTransform;
 import com.pump.math.NumberLineDoubleMask;
+import com.pump.util.ChurnSortedSet;
 import com.pump.util.RangeDouble;
 
 import java.awt.*;
@@ -9,6 +10,7 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.io.Serial;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.List;
 
@@ -91,7 +93,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         }
     }
 
-    protected TreeSet<Row> rows = new TreeSet<>();
+    protected ChurnSortedSet<Row> rows = new ChurnSortedSet<>();
 
     protected double[] touchedRows;
 
@@ -238,25 +240,35 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     public boolean clear() {
         boolean uninitialized = rows.isEmpty();
         if (!isEmpty() || uninitialized) {
-            rows.clear();
-            rows.add(new Row(0.0, new NumberLineDoubleMask()));
-            modCount++;
-            cachedBounds = null;
+            rows.startEdit();
+            try {
+                rows.clear();
+                rows.add(new Row(0.0, new NumberLineDoubleMask()));
+            } finally {
+                rows.finishEdit();
+                modCount++;
+                cachedBounds = null;
+            }
             return true;
         }
         return false;
     }
 
-    private void ensureRow(double y) {
-        Row nearestRow = rows.floor(new Row(y));
-        if (nearestRow == null) {
-            Row newRow = new Row(y, new NumberLineDoubleMask());
-            rows.add( newRow );
-        } else if (nearestRow.y == y) {
-            // intentionally empty
-        } else {
-            Row newRow = new Row(y, new NumberLineDoubleMask(nearestRow.xMask));
-            rows.add(newRow);
+    private void ensureRows(double[] y) {
+        Row[] nearestRows = new Row[y.length];
+        for(int a = 0; a < y.length; a++) {
+            nearestRows[a] = rows.floor(new Row(y[a]));
+        }
+        for(int a = 0; a < y.length; a++) {
+            if (nearestRows[a] == null) {
+                Row newRow = new Row(y[a], new NumberLineDoubleMask());
+                rows.add(newRow);
+            } else if (nearestRows[a].y == y[a]) {
+                // intentionally empty
+            } else {
+                Row newRow = new Row(y[a], new NumberLineDoubleMask(nearestRows[a].xMask));
+                rows.add(newRow);
+            }
         }
     }
 
@@ -297,46 +309,51 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     }
 
     protected boolean performOperation(Operation op, double x, double y, double x2, double y2) {
-        ensureRow(y);
-        ensureRow(y2);
-
-        if (touchedRows == null) {
-            touchedRows = new double[] {y, y2};
-        } else {
-            touchedRows[0] = Math.min(y, touchedRows[0]);
-            touchedRows[1] = Math.max(y, touchedRows[1]);
-        }
-
-        suspendAutoCollapseRows();
+        rows.startEdit();
 
         try {
-            boolean returnValue = false;
-            for (Row row : rows.tailSet(new Row(y))) {
-                if (row.y == y2)
-                    break;
+            ensureRows(new double[] { y, y2 });
 
-                boolean opResults = switch (op) {
-                    case ADD -> row.xMask.add(x, x2);
-                    case SUBTRACT -> row.xMask.subtract(x, x2);
-                    case CLIP -> row.xMask.clip(x, x2);
-                    case XOR -> row.xMask.xor(x, x2);
-                };
-
-                if (opResults)
-                    returnValue = true;
+            if (touchedRows == null) {
+                touchedRows = new double[]{y, y2};
+            } else {
+                touchedRows[0] = Math.min(y, touchedRows[0]);
+                touchedRows[1] = Math.max(y, touchedRows[1]);
             }
 
-            if (op == Operation.CLIP)
-                removeRowsAboveAndBelow(y, y2);
+            suspendAutoCollapseRows();
 
-            if (returnValue) {
-                modCount++;
-                cachedBounds = null;
+            try {
+                boolean returnValue = false;
+                for (Row row : rows.tailSet(new Row(y), true)) {
+                    if (row.y == y2)
+                        break;
+
+                    boolean opResults = switch (op) {
+                        case ADD -> row.xMask.add(x, x2);
+                        case SUBTRACT -> row.xMask.subtract(x, x2);
+                        case CLIP -> row.xMask.clip(x, x2);
+                        case XOR -> row.xMask.xor(x, x2);
+                    };
+
+                    if (opResults)
+                        returnValue = true;
+                }
+
+                if (op == Operation.CLIP)
+                    removeRowsAboveAndBelow(y, y2);
+
+                if (returnValue) {
+                    modCount++;
+                    cachedBounds = null;
+                }
+
+                return returnValue;
+            } finally {
+                resumeAutoCollapseRows();
             }
-
-            return returnValue;
         } finally {
-            resumeAutoCollapseRows();
+            rows.finishEdit();
         }
     }
 
@@ -575,21 +592,26 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
      * Transform this mask.
      */
     public void transform(RectangularTransform transform) {
-        cachedBounds = null;
+        rows.startEdit();
+        try {
+            cachedBounds = null;
 
-        // TODO: we could optimize this further when scaleX and scaleY are positive
+            // TODO: we could optimize this further when scaleX and scaleY are positive
 
-        RectangleMask2D newMask = new RectangleMask2D();
-        Iterator<Rectangle2D.Double> iter = iterator();
-        while (iter.hasNext()) {
-            Rectangle2D.Double rect = iter.next();
-            transform.transform(rect, rect);
-            newMask.add(rect);
+            RectangleMask2D newMask = new RectangleMask2D();
+            Iterator<Rectangle2D.Double> iter = iterator();
+            while (iter.hasNext()) {
+                Rectangle2D.Double rect = iter.next();
+                transform.transform(rect, rect);
+                newMask.add(rect);
+            }
+            rows.clear();
+            rows.addAll(newMask.rows);
+        } finally {
+            modCount++;
+            collapseRows();
+            rows.finishEdit();
         }
-        rows.clear();
-        rows.addAll(newMask.rows);
-        modCount++;
-        collapseRows();
     }
 
     public boolean contains(RectangleMask2D mask) {
@@ -627,6 +649,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         if (rhs.isEmpty())
             return false;
 
+        rows.startEdit();
         suspendAutoCollapseRows();
         try {
             boolean returnValue = false;
@@ -642,9 +665,12 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
                 }
                 returnValue = true;
             } else {
+                double[] rowYs = new double[rhs.rows.size()];
+                int i = 0;
                 for (Row otherRow : rhs.rows) {
-                    ensureRow(otherRow.y);
+                    rowYs[i++] = otherRow.y;
                 }
+                ensureRows(rowYs);
 
                 Iterator<Row> myIter = rows.subSet(rhs.rows.first(), true, rhs.rows.last(), true).iterator();
                 while (myIter.hasNext()) {
@@ -670,6 +696,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
             return returnValue;
         } finally {
             resumeAutoCollapseRows();
+            rows.finishEdit();
         }
     }
 
@@ -682,12 +709,17 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         if (rhs.isEmpty() || isEmpty() || !getBounds2D().intersects(rhs.getBounds2D()))
             return false;
 
+        rows.startEdit();
         suspendAutoCollapseRows();
         try {
             boolean returnValue = false;
+
+            double[] rowYs = new double[rhs.rows.size()];
+            int i = 0;
             for (Row otherRow : rhs.rows) {
-                ensureRow(otherRow.y);
+                rowYs[i++] = otherRow.y;
             }
+            ensureRows(rowYs);
 
             Iterator<Row> myIter = rows.subSet(rhs.rows.first(), true, rhs.rows.last(), true).iterator();
             while (myIter.hasNext()) {
@@ -712,10 +744,23 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
             return returnValue;
         } finally {
             resumeAutoCollapseRows();
+            rows.finishEdit();
         }
     }
 
     private boolean isAboveOrBelow(RectangleMask2D other) {
         return rows.last().y < other.rows.first().y || rows.first().y > other.rows.last().y;
+    }
+
+    @Override
+    protected void suspendAutoCollapseRows() {
+        rows.startEdit();
+        super.suspendAutoCollapseRows();
+    }
+
+    @Override
+    protected void resumeAutoCollapseRows() {
+        super.resumeAutoCollapseRows();
+        rows.finishEdit();
     }
 }
