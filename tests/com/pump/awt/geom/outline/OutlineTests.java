@@ -27,11 +27,30 @@ public abstract class OutlineTests extends TestCase {
 
     public OutlineEngine[] getEngines() {
         return new OutlineEngine[] { new PlainAreaEngine(),
+                new TubmanEngine(false, false, false, false),
+                new TubmanEngine(false, true, false, false),
+                new TubmanEngine(false, true, true, false),
+                new TubmanEngine(true, false, false, false),
+                new TubmanEngine(true, true, false, false),
+                new TubmanEngine(true, true, true, false),
+
+                new TubmanEngine(false, false, false, true),
+                new TubmanEngine(false, true, false, true),
+                new TubmanEngine(false, true, true, true),
+                new TubmanEngine(true, false, false, true),
+                new TubmanEngine(true, true, false, true),
+                new TubmanEngine(true, true, true, true),
                 new OptimizedAreaEngine(1),
-                new OptimizedAreaEngine(4),
-                new ScaledMaskOutlineEngine(2),
-                new ScaledMaskOutlineEngine(4),
-                new MaskedOutlineEngine() };
+//                new OptimizedAreaEngine2(1),
+//                new OptimizedAreaEngine(4),
+//                new ScaledMaskOutlineEngine(2),
+//                new ScaledMaskOutlineEngine(4),
+                new MaskedOutlineEngine(1.0 / 64.0),
+//                new MaskedOutlineEngine( 1.0 / 16.0 ),
+//                new MaskedOutlineEngine(1.0 / 4.0 ),
+//                new MaskedOutlineEngine(1.0),
+                new MaskedOutlineEngine(Double.MAX_VALUE),
+                new MaskedOutlineEngine2() };
     }
 
     /**

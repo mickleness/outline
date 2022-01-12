@@ -7,6 +7,7 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -303,5 +304,19 @@ public class ShapeUtilsTest extends TestCase {
         } catch(IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void testRelationship() {
+        RoundRectangle2D outer = new RoundRectangle2D.Double(0,0,100,100,5,5);
+        RoundRectangle2D inner = new RoundRectangle2D.Double(40,40,20, 20,2,2);
+        assertEquals(ShapeUtils.Relationship.LHS_CONTAINS_RHS, ShapeUtils.getRelationship(outer, inner));
+        assertEquals(ShapeUtils.Relationship.RHS_CONTAINS_LHS, ShapeUtils.getRelationship(inner, outer));
+
+        RoundRectangle2D side = new RoundRectangle2D.Double(90,40,20, 20,2,2);
+        assertEquals(ShapeUtils.Relationship.MAY_INTERSECT, ShapeUtils.getRelationship(outer, side));
+        assertEquals(ShapeUtils.Relationship.MAY_INTERSECT, ShapeUtils.getRelationship(side, outer));
+
+        assertEquals(ShapeUtils.Relationship.NONE, ShapeUtils.getRelationship(inner, side));
+        assertEquals(ShapeUtils.Relationship.NONE, ShapeUtils.getRelationship(side, inner));
     }
 }
