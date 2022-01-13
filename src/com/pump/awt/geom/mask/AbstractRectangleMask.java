@@ -219,7 +219,9 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
     public Rectangle getBounds() {
         if (cachedBounds == null)
             cachedBounds = createBounds();
-        return (Rectangle) cachedBounds.clone();
+        if (cachedBounds instanceof Rectangle)
+            return (Rectangle) cachedBounds.clone();
+        return cachedBounds.getBounds();
     }
 
     @Override
