@@ -375,7 +375,24 @@ public class NumberLineDoubleMask implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         NumberLineDoubleMask that = (NumberLineDoubleMask) o;
-        return Objects.equals(ranges, that.ranges);
+
+        // this should be slightly more efficient than calling
+        // ranges.equals(that.ranges), because here we get to
+        // rely on their sorted order:
+
+        if (ranges.size() != that.ranges.size())
+            return false;
+
+        Iterator<RangeDouble> iter1 = ranges.iterator();
+        Iterator<RangeDouble> iter2 = that.ranges.iterator();
+
+        while (iter1.hasNext()) {
+            RangeDouble r1 = iter1.next();
+            RangeDouble r2 = iter2.next();
+            if (!r1.equals(r2))
+                return false;
+        }
+        return true;
     }
 
     @Override
