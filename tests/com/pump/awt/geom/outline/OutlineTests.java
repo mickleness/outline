@@ -6,6 +6,8 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public abstract class OutlineTests extends TestCase {
@@ -26,31 +28,24 @@ public abstract class OutlineTests extends TestCase {
     }
 
     public OutlineEngine[] getEngines() {
-        return new OutlineEngine[] { new PlainAreaEngine(),
-                new TubmanEngine(false, false, false, false),
-                new TubmanEngine(false, true, false, false),
-                new TubmanEngine(false, true, true, false),
-                new TubmanEngine(true, false, false, false),
-                new TubmanEngine(true, true, false, false),
-                new TubmanEngine(true, true, true, false),
+        List<OutlineEngine> engines = new ArrayList<>();
+        engines.add(new PlainAreaEngine());
 
-                new TubmanEngine(false, false, false, true),
-                new TubmanEngine(false, true, false, true),
-                new TubmanEngine(false, true, true, true),
-                new TubmanEngine(true, false, false, true),
-                new TubmanEngine(true, true, false, true),
-                new TubmanEngine(true, true, true, true),
-                new OptimizedAreaEngine(1),
-//                new OptimizedAreaEngine2(1),
-//                new OptimizedAreaEngine(4),
-//                new ScaledMaskOutlineEngine(2),
-//                new ScaledMaskOutlineEngine(4),
-                new MaskedOutlineEngine(1.0 / 64.0),
-//                new MaskedOutlineEngine( 1.0 / 16.0 ),
-//                new MaskedOutlineEngine(1.0 / 4.0 ),
-//                new MaskedOutlineEngine(1.0),
-                new MaskedOutlineEngine(Double.MAX_VALUE),
-                new MaskedOutlineEngine2() };
+        for(TubmanEngine.Model group : TubmanEngine.Model.values()) {
+            for(TubmanEngine.Model track : TubmanEngine.Model.values()) {
+                for(boolean optContains : new boolean[] { false, true }) {
+                    for(boolean smartMerge : new boolean[] { false, true }) {
+                        engines.add(new TubmanEngine(group, track, optContains, smartMerge));
+                    }
+                }
+            }
+        }
+
+        engines.add(new OptimizedAreaEngine(1));
+        engines.add(new MaskedOutlineEngine(1.0 / 64.0));
+        engines.add(new MaskedOutlineEngine(Double.MAX_VALUE));
+        engines.add(new MaskedOutlineEngine2());
+        return engines.toArray(new OutlineEngine[0]);
     }
 
     /**

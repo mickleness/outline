@@ -448,6 +448,22 @@ public class ShapeUtils {
         return getBounds2D(shape.getPathIterator(null));
     }
 
+    public static int getOrder(PathIterator pi) {
+        double[] coords = new double[6];
+        int returnValue = 0;
+        while (!pi.isDone()) {
+            int k = pi.currentSegment(coords);
+            if (k == PathIterator.SEG_CUBICTO)
+                return 3;
+            if (k == PathIterator.SEG_QUADTO)
+                returnValue = 2;
+            if (k == PathIterator.SEG_LINETO)
+                returnValue = Math.max(returnValue, 1);
+            pi.next();
+        }
+        return returnValue;
+    }
+
     public enum Relationship {
         /**
          * This indicates a quick scan shows two shapes might intersect.

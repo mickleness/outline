@@ -2,6 +2,7 @@ package com.pump.awt.geom.outline;
 
 import com.pump.awt.geom.ClosedPathIterator;
 import com.pump.awt.geom.ShapeUtils;
+import com.pump.awt.geom.mask.RectangleMask2D;
 
 import java.awt.*;
 import java.awt.geom.Area;
@@ -11,14 +12,19 @@ import java.util.*;
 import java.util.List;
 
 public class TubmanEngine implements OutlineEngine {
-    OutlineEngine delegateEngine;
-    final boolean trackBounds, optimizeContains, groupUnrelatedShapes, smartMerge;
+    public enum Model {
+        NONE, RECTANGLE, MASK
+    }
 
-    public TubmanEngine(boolean groupUnrelatedShapes, boolean trackBounds, boolean optimizeContains, boolean smartMerge) {
+    OutlineEngine delegateEngine;
+    final Model groupUnrelatedShapes, trackBounds;
+    final boolean optimizeContains, smartMerge;
+
+    public TubmanEngine(Model groupUnrelatedShapes, Model trackBounds, boolean optimizeContains, boolean smartMerge) {
         this(new PlainAreaEngine(), groupUnrelatedShapes, trackBounds, optimizeContains, smartMerge);
     }
 
-    public TubmanEngine(OutlineEngine delegateEngine, boolean groupUnrelatedShapes, boolean trackBounds, boolean optimizeContains, boolean smartMerge) {
+    public TubmanEngine(OutlineEngine delegateEngine, Model groupUnrelatedShapes, Model trackBounds, boolean optimizeContains, boolean smartMerge) {
         this.delegateEngine = delegateEngine;
         this.trackBounds = trackBounds;
         this.optimizeContains = optimizeContains;
@@ -28,8 +34,11 @@ public class TubmanEngine implements OutlineEngine {
 
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
+        boundsMap.clear();
+        orderMap.clear();
+        maskMap.clear();
 
-        if (groupUnrelatedShapes) {
+        if (groupUnrelatedShapes != Model.NONE) {
             groupUnrelatedShapes(operationQueue);
         }
 
@@ -87,26 +96,52 @@ public class TubmanEngine implements OutlineEngine {
 
     private void groupUnrelatedShapes(List<OutlineOperation> operationQueue) {
         // TODO: consider runs of different op types. This only works when everything is an ADD
-        for(int a = 0; a < operationQueue.size(); a++) {
-            Shape shape1 = operationQueue.get(a).shape;
-            Rectangle2D r1 = getBounds(shape1);
-            for(int b = a + 1; b < operationQueue.size(); b++) {
-                Rectangle2D r2 = getBounds(operationQueue.get(b).shape);
-                if (!r1.intersects(r2)) {
-                    MaskedOutlineEngine.AppendedShape appendedShape;
-                    if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
-                        ((MaskedOutlineEngine.AppendedShape)shape1).append(operationQueue.get(b).shape);
-                    } else {
-                        MaskedOutlineEngine.AppendedShape newShape = new MaskedOutlineEngine.AppendedShape();
-                        newShape.append(operationQueue.get(a).shape);
-                        newShape.append(operationQueue.get(b).shape);
-                        operationQueue.set(a, createOperation(operationQueue.get(a).type, newShape));
-                    }
-                    operationQueue.remove(b);
-                    b--;
+        if (groupUnrelatedShapes == Model.RECTANGLE) {
+            for (int a = 0; a < operationQueue.size(); a++) {
+                Shape shape1 = operationQueue.get(a).shape;
+                Rectangle2D r1 = getBounds(shape1);
+                for (int b = a + 1; b < operationQueue.size(); b++) {
+                    Rectangle2D r2 = getBounds(operationQueue.get(b).shape);
+                    if (!r1.intersects(r2)) {
+                        MaskedOutlineEngine.AppendedShape appendedShape;
+                        if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
+                            ((MaskedOutlineEngine.AppendedShape) shape1).append(operationQueue.get(b).shape);
+                        } else {
+                            MaskedOutlineEngine.AppendedShape newShape = new MaskedOutlineEngine.AppendedShape();
+                            newShape.append(operationQueue.get(a).shape);
+                            newShape.append(operationQueue.get(b).shape);
+                            operationQueue.set(a, createOperation(operationQueue.get(a).type, newShape));
+                        }
+                        operationQueue.remove(b);
+                        b--;
 
-                    r1.add(r2);
-                    setBounds(operationQueue.get(a).shape, r1);
+                        r1.add(r2);
+                        setBounds(operationQueue.get(a).shape, r1);
+                    }
+                }
+            }
+        } else {
+            for (int a = 0; a < operationQueue.size(); a++) {
+                Shape shape1 = operationQueue.get(a).shape;
+                RectangleMask2D m1 = getMask(shape1);
+                for (int b = a + 1; b < operationQueue.size(); b++) {
+                    RectangleMask2D m2 = getMask(operationQueue.get(b).shape);
+                    if (!m1.intersects(m2)) {
+                        MaskedOutlineEngine.AppendedShape appendedShape;
+                        if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
+                            ((MaskedOutlineEngine.AppendedShape) shape1).append(operationQueue.get(b).shape);
+                        } else {
+                            MaskedOutlineEngine.AppendedShape newShape = new MaskedOutlineEngine.AppendedShape();
+                            newShape.append(operationQueue.get(a).shape);
+                            newShape.append(operationQueue.get(b).shape);
+                            operationQueue.set(a, createOperation(operationQueue.get(a).type, newShape));
+                        }
+                        operationQueue.remove(b);
+                        b--;
+
+                        m1.add(m2);
+                        setMask(operationQueue.get(a).shape, m1);
+                    }
                 }
             }
         }
@@ -124,20 +159,43 @@ public class TubmanEngine implements OutlineEngine {
             return new Area(shape1);
 
         Rectangle2D bounds1, bounds2;
-        if (trackBounds) {
-            bounds1 = getBounds(shape1);
-            bounds2 = getBounds(shape2);
+        if (trackBounds != Model.NONE) {
+            if (trackBounds == Model.RECTANGLE) {
+                bounds1 = getBounds(shape1);
+                bounds2 = getBounds(shape2);
 
-            if (!(bounds1.intersects(bounds2))) {
-                MaskedOutlineEngine.AppendedShape appendedShape;
-                if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
-                    appendedShape = (MaskedOutlineEngine.AppendedShape) shape1;
-                } else {
-                    appendedShape = new MaskedOutlineEngine.AppendedShape();
-                    appendedShape.append(shape1);
+                if (!(bounds1.intersects(bounds2))) {
+                    MaskedOutlineEngine.AppendedShape appendedShape;
+                    if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
+                        appendedShape = (MaskedOutlineEngine.AppendedShape) shape1;
+                    } else {
+                        appendedShape = new MaskedOutlineEngine.AppendedShape();
+                        appendedShape.append(shape1);
+                    }
+                    appendedShape.append(shape2);
+                    bounds1.add(bounds2);
+                    setBounds(appendedShape, bounds1);
+                    return appendedShape;
                 }
-                appendedShape.append(shape2);
-                return appendedShape;
+            } else {
+                RectangleMask2D mask1 = getMask(shape1);
+                RectangleMask2D mask2 = getMask(shape2);
+
+                if (!(mask1.intersects(mask2))) {
+                    MaskedOutlineEngine.AppendedShape appendedShape;
+                    if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
+                        appendedShape = (MaskedOutlineEngine.AppendedShape) shape1;
+                    } else {
+                        appendedShape = new MaskedOutlineEngine.AppendedShape();
+                        appendedShape.append(shape1);
+                    }
+                    appendedShape.append(shape2);
+                    mask1.add(mask2);
+                    setMask(appendedShape, mask1);
+                    return appendedShape;
+                }
+                bounds1 = mask1.getBounds2D();
+                bounds2 = mask2.getBounds2D();
             }
 
             if (optimizeContains) {
@@ -226,6 +284,34 @@ public class TubmanEngine implements OutlineEngine {
         return (Rectangle2D) r.clone();
     }
 
+    Map<Shape, Integer> orderMap = new HashMap<>();
+    private void setOrder(Shape shape, Integer order) {
+        orderMap.put(shape, order);
+    }
+
+    private Integer getOrder(Shape shape) {
+        Integer order = orderMap.get(shape);
+        if (order == null) {
+            order = ShapeUtils.getOrder(shape.getPathIterator(null));
+            orderMap.put(shape, order);
+        }
+        return order;
+    }
+
+    Map<Shape, RectangleMask2D> maskMap = new HashMap<>();
+    private void setMask(Shape shape, RectangleMask2D mask) {
+        maskMap.put(shape, mask);
+    }
+
+    private RectangleMask2D getMask(Shape shape) {
+        RectangleMask2D r = maskMap.get(shape);
+        if (r == null) {
+            r = new RectangleMask2D( ShapeUtils.getBounds2D(shape.getPathIterator(null)) );
+            maskMap.put(shape, r);
+        }
+        return (RectangleMask2D) r.clone();
+    }
+
     private Area intersect(Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
         boolean empty2 = ShapeUtils.isEmpty(shape2);
@@ -263,6 +349,10 @@ public class TubmanEngine implements OutlineEngine {
 
     @Override
     public String toString() {
-        return getClass().getSimpleName()+"[ trackBounds = "+trackBounds+", optimizeContains = "+optimizeContains+" groupUnrelatedShapes = "+groupUnrelatedShapes+", smartMerge = "+smartMerge+"]";
+        return getClass().getSimpleName()+"[ trackBounds = "+trackBounds+
+                ", optimizeContains = "+optimizeContains+
+                " groupUnrelatedShapes = "+groupUnrelatedShapes+
+                ", smartMerge = "+smartMerge+
+                "]";
     }
 }
