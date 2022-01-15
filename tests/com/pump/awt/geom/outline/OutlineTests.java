@@ -31,13 +31,9 @@ public abstract class OutlineTests extends TestCase {
         List<OutlineEngine> engines = new ArrayList<>();
         engines.add(new PlainAreaEngine());
 
-        for(TubmanEngine.Model group : TubmanEngine.Model.values()) {
-            for(TubmanEngine.Model track : TubmanEngine.Model.values()) {
-                for(TubmanEngine.Model optimizeContains : TubmanEngine.Model.values()) {
-                    for(boolean divideAndConque : new boolean[] { false, true }) {
-                        engines.add(new TubmanEngine(group, track, optimizeContains, divideAndConque));
-                    }
-                }
+        for(TubmanEngine.Model track : TubmanEngine.Model.values()) {
+            for(TubmanEngine.Model optimizeContains : TubmanEngine.Model.values()) {
+                engines.add(new TubmanEngine( TubmanEngine.Model.RECTANGLE, track, optimizeContains, false));
             }
         }
 
