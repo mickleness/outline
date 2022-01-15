@@ -33,9 +33,9 @@ public abstract class OutlineTests extends TestCase {
 
         for(TubmanEngine.Model group : TubmanEngine.Model.values()) {
             for(TubmanEngine.Model track : TubmanEngine.Model.values()) {
-                for(boolean optContains : new boolean[] { false, true }) {
-                    for(boolean smartMerge : new boolean[] { false, true }) {
-                        engines.add(new TubmanEngine(group, track, optContains, smartMerge));
+                for(TubmanEngine.Model optimizeContains : TubmanEngine.Model.values()) {
+                    for(boolean divideAndConque : new boolean[] { false, true }) {
+                        engines.add(new TubmanEngine(group, track, optimizeContains, divideAndConque));
                     }
                 }
             }

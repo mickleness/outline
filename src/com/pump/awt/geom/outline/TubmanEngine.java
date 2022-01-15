@@ -17,19 +17,19 @@ public class TubmanEngine implements OutlineEngine {
     }
 
     OutlineEngine delegateEngine;
-    final Model groupUnrelatedShapes, trackBounds;
-    final boolean optimizeContains, smartMerge;
+    final Model groupUnrelatedShapes, trackBounds, optimizeContains;
+    final boolean divideAndConquer;
 
-    public TubmanEngine(Model groupUnrelatedShapes, Model trackBounds, boolean optimizeContains, boolean smartMerge) {
-        this(new PlainAreaEngine(), groupUnrelatedShapes, trackBounds, optimizeContains, smartMerge);
+    public TubmanEngine(Model groupUnrelatedShapes, Model trackBounds, Model optimizeContains, boolean divideAndConquer) {
+        this(new PlainAreaEngine(), groupUnrelatedShapes, trackBounds, optimizeContains, divideAndConquer);
     }
 
-    public TubmanEngine(OutlineEngine delegateEngine, Model groupUnrelatedShapes, Model trackBounds, boolean optimizeContains, boolean smartMerge) {
+    public TubmanEngine(OutlineEngine delegateEngine, Model groupUnrelatedShapes, Model trackBounds, Model optimizeContains, boolean divideAndConquer) {
         this.delegateEngine = delegateEngine;
         this.trackBounds = trackBounds;
         this.optimizeContains = optimizeContains;
         this.groupUnrelatedShapes = groupUnrelatedShapes;
-        this.smartMerge = smartMerge;
+        this.divideAndConquer = divideAndConquer;
     }
 
     @Override
@@ -42,6 +42,49 @@ public class TubmanEngine implements OutlineEngine {
             groupUnrelatedShapes(operationQueue);
         }
 
+        if (divideAndConquer) {
+            operationQueue = divideAndConquer(operationQueue);
+        } else {
+            operationQueue = serial(operationQueue);
+        }
+
+        return delegateEngine.calculate(operationQueue);
+    }
+
+    private List<OutlineOperation> serial(List<OutlineOperation> operationQueue) {
+        List<OutlineOperation> newQueue = new ArrayList<>(operationQueue.size());
+
+        OutlineOperation lastOp = null;
+        for(OutlineOperation op : operationQueue) {
+            if (lastOp == null || lastOp.type != op.type) {
+                if (lastOp != null)
+                    newQueue.add(lastOp);
+                lastOp = op;
+            } else {
+                if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.SUBTRACT) {
+                    Shape newShape = add(op.shape, lastOp.shape);
+                    lastOp = createOperation(op.type, newShape);
+                } else if (op.type == OutlineOperation.Type.INTERSECT) {
+                    Shape newShape = intersect(op.shape, lastOp.shape);
+                    lastOp = createOperation(OutlineOperation.Type.INTERSECT, newShape);
+                } else if (op.type == OutlineOperation.Type.XOR) {
+                    Shape newShape = xor(op.shape, lastOp.shape);
+                    lastOp = createOperation(OutlineOperation.Type.XOR, newShape);
+                } else {
+                    // this shouldn't be possible, but in case something changes:
+                    newQueue.add(lastOp);
+                    lastOp = op;
+                }
+            }
+        }
+
+        if (lastOp != null)
+            newQueue.add(lastOp);
+
+        return newQueue;
+    }
+
+    private List<OutlineOperation> divideAndConquer(List<OutlineOperation> operationQueue) {
         boolean needsAnotherPass = true;
         do {
             needsAnotherPass = false;
@@ -89,9 +132,9 @@ public class TubmanEngine implements OutlineEngine {
                 newQueue.add(nextOp);
 
             operationQueue = newQueue;
-        } while(needsAnotherPass);
+        } while (needsAnotherPass);
 
-        return delegateEngine.calculate(operationQueue);
+        return operationQueue;
     }
 
     private void groupUnrelatedShapes(List<OutlineOperation> operationQueue) {
@@ -159,8 +202,11 @@ public class TubmanEngine implements OutlineEngine {
             return new Area(shape1);
 
         Rectangle2D bounds1, bounds2;
+        RectangleMask2D mask1, mask2;
         if (trackBounds != Model.NONE) {
             if (trackBounds == Model.RECTANGLE) {
+                mask1 = null;
+                mask2 = null;
                 bounds1 = getBounds(shape1);
                 bounds2 = getBounds(shape2);
 
@@ -178,8 +224,8 @@ public class TubmanEngine implements OutlineEngine {
                     return appendedShape;
                 }
             } else {
-                RectangleMask2D mask1 = getMask(shape1);
-                RectangleMask2D mask2 = getMask(shape2);
+                mask1 = getMask(shape1);
+                mask2 = getMask(shape2);
 
                 if (!(mask1.intersects(mask2))) {
                     MaskedOutlineEngine.AppendedShape appendedShape;
@@ -198,7 +244,20 @@ public class TubmanEngine implements OutlineEngine {
                 bounds2 = mask2.getBounds2D();
             }
 
-            if (optimizeContains) {
+            if (optimizeContains == Model.MASK && mask1 != null) {
+                ShapeUtils.Relationship r;
+                if (mask1.contains(mask2)) {
+                    r = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
+                } else if (bounds2.contains(bounds1)) {
+                    r = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
+                } else {
+                    r = null;
+                }
+                if (r == ShapeUtils.Relationship.LHS_CONTAINS_RHS)
+                    return shape1;
+                if (r == ShapeUtils.Relationship.RHS_CONTAINS_LHS)
+                    return shape2;
+            } else if (optimizeContains == Model.RECTANGLE) {
                 ShapeUtils.Relationship r;
                 if (bounds1.contains(bounds2)) {
                     r = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
@@ -215,56 +274,26 @@ public class TubmanEngine implements OutlineEngine {
         } else {
             bounds1 = null;
             bounds2 = null;
+            mask1 = null;
+            mask2 = null;
         }
 
-        Area result = null;
-        if (smartMerge) {
-            if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
-                MaskedOutlineEngine.AppendedShape as1 = (MaskedOutlineEngine.AppendedShape) shape1;
-                for (Shape s : as1.shapes) {
-                    if (s instanceof Area) {
-                        if (result == null) {
-                            // TODO: it'd be great if we could *sometimes* clone this shape IFF it came
-                            // to us externally
-                            result = (Area)s;
-                        } else {
-                            result.add( (Area) s);
-                        }
-                    } else {
-                        if (result == null) {
-                            result = new Area(s);
-                        } else {
-                            result.add(new Area(s));
-                        }
-                    }
-                }
-            } else {
-                result = new Area(shape1);
-            }
-
-            if (shape2 instanceof MaskedOutlineEngine.AppendedShape) {
-                MaskedOutlineEngine.AppendedShape as2 = (MaskedOutlineEngine.AppendedShape) shape2;
-                for (Shape s : as2.shapes) {
-                    if (s instanceof Area) {
-                        result.add( (Area) s);
-                    } else {
-                        result.add(new Area(s));
-                    }
-                }
-            } else {
-                result.add(new Area(shape2));
-            }
-        } else {
-            result = new Area(shape1);
-            Area area2 = new Area(shape2);
-            result.add(area2);
-        }
+        Area result = new Area(shape1);
+        Area area2 = new Area(shape2);
+        result.add(area2);
 
         if (bounds1 != null && bounds2 != null) {
             Rectangle2D sumBounds = new Rectangle2D.Double();
             sumBounds.setFrame(bounds1);
             sumBounds.add(bounds2);
             setBounds(result, sumBounds);
+        }
+
+        if (mask1 != null && mask2 != null) {
+            RectangleMask2D sumMask = new RectangleMask2D();
+            sumMask.add(mask1);
+            sumMask.add(mask2);
+            setMask(result, sumMask);
         }
 
         return result;
@@ -352,7 +381,7 @@ public class TubmanEngine implements OutlineEngine {
         return getClass().getSimpleName()+"[ trackBounds = "+trackBounds+
                 ", optimizeContains = "+optimizeContains+
                 " groupUnrelatedShapes = "+groupUnrelatedShapes+
-                ", smartMerge = "+smartMerge+
+                " divideAndConquer = "+divideAndConquer+
                 "]";
     }
 }
