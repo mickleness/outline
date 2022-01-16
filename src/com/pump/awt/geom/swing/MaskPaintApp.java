@@ -47,7 +47,7 @@ public class MaskPaintApp extends JFrame {
             @Override
             public void mouseReleased(MouseEvent e) {
                 AffineTransform tx = AffineTransform.getScaleInstance(scale, scale);
-                mask.add(new RectangleMask(stroke.createStrokedShape(currentShape), tx, 1));
+                mask.add(new RectangleMask(stroke.createStrokedShape(currentShape), tx, 1, true));
                 repaint();
                 currentShape = null;
             }

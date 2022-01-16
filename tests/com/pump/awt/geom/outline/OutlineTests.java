@@ -33,7 +33,13 @@ public abstract class OutlineTests extends TestCase {
 
         for(TubmanEngine.Model track : TubmanEngine.Model.values()) {
             for(TubmanEngine.Model optimizeContains : TubmanEngine.Model.values()) {
-                engines.add(new TubmanEngine( TubmanEngine.Model.RECTANGLE, track, optimizeContains, false));
+                for(TubmanEngine.MaskModel maskModel : TubmanEngine.MaskModel.values()) {
+                    for(TubmanEngine.ContainsModel containsModel : TubmanEngine.ContainsModel.values()) {
+                        if (containsModel == TubmanEngine.ContainsModel.MASK && track != TubmanEngine.Model.MASK)
+                            continue;
+                        engines.add(new TubmanEngine(TubmanEngine.Model.RECTANGLE, track, optimizeContains, false, maskModel, containsModel));
+                    }
+                }
             }
         }
 

@@ -477,8 +477,8 @@ public class RectangleMaskTests extends TestCase {
     }
 
     public void testClipMask() {
-        RectangleMask m1 = new RectangleMask(new Ellipse2D.Float(0,0,10,10), null, 1);
-        RectangleMask m2 = new RectangleMask(new Ellipse2D.Float(5,0,10,10), null, 1);
+        RectangleMask m1 = new RectangleMask(new Ellipse2D.Float(0,0,10,10), null, 1, true);
+        RectangleMask m2 = new RectangleMask(new Ellipse2D.Float(5,0,10,10), null, 1, true);
 
         RectangleMask clip = new RectangleMask();
         clip.add(m1);
@@ -495,8 +495,8 @@ public class RectangleMaskTests extends TestCase {
     }
 
     public void testXorMask() {
-        RectangleMask m1 = new RectangleMask(new Ellipse2D.Float(0,0,10,10), null, 1);
-        RectangleMask m2 = new RectangleMask(new Ellipse2D.Float(5,0,10,10), null, 1);
+        RectangleMask m1 = new RectangleMask(new Ellipse2D.Float(0,0,10,10), null, 1, true);
+        RectangleMask m2 = new RectangleMask(new Ellipse2D.Float(5,0,10,10), null, 1, true);
 
         RectangleMask xor = new RectangleMask();
         xor.add(m1);

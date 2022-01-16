@@ -210,7 +210,7 @@ public class MaskedOutlineEngine implements OutlineEngine {
                 Rectangle2D rect = bounds.getBounds2D();
                 double area = Math.max(.000000001, rect.getWidth()) * Math.max(.000000001, rect.getHeight());
                 double maxSegmentArea = area * divisor;
-                mask = new RectangleMask2D(shape, null, maxSegmentArea);
+                mask = new RectangleMask2D(shape, null, maxSegmentArea, true);
             }
 
             for(ShapeInfo i : pendingMaskAdditions) {

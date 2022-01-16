@@ -118,14 +118,30 @@ public class RectangleMask extends AbstractRectangleMask<Rectangle> {
      *                       is the more each segment will be partitioned into subsegments. Finer details lead to
      *                       greater accuracy and a larger data structure.
      */
-    public RectangleMask(Shape shape, AffineTransform tx, double maxSegmentArea) {
+    public RectangleMask(Shape shape, AffineTransform tx, double maxSegmentArea, boolean exactContour) {
         Objects.requireNonNull(shape);
 
         suspendAutoCollapseRows();
 
         // step 1: trace the perimeter/outline of the shape:
 
-        OutlineTracer tracer = new OutlineTracer(shape, tx, maxSegmentArea) {
+        OutlineTracer tracer = new OutlineTracer(shape, tx, maxSegmentArea, exactContour) {
+
+            @Override
+            protected void addRectangle(Rectangle2D.Double r) {
+                int xMin = (int) Math.floor(r.getMinX());
+                int xMax = (int) Math.ceil(r.getMaxX());
+
+                int yMin = (int) Math.floor(r.getMinY());
+                int yMax = (int) Math.ceil(r.getMaxY());
+
+                if (xMin == xMax)
+                    xMax++;
+                if (yMin == yMax)
+                    yMax++;
+
+                performOperation(Operation.ADD, xMin, yMin, xMax, yMax);
+            }
 
             @Override
             protected void addUnsortedEdges(double x0, double x1, double y0, double y1) {

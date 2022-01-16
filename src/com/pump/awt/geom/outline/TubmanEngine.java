@@ -16,20 +16,32 @@ public class TubmanEngine implements OutlineEngine {
         NONE, RECTANGLE, MASK
     }
 
+    public enum MaskModel {
+        BOUNDS, EXACT, APPROXIMATE
+    }
+
+    public enum ContainsModel {
+        SHAPE, SHAPE_UTILS, MASK
+    }
+
     OutlineEngine delegateEngine;
     final Model groupUnrelatedShapes, trackBounds, optimizeContains;
     final boolean divideAndConquer;
+    final MaskModel maskModel;
+    final ContainsModel containsModel;
 
-    public TubmanEngine(Model groupUnrelatedShapes, Model trackBounds, Model optimizeContains, boolean divideAndConquer) {
-        this(new PlainAreaEngine(), groupUnrelatedShapes, trackBounds, optimizeContains, divideAndConquer);
+    public TubmanEngine(Model groupUnrelatedShapes, Model trackBounds, Model optimizeContains, boolean divideAndConquer, MaskModel maskModel, ContainsModel containsModel) {
+        this(new PlainAreaEngine(), groupUnrelatedShapes, trackBounds, optimizeContains, divideAndConquer, maskModel, containsModel);
     }
 
-    public TubmanEngine(OutlineEngine delegateEngine, Model groupUnrelatedShapes, Model trackBounds, Model optimizeContains, boolean divideAndConquer) {
+    public TubmanEngine(OutlineEngine delegateEngine, Model groupUnrelatedShapes, Model trackBounds, Model optimizeContains, boolean divideAndConquer, MaskModel maskModel, ContainsModel containsModel) {
         this.delegateEngine = delegateEngine;
         this.trackBounds = trackBounds;
         this.optimizeContains = optimizeContains;
         this.groupUnrelatedShapes = groupUnrelatedShapes;
         this.divideAndConquer = divideAndConquer;
+        this.maskModel = maskModel;
+        this.containsModel = containsModel;
     }
 
     @Override
@@ -247,9 +259,21 @@ public class TubmanEngine implements OutlineEngine {
             if (optimizeContains == Model.MASK && mask1 != null) {
                 ShapeUtils.Relationship r;
                 if (mask1.contains(mask2)) {
-                    r = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
+                    if (containsModel == ContainsModel.SHAPE_UTILS) {
+                        r = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
+                    } else if (containsModel == ContainsModel.SHAPE) {
+                        r = shape1.contains(bounds2) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
+                    } else { // containsModel == ContainsModel.MASK
+                        r = mask2.isContainedBy(shape1) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
+                    }
                 } else if (bounds2.contains(bounds1)) {
-                    r = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
+                    if (containsModel == ContainsModel.SHAPE_UTILS) {
+                        r = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
+                    } else if (containsModel == ContainsModel.SHAPE) {
+                        r = shape2.contains(bounds1) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
+                    } else { // containsModel == ContainsModel.MASK
+                        r = mask1.isContainedBy(shape2) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
+                    }
                 } else {
                     r = null;
                 }
@@ -260,9 +284,17 @@ public class TubmanEngine implements OutlineEngine {
             } else if (optimizeContains == Model.RECTANGLE) {
                 ShapeUtils.Relationship r;
                 if (bounds1.contains(bounds2)) {
-                    r = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
+                    if (containsModel == ContainsModel.SHAPE_UTILS) {
+                        r = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
+                    } else {
+                        r = shape1.contains(bounds2) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
+                    }
                 } else if (bounds2.contains(bounds1)) {
-                    r = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
+                    if (containsModel == ContainsModel.SHAPE_UTILS) {
+                        r = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
+                    } else {
+                        r = shape2.contains(bounds1) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
+                    }
                 } else {
                     r = null;
                 }
@@ -335,7 +367,13 @@ public class TubmanEngine implements OutlineEngine {
     private RectangleMask2D getMask(Shape shape) {
         RectangleMask2D r = maskMap.get(shape);
         if (r == null) {
-            r = new RectangleMask2D( ShapeUtils.getBounds2D(shape.getPathIterator(null)) );
+            if (maskModel == MaskModel.EXACT) {
+                r = new RectangleMask2D(shape, null, Double.MAX_VALUE, true);
+            } else if (maskModel == MaskModel.APPROXIMATE) {
+                r = new RectangleMask2D( shape, null, Double.MAX_VALUE, false);
+            } else {
+                r = new RectangleMask2D( getBounds(shape) );
+            }
             maskMap.put(shape, r);
         }
         return (RectangleMask2D) r.clone();
@@ -382,6 +420,8 @@ public class TubmanEngine implements OutlineEngine {
                 ", optimizeContains = "+optimizeContains+
                 " groupUnrelatedShapes = "+groupUnrelatedShapes+
                 " divideAndConquer = "+divideAndConquer+
+                " maskModel = "+maskModel+
+                " containsModel = "+containsModel+
                 "]";
     }
 }

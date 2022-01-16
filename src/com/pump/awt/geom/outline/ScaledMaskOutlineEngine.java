@@ -49,7 +49,7 @@ public class ScaledMaskOutlineEngine implements OutlineEngine {
             if (shape instanceof RectangleMask) {
                 operand = (RectangleMask) shape;
             } else {
-                operand = new RectangleMask(op.shape, scaleUp.createAffineTransform(), 1);
+                operand = new RectangleMask(op.shape, scaleUp.createAffineTransform(), 1, true);
             }
 
             switch (op.type) {
