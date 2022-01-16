@@ -60,6 +60,10 @@ public class TubmanEngine implements OutlineEngine {
             operationQueue = serial(operationQueue);
         }
 
+        if (operationQueue.size() == 1) {
+            return operationQueue.get(0).shape;
+        }
+
         return delegateEngine.calculate(operationQueue);
     }
 
@@ -418,8 +422,8 @@ public class TubmanEngine implements OutlineEngine {
     public String toString() {
         return getClass().getSimpleName()+"[ trackBounds = "+trackBounds+
                 ", optimizeContains = "+optimizeContains+
-                " groupUnrelatedShapes = "+groupUnrelatedShapes+
-                " divideAndConquer = "+divideAndConquer+
+                // " groupUnrelatedShapes = "+groupUnrelatedShapes+
+                // " divideAndConquer = "+divideAndConquer+
                 " maskModel = "+maskModel+
                 " containsModel = "+containsModel+
                 "]";

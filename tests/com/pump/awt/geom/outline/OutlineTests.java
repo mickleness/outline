@@ -32,6 +32,9 @@ public abstract class OutlineTests extends TestCase {
         engines.add(new PlainAreaEngine());
 
         for(TubmanEngine.Model track : TubmanEngine.Model.values()) {
+            if (track == TubmanEngine.Model.MASK)
+                continue;
+
             for(TubmanEngine.Model optimizeContains : TubmanEngine.Model.values()) {
                 for(TubmanEngine.MaskModel maskModel : TubmanEngine.MaskModel.values()) {
                     for(TubmanEngine.ContainsModel containsModel : TubmanEngine.ContainsModel.values()) {
