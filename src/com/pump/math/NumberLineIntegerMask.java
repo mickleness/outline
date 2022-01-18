@@ -375,7 +375,24 @@ public class NumberLineIntegerMask implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         NumberLineIntegerMask that = (NumberLineIntegerMask) o;
-        return Objects.equals(ranges, that.ranges);
+
+        // this should be slightly more efficient than calling
+        // ranges.equals(that.ranges), because here we get to
+        // rely on their sorted order:
+
+        if (ranges.size() != that.ranges.size())
+            return false;
+
+        Iterator<RangeInteger> iter1 = ranges.iterator();
+        Iterator<RangeInteger> iter2 = that.ranges.iterator();
+
+        while (iter1.hasNext()) {
+            RangeInteger r1 = iter1.next();
+            RangeInteger r2 = iter2.next();
+            if (r1.min != r2.min || r1.max != r2.max)
+                return false;
+        }
+        return true;
     }
 
     @Override
@@ -406,7 +423,7 @@ public class NumberLineIntegerMask implements Serializable {
 
                 if (lastXinRange == null) {
                     if (existing.min > x1)
-                       additions.add(new RangeInteger(x1, existing.min));
+                        additions.add(new RangeInteger(x1, existing.min));
                 } else {
                     additions.add(new RangeInteger(lastXinRange, existing.min));
                 }

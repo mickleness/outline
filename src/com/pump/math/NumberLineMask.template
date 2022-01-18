@@ -108,7 +108,7 @@ public class NumberLine%name%Mask implements Serializable {
         while (repeat) {
             repeat = false;
 
-            Range%name% floorEntry = ranges.floor(new Range%name%(x1, x2));
+            Range%name% floorEntry = ranges.floor(new Range%name%(x1, %name%.MAX_VALUE));
             Range%name% ceilingEntry = ranges.ceiling(new Range%name%(x2, %name%.MAX_VALUE));
 
             Iterator<Range%name%> iter;
@@ -375,7 +375,24 @@ public class NumberLine%name%Mask implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         NumberLine%name%Mask that = (NumberLine%name%Mask) o;
-        return Objects.equals(ranges, that.ranges);
+
+        // this should be slightly more efficient than calling
+        // ranges.equals(that.ranges), because here we get to
+        // rely on their sorted order:
+
+        if (ranges.size() != that.ranges.size())
+            return false;
+
+        Iterator<Range%name%> iter1 = ranges.iterator();
+        Iterator<Range%name%> iter2 = that.ranges.iterator();
+
+        while (iter1.hasNext()) {
+            Range%name% r1 = iter1.next();
+            Range%name% r2 = iter2.next();
+            if (r1.min != r2.min || r1.max != r2.max)
+                return false;
+        }
+        return true;
     }
 
     @Override

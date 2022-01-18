@@ -108,7 +108,7 @@ public class NumberLineDoubleMask implements Serializable {
         while (repeat) {
             repeat = false;
 
-            RangeDouble floorEntry = ranges.floor(new RangeDouble(x1, x2));
+            RangeDouble floorEntry = ranges.floor(new RangeDouble(x1, Double.MAX_VALUE));
             RangeDouble ceilingEntry = ranges.ceiling(new RangeDouble(x2, Double.MAX_VALUE));
 
             Iterator<RangeDouble> iter;
@@ -389,7 +389,7 @@ public class NumberLineDoubleMask implements Serializable {
         while (iter1.hasNext()) {
             RangeDouble r1 = iter1.next();
             RangeDouble r2 = iter2.next();
-            if (!r1.equals(r2))
+            if (r1.min != r2.min || r1.max != r2.max)
                 return false;
         }
         return true;
