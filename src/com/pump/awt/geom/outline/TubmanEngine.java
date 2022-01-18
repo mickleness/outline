@@ -25,46 +25,77 @@ public class TubmanEngine implements OutlineEngine {
     }
 
     OutlineEngine delegateEngine;
-    final Model groupUnrelatedShapes, trackBounds, optimizeContains;
+    final Model trackBounds, optimizeContains;
     final boolean divideAndConquer;
     final MaskModel maskModel;
     final ContainsModel containsModel;
+    final boolean orderSimplerShapesFirst;
 
-    public TubmanEngine(Model groupUnrelatedShapes, Model trackBounds, Model optimizeContains, boolean divideAndConquer, MaskModel maskModel, ContainsModel containsModel) {
-        this(new PlainAreaEngine(), groupUnrelatedShapes, trackBounds, optimizeContains, divideAndConquer, maskModel, containsModel);
+    Map<Shape, Rectangle2D> boundsMap = new HashMap<>();
+    Map<Shape, Integer> orderMap = new HashMap<>();
+    Map<Shape, RectangleMask2D> maskMap = new HashMap<>();
+
+    public TubmanEngine(Model trackBounds, Model optimizeContains, boolean divideAndConquer, MaskModel maskModel, ContainsModel containsModel, boolean orderSimplerShapesFirst) {
+        this(new PlainAreaEngine(), trackBounds, optimizeContains, divideAndConquer, maskModel, containsModel, orderSimplerShapesFirst);
     }
 
-    public TubmanEngine(OutlineEngine delegateEngine, Model groupUnrelatedShapes, Model trackBounds, Model optimizeContains, boolean divideAndConquer, MaskModel maskModel, ContainsModel containsModel) {
+    public TubmanEngine(OutlineEngine delegateEngine, Model trackBounds, Model optimizeContains, boolean divideAndConquer, MaskModel maskModel, ContainsModel containsModel, boolean orderSimplerShapesFirst) {
         this.delegateEngine = delegateEngine;
         this.trackBounds = trackBounds;
         this.optimizeContains = optimizeContains;
-        this.groupUnrelatedShapes = groupUnrelatedShapes;
         this.divideAndConquer = divideAndConquer;
         this.maskModel = maskModel;
         this.containsModel = containsModel;
+        this.orderSimplerShapesFirst = orderSimplerShapesFirst;
     }
+
+    Comparator<OutlineOperation> orderComparator = new Comparator<OutlineOperation>() {
+
+        @Override
+        public int compare(OutlineOperation s1, OutlineOperation s2) {
+            int order1 = getOrder(s1.shape);
+            int order2 = getOrder(s2.shape);
+            int k = Integer.compare(order1, order2);
+
+            if (k != 0)
+                return k;
+
+            Rectangle2D r1 = getBounds(s1.shape);
+            Rectangle2D r2 = getBounds(s2.shape);
+            double area1 = r1.getWidth() * r1.getHeight();
+            double area2 = r2.getWidth() * r2.getHeight();
+            return -Double.compare(area1, area2);
+        }
+    };
 
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
-        boundsMap.clear();
-        orderMap.clear();
-        maskMap.clear();
+        try {
 
-        if (groupUnrelatedShapes != Model.NONE) {
-            groupUnrelatedShapes(operationQueue);
+//        if (groupUnrelatedShapes != Model.NONE) {
+//            groupUnrelatedShapes(operationQueue);
+//        }
+
+            if (orderSimplerShapesFirst) {
+                Collections.sort(operationQueue, orderComparator);
+            }
+
+            if (divideAndConquer) {
+                operationQueue = divideAndConquer(operationQueue);
+            } else {
+                operationQueue = serial(operationQueue);
+            }
+
+            if (operationQueue.size() == 1) {
+                return operationQueue.get(0).shape;
+            }
+
+            return delegateEngine.calculate(operationQueue);
+        } finally {
+            boundsMap.clear();
+            orderMap.clear();
+            maskMap.clear();
         }
-
-        if (divideAndConquer) {
-            operationQueue = divideAndConquer(operationQueue);
-        } else {
-            operationQueue = serial(operationQueue);
-        }
-
-        if (operationQueue.size() == 1) {
-            return operationQueue.get(0).shape;
-        }
-
-        return delegateEngine.calculate(operationQueue);
     }
 
     private List<OutlineOperation> serial(List<OutlineOperation> operationQueue) {
@@ -78,13 +109,13 @@ public class TubmanEngine implements OutlineEngine {
                 lastOp = op;
             } else {
                 if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.SUBTRACT) {
-                    Shape newShape = add(op.shape, lastOp.shape);
+                    Shape newShape = add(lastOp.shape, op.shape);
                     lastOp = createOperation(op.type, newShape);
                 } else if (op.type == OutlineOperation.Type.INTERSECT) {
-                    Shape newShape = intersect(op.shape, lastOp.shape);
+                    Shape newShape = intersect(lastOp.shape, op.shape);
                     lastOp = createOperation(OutlineOperation.Type.INTERSECT, newShape);
                 } else if (op.type == OutlineOperation.Type.XOR) {
-                    Shape newShape = xor(op.shape, lastOp.shape);
+                    Shape newShape = xor(lastOp.shape, op.shape);
                     lastOp = createOperation(OutlineOperation.Type.XOR, newShape);
                 } else {
                     // this shouldn't be possible, but in case something changes:
@@ -153,57 +184,25 @@ public class TubmanEngine implements OutlineEngine {
         return operationQueue;
     }
 
-    private void groupUnrelatedShapes(List<OutlineOperation> operationQueue) {
-        // TODO: consider runs of different op types. This only works when everything is an ADD
-        if (groupUnrelatedShapes == Model.RECTANGLE) {
-            for (int a = 0; a < operationQueue.size(); a++) {
-                Shape shape1 = operationQueue.get(a).shape;
-                Rectangle2D r1 = getBounds(shape1);
-                for (int b = a + 1; b < operationQueue.size(); b++) {
-                    Rectangle2D r2 = getBounds(operationQueue.get(b).shape);
-                    if (!r1.intersects(r2)) {
-                        MaskedOutlineEngine.AppendedShape appendedShape;
-                        if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
-                            ((MaskedOutlineEngine.AppendedShape) shape1).append(operationQueue.get(b).shape);
-                        } else {
-                            MaskedOutlineEngine.AppendedShape newShape = new MaskedOutlineEngine.AppendedShape();
-                            newShape.append(operationQueue.get(a).shape);
-                            newShape.append(operationQueue.get(b).shape);
-                            operationQueue.set(a, createOperation(operationQueue.get(a).type, newShape));
-                        }
-                        operationQueue.remove(b);
-                        b--;
+    private MaskedOutlineEngine.AppendedShape getAppendedShape(Shape shape1, Shape shape2) {
+        MaskedOutlineEngine.AppendedShape appendedShape;
+        if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
+            appendedShape = (MaskedOutlineEngine.AppendedShape) shape1;
+        } else {
+            appendedShape = new MaskedOutlineEngine.AppendedShape();
+            appendedShape.append(shape1);
+        }
 
-                        r1.add(r2);
-                        setBounds(operationQueue.get(a).shape, r1);
-                    }
-                }
+        if (shape2 instanceof MaskedOutlineEngine.AppendedShape) {
+            MaskedOutlineEngine.AppendedShape appendedShape2 = (MaskedOutlineEngine.AppendedShape) shape2;
+            for(Shape shape : appendedShape2.shapes) {
+                appendedShape.append(shape);
             }
         } else {
-            for (int a = 0; a < operationQueue.size(); a++) {
-                Shape shape1 = operationQueue.get(a).shape;
-                RectangleMask2D m1 = getMask(shape1);
-                for (int b = a + 1; b < operationQueue.size(); b++) {
-                    RectangleMask2D m2 = getMask(operationQueue.get(b).shape);
-                    if (!m1.intersects(m2)) {
-                        MaskedOutlineEngine.AppendedShape appendedShape;
-                        if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
-                            ((MaskedOutlineEngine.AppendedShape) shape1).append(operationQueue.get(b).shape);
-                        } else {
-                            MaskedOutlineEngine.AppendedShape newShape = new MaskedOutlineEngine.AppendedShape();
-                            newShape.append(operationQueue.get(a).shape);
-                            newShape.append(operationQueue.get(b).shape);
-                            operationQueue.set(a, createOperation(operationQueue.get(a).type, newShape));
-                        }
-                        operationQueue.remove(b);
-                        b--;
-
-                        m1.add(m2);
-                        setMask(operationQueue.get(a).shape, m1);
-                    }
-                }
-            }
+            appendedShape.append(shape2);
         }
+
+        return appendedShape;
     }
 
     private Shape add(Shape shape1, Shape shape2) {
@@ -217,101 +216,183 @@ public class TubmanEngine implements OutlineEngine {
         if (empty2)
             return new Area(shape1);
 
-        Rectangle2D bounds1, bounds2;
-        RectangleMask2D mask1, mask2;
-        if (trackBounds != Model.NONE) {
-            if (trackBounds == Model.RECTANGLE) {
-                mask1 = null;
-                mask2 = null;
+        Rectangle2D bounds1 = null;
+        Rectangle2D bounds2 = null;
+        RectangleMask2D mask1 = null;
+        RectangleMask2D mask2 = null;
+
+        if (trackBounds == Model.RECTANGLE || trackBounds == Model.MASK) {
+            if (bounds1 == null)
                 bounds1 = getBounds(shape1);
+            if (bounds2 == null)
                 bounds2 = getBounds(shape2);
 
-                if (!(bounds1.intersects(bounds2))) {
-                    MaskedOutlineEngine.AppendedShape appendedShape;
-                    if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
-                        appendedShape = (MaskedOutlineEngine.AppendedShape) shape1;
-                    } else {
-                        appendedShape = new MaskedOutlineEngine.AppendedShape();
-                        appendedShape.append(shape1);
-                    }
-                    appendedShape.append(shape2);
-                    bounds1.add(bounds2);
-                    setBounds(appendedShape, bounds1);
-                    return appendedShape;
+            if (!(bounds1.intersects(bounds2))) {
+                MaskedOutlineEngine.AppendedShape appendedShape = getAppendedShape(shape1, shape2);
+                bounds1.add(bounds2);
+                setBounds(appendedShape, bounds1);
+                mask1 = getMask(shape1, false);
+                mask2 = getMask(shape2, false);
+                RectangleMask2D appendedShapeMask = null;
+                if (mask1 != null && mask2 != null) {
+                    mask1.add(mask2);
+                    appendedShapeMask = mask1;
+                } else if (mask1 != null) {
+                    mask1.add(new RectangleMask2D(bounds2));
+                    appendedShapeMask = mask1;
+                } else if (mask2 != null) {
+                    mask2.add(new RectangleMask2D(bounds1));
+                    appendedShapeMask = mask2;
+                }
+                if (appendedShapeMask != null)
+                    setMask(appendedShape, appendedShapeMask);
+                return appendedShape;
+            }
+        }
+
+        ShapeUtils.Relationship boundsBasedRelationship = null;
+        if (optimizeContains == Model.RECTANGLE) {
+            if (bounds1 == null)
+                bounds1 = getBounds(shape1);
+            if (bounds2 == null)
+                bounds2 = getBounds(shape2);
+
+            if (bounds1.contains(bounds2)) {
+                if (containsModel == ContainsModel.SHAPE_UTILS) {
+                    boundsBasedRelationship = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
+                } else {
+                    boundsBasedRelationship = shape1.contains(bounds2) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
+                }
+            } else if (bounds2.contains(bounds1)) {
+                if (containsModel == ContainsModel.SHAPE_UTILS) {
+                    boundsBasedRelationship = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
+                } else {
+                    boundsBasedRelationship = shape2.contains(bounds1) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
                 }
             } else {
-                mask1 = getMask(shape1);
-                mask2 = getMask(shape2);
+                boundsBasedRelationship = null;
+            }
+        }
 
-                if (!(mask1.intersects(mask2))) {
-                    MaskedOutlineEngine.AppendedShape appendedShape;
-                    if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
-                        appendedShape = (MaskedOutlineEngine.AppendedShape) shape1;
+        if (boundsBasedRelationship == ShapeUtils.Relationship.LHS_CONTAINS_RHS) {
+            return shape1;
+        }
+        if (boundsBasedRelationship == ShapeUtils.Relationship.RHS_CONTAINS_LHS) {
+            return shape2;
+        }
+
+        boolean testedMaskIntersection = false;
+        boolean testedMaskContainment = false;
+        for (boolean canCalculateMissingMask : new boolean[] {false, true}) {
+            if (trackBounds == Model.MASK) {
+                if (bounds1 == null)
+                    bounds1 = getBounds(shape1);
+                if (bounds2 == null)
+                    bounds2 = getBounds(shape2);
+
+                if (mask1 == null)
+                    mask1 = getMask(shape1, canCalculateMissingMask);
+                if (mask2 == null)
+                    mask2 = getMask(shape2, canCalculateMissingMask);
+
+                boolean appendShapes;
+                if (mask1 != null && !mask1.intersects(bounds2)) {
+                    appendShapes = true;
+                } else if (mask2 != null && !mask2.intersects(bounds1)) {
+                    appendShapes = true;
+                } else if (mask1 != null && mask2 != null && !testedMaskIntersection) {
+                    testedMaskIntersection = true;
+                    if(!mask1.intersects(mask2)) {
+                        appendShapes = true;
                     } else {
-                        appendedShape = new MaskedOutlineEngine.AppendedShape();
-                        appendedShape.append(shape1);
+                        appendShapes = false;
                     }
-                    appendedShape.append(shape2);
-                    mask1.add(mask2);
-                    setMask(appendedShape, mask1);
+                } else {
+                    appendShapes = false;
+                }
+
+                if (appendShapes) {
+                    MaskedOutlineEngine.AppendedShape appendedShape = getAppendedShape(shape1, shape2);
+                    bounds1.add(bounds2);
+                    setBounds(appendedShape, bounds1);
+                    RectangleMask2D appendedShapeMask = null;
+                    if (mask1 != null && mask2 != null) {
+                        mask1.add(mask2);
+                        appendedShapeMask = mask1;
+                    } else if (mask1 != null) {
+                        mask1.add(new RectangleMask2D(bounds2));
+                        appendedShapeMask = mask1;
+                    } else if (mask2 != null) {
+                        mask2.add(new RectangleMask2D(bounds1));
+                        appendedShapeMask = mask2;
+                    }
+                    if (appendedShapeMask != null)
+                        setMask(appendedShape, appendedShapeMask);
                     return appendedShape;
                 }
-                bounds1 = mask1.getBounds2D();
-                bounds2 = mask2.getBounds2D();
             }
 
-            if (optimizeContains == Model.MASK && mask1 != null) {
-                ShapeUtils.Relationship r;
-                if (mask1.contains(mask2)) {
-                    if (containsModel == ContainsModel.SHAPE_UTILS) {
-                        r = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
-                    } else if (containsModel == ContainsModel.SHAPE) {
-                        r = shape1.contains(bounds2) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
-                    } else { // containsModel == ContainsModel.MASK
-                        r = mask2.isContainedBy(shape1) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
+            if (optimizeContains == Model.MASK) {
+                if (bounds1 == null)
+                    bounds1 = getBounds(shape1);
+                if (bounds2 == null)
+                    bounds2 = getBounds(shape2);
+
+                if (mask1 == null)
+                    mask1 = getMask(shape1, canCalculateMissingMask);
+                if (mask2 == null)
+                    mask2 = getMask(shape2, canCalculateMissingMask);
+
+                ShapeUtils.Relationship maskBasedRelationship = null;
+                if (mask1 != null && mask2 != null && !testedMaskContainment) {
+                    testedMaskContainment = true;
+                    if (mask1.contains(mask2)) {
+                        if (containsModel == ContainsModel.SHAPE_UTILS) {
+                            maskBasedRelationship = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
+                        } else if (containsModel == ContainsModel.SHAPE) {
+                            maskBasedRelationship = shape1.contains(bounds2) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
+                        } else if (containsModel == ContainsModel.MASK) {
+                            maskBasedRelationship = mask2.isContainedBy(shape1) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
+                        }
+                    } else if (mask2.contains(mask1)) {
+                        if (containsModel == ContainsModel.SHAPE_UTILS) {
+                            maskBasedRelationship = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
+                        } else if (containsModel == ContainsModel.SHAPE) {
+                            maskBasedRelationship = shape2.contains(bounds1) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
+                        } else if(containsModel == ContainsModel.MASK) {
+                            maskBasedRelationship = mask1.isContainedBy(shape2) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
+                        }
                     }
-                } else if (bounds2.contains(bounds1)) {
-                    if (containsModel == ContainsModel.SHAPE_UTILS) {
-                        r = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
-                    } else if (containsModel == ContainsModel.SHAPE) {
-                        r = shape2.contains(bounds1) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
-                    } else { // containsModel == ContainsModel.MASK
-                        r = mask1.isContainedBy(shape2) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
+                } else if(mask1 != null && mask2 == null) {
+                    // this can only occur when canCalculateMissingMask = false
+                    // this is less precise info, but maybe still worth exploring:
+                    if (mask1.contains(bounds2)) {
+                        if (containsModel == ContainsModel.SHAPE_UTILS) {
+                            maskBasedRelationship = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
+                        } else if (containsModel == ContainsModel.SHAPE) {
+                            maskBasedRelationship = shape1.contains(bounds2) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
+                        } else if (containsModel == ContainsModel.MASK) {
+                            // erg, can't test this
+                        }
                     }
-                } else {
-                    r = null;
+                } else if(mask2 != null && mask1 == null) {
+                    if (mask2.contains(bounds1)) {
+                        if (containsModel == ContainsModel.SHAPE_UTILS) {
+                            maskBasedRelationship = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
+                        } else if (containsModel == ContainsModel.SHAPE) {
+                            maskBasedRelationship = shape2.contains(bounds1) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
+                        } else if(containsModel == ContainsModel.MASK) {
+                            // likewise can't test this
+                        }
+                    }
                 }
-                if (r == ShapeUtils.Relationship.LHS_CONTAINS_RHS)
+                if (maskBasedRelationship == ShapeUtils.Relationship.LHS_CONTAINS_RHS) {
                     return shape1;
-                if (r == ShapeUtils.Relationship.RHS_CONTAINS_LHS)
-                    return shape2;
-            } else if (optimizeContains == Model.RECTANGLE) {
-                ShapeUtils.Relationship r;
-                if (bounds1.contains(bounds2)) {
-                    if (containsModel == ContainsModel.SHAPE_UTILS) {
-                        r = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
-                    } else {
-                        r = shape1.contains(bounds2) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
-                    }
-                } else if (bounds2.contains(bounds1)) {
-                    if (containsModel == ContainsModel.SHAPE_UTILS) {
-                        r = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
-                    } else {
-                        r = shape2.contains(bounds1) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
-                    }
-                } else {
-                    r = null;
                 }
-                if (r == ShapeUtils.Relationship.LHS_CONTAINS_RHS)
-                    return shape1;
-                if (r == ShapeUtils.Relationship.RHS_CONTAINS_LHS)
+                if (maskBasedRelationship == ShapeUtils.Relationship.RHS_CONTAINS_LHS) {
                     return shape2;
+                }
             }
-        } else {
-            bounds1 = null;
-            bounds2 = null;
-            mask1 = null;
-            mask2 = null;
         }
 
         Area result = new Area(shape1);
@@ -326,16 +407,13 @@ public class TubmanEngine implements OutlineEngine {
         }
 
         if (mask1 != null && mask2 != null) {
-            RectangleMask2D sumMask = new RectangleMask2D();
-            sumMask.add(mask1);
-            sumMask.add(mask2);
-            setMask(result, sumMask);
+            mask1.add(mask2);
+            setMask(result, mask1);
         }
 
         return result;
     }
 
-    Map<Shape, Rectangle2D> boundsMap = new HashMap<>();
     private void setBounds(Shape shape, Rectangle2D bounds) {
         boundsMap.put(shape, bounds);
     }
@@ -349,7 +427,6 @@ public class TubmanEngine implements OutlineEngine {
         return (Rectangle2D) r.clone();
     }
 
-    Map<Shape, Integer> orderMap = new HashMap<>();
     private void setOrder(Shape shape, Integer order) {
         orderMap.put(shape, order);
     }
@@ -363,14 +440,16 @@ public class TubmanEngine implements OutlineEngine {
         return order;
     }
 
-    Map<Shape, RectangleMask2D> maskMap = new HashMap<>();
     private void setMask(Shape shape, RectangleMask2D mask) {
         maskMap.put(shape, mask);
     }
 
-    private RectangleMask2D getMask(Shape shape) {
+    private RectangleMask2D getMask(Shape shape, boolean canCalculateIfMissing) {
         RectangleMask2D r = maskMap.get(shape);
         if (r == null) {
+            if (!canCalculateIfMissing)
+                return null;
+
             if (maskModel == MaskModel.EXACT) {
                 r = new RectangleMask2D(shape, null, Double.MAX_VALUE, true);
             } else if (maskModel == MaskModel.APPROXIMATE) {
@@ -380,7 +459,7 @@ public class TubmanEngine implements OutlineEngine {
             }
             maskMap.put(shape, r);
         }
-        return (RectangleMask2D) r.clone();
+        return r;
     }
 
     private Area intersect(Shape shape1, Shape shape2) {
@@ -422,10 +501,10 @@ public class TubmanEngine implements OutlineEngine {
     public String toString() {
         return getClass().getSimpleName()+"[ trackBounds = "+trackBounds+
                 ", optimizeContains = "+optimizeContains+
-                // " groupUnrelatedShapes = "+groupUnrelatedShapes+
                 // " divideAndConquer = "+divideAndConquer+
                 " maskModel = "+maskModel+
                 " containsModel = "+containsModel+
+                " orderSimplerShapesFirst = "+orderSimplerShapesFirst+
                 "]";
     }
 }
