@@ -5,7 +5,6 @@ import com.pump.awt.geom.MonotonicPathIterator;
 import com.pump.math.NumberLineDoubleMask;
 import com.pump.math.NumberLineIntegerMask;
 import com.pump.util.RangeInteger;
-import com.pump.util.TandemIterator;
 
 import java.awt.*;
 import java.awt.geom.*;

@@ -1,8 +1,6 @@
 package com.pump.math;
 
 import com.pump.util.RangeDouble;
-import com.pump.util.RangeDouble;
-import com.pump.util.TandemIterator;
 
 import java.io.IOException;
 import java.io.Serial;
@@ -470,86 +468,19 @@ public class NumberLineDoubleMask implements Serializable {
         return returnValue;
     }
 
-//    public boolean contains(NumberLineDoubleMask other) {
-//        for(RangeDouble otherRange : other.ranges) {
-//            if (!contains(otherRange.min, otherRange.max))
-//                return false;
-//        }
-//        return true;
-//    }
-//
-//    public boolean intersects(NumberLineDoubleMask other) {
-//        for(RangeDouble otherRange : other.ranges) {
-//            if (intersects(otherRange.min, otherRange.max))
-//                return true;
-//        }
-//        return false;
-//    }
-
     public boolean contains(NumberLineDoubleMask other) {
-        if (isEmpty() || other.isEmpty())
-            return false;
-
-        Iterator<RangeDouble> myIter;
-
-        RangeDouble myFloor = ranges.floor(other.ranges.first());
-        RangeDouble myCeil = ranges.ceiling(other.ranges.last());
-        if (myFloor != null && myCeil != null) {
-            myIter = ranges.subSet(myFloor, true, myCeil, true).iterator();
-        } else if (myFloor != null) {
-            myIter = ranges.tailSet(myFloor, true).iterator();
-        }  else {
-            myIter = ranges.iterator();
-        }
-
-        TandemIterator<RangeDouble> tandemIterator = new TandemIterator<>(myIter, other.ranges.iterator());
-
-        List<RangeDouble> l = new ArrayList<>(2);
-        while (tandemIterator.hasNext()) {
-            tandemIterator.next(l);
-            if (l.get(0) == null)
-                return false;
-            if (l.get(1) == null)
-                continue;
-            if (!l.get(0).contains(l.get(1)))
+        for(RangeDouble otherRange : other.ranges) {
+            if (!contains(otherRange.min, otherRange.max))
                 return false;
         }
-
         return true;
     }
 
     public boolean intersects(NumberLineDoubleMask other) {
-        if (isEmpty() || other.isEmpty())
-            return false;
-
-        Iterator<RangeDouble> myIter;
-
-        RangeDouble myFloor = ranges.floor(other.ranges.first());
-        RangeDouble myCeil = ranges.ceiling(other.ranges.last());
-        if (myFloor != null && myCeil != null) {
-            myIter = ranges.subSet(myFloor, true, myCeil, true).iterator();
-        } else if (myFloor != null) {
-            myIter = ranges.tailSet(myFloor, true).iterator();
-        }  else {
-            myIter = ranges.iterator();
-        }
-
-        TandemIterator<RangeDouble> tandemIterator = new TandemIterator<>(myIter, other.ranges.iterator());
-
-        List<RangeDouble> l = new ArrayList<>(2);
-        while (tandemIterator.hasNext()) {
-            tandemIterator.next(l);
-            if (l.get(0) == null)
-                continue;
-            if (l.get(1) == null) {
-                if (tandemIterator.isIterator2Finished())
-                    break;
-                continue;
-            }
-            if (l.get(0).intersects(l.get(1)))
+        for(RangeDouble otherRange : other.ranges) {
+            if (intersects(otherRange.min, otherRange.max))
                 return true;
         }
-
         return false;
     }
 }
