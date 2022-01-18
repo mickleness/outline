@@ -14,6 +14,30 @@ import java.io.Serializable;
  */
 public class Range%name% implements Serializable, Comparable<Range%name%> {
 
+    /**
+     * Return true if two ranges intersect each other.
+     */
+    public static boolean intersects(%type% min1, %type% max1, %type% min2, %type% max2) {
+        if (min1 == max2)
+            return false;
+        if (min1 > max2)
+            return false;
+
+        if (max1 == min1)
+            return false;
+        return max1 > min2;
+    }
+
+    /**
+     * Return true if the first range contains the second range.
+     */
+    public static boolean contains(%type% min1, %type% max1, %type% min2, %type% max2) {
+        if (min1 > min2)
+            return false;
+
+       return max1 >= max2;
+    }
+
     @Serial
     private static final long serialVersionUID = 1L;
 
@@ -41,12 +65,9 @@ public class Range%name% implements Serializable, Comparable<Range%name%> {
     /**
      * Return true if this Range%name% contains the arguments.
      */
-    public boolean contains(%type% otherX1,
-                            %type% otherX2) {
-        if (min > otherX1)
-            return false;
-
-       return max >= otherX2;
+    public boolean contains(%type% otherMin,
+                            %type% otherMax) {
+        return contains(min, max, otherMin, otherMax);
     }
 
     /**
@@ -57,17 +78,10 @@ public class Range%name% implements Serializable, Comparable<Range%name%> {
     }
 
     /**
-     * Return true if this Range%name% intersects the arguments.
+     * Return true if this Range%name% intersects the argument range.
      */
-    public boolean intersects(%type% otherX1, %type% otherX2) {
-        if (min == otherX2)
-            return false;
-        if (min > otherX2)
-            return false;
-
-        if (max == otherX1)
-            return false;
-        return max > otherX1;
+    public boolean intersects(%type% otherMin, %type% otherMax) {
+        return intersects(min, max, otherMin, otherMax);
     }
 
     /**

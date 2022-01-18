@@ -14,6 +14,30 @@ import java.io.Serializable;
  */
 public class RangeInteger implements Serializable, Comparable<RangeInteger> {
 
+    /**
+     * Return true if two ranges intersect each other.
+     */
+    public static boolean intersects(int min1, int max1, int min2, int max2) {
+        if (min1 == max2)
+            return false;
+        if (min1 > max2)
+            return false;
+
+        if (max1 == min1)
+            return false;
+        return max1 > min2;
+    }
+
+    /**
+     * Return true if the first range contains the second range.
+     */
+    public static boolean contains(int min1, int max1, int min2, int max2) {
+        if (min1 > min2)
+            return false;
+
+        return max1 >= max2;
+    }
+
     @Serial
     private static final long serialVersionUID = 1L;
 
@@ -41,12 +65,9 @@ public class RangeInteger implements Serializable, Comparable<RangeInteger> {
     /**
      * Return true if this RangeInteger contains the arguments.
      */
-    public boolean contains(int otherX1,
-                            int otherX2) {
-        if (min > otherX1)
-            return false;
-
-        return max >= otherX2;
+    public boolean contains(int otherMin,
+                            int otherMax) {
+        return contains(min, max, otherMin, otherMax);
     }
 
     /**
@@ -57,21 +78,10 @@ public class RangeInteger implements Serializable, Comparable<RangeInteger> {
     }
 
     /**
-     * Return true if this RangeInteger intersects the arguments.
+     * Return true if this RangeInteger intersects the argument range.
      */
-    public boolean intersects(int otherX1, int otherX2) {
-        return intersects(min, max, otherX1, otherX2);
-    }
-
-    public static boolean intersects(int min1, int max1, int min2, int max2) {
-        if (min1 == max2)
-            return false;
-        if (min1 > max2)
-            return false;
-
-        if (max1 == min1)
-            return false;
-        return max1 > min2;
+    public boolean intersects(int otherMin, int otherMax) {
+        return intersects(min, max, otherMin, otherMax);
     }
 
     /**
