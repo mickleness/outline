@@ -6,6 +6,7 @@ import java.awt.*;
 import java.awt.geom.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class ShapeUtils {
 
@@ -441,6 +442,13 @@ public class ShapeUtils {
         return pi.isDone();
     }
 
+    /**
+     * Return the exact bounds of the argument.
+     * <p>
+     * By default the {@link Shape#getBounds2D()} is allowed to generously round up
+     * some bounding boxes so it includes lots of empty space.
+     * </p>
+     */
     public static Rectangle2D getBounds2D(Shape shape) {
         if (shape instanceof Area) {
             return ((Area) shape).getBounds2D();
@@ -448,6 +456,12 @@ public class ShapeUtils {
         return getBounds2D(shape.getPathIterator(null));
     }
 
+    /**
+     * Return the maximum order of a path, where "1" indicates
+     * the path is a polygon, "2" indicates the path contains
+     * at least one quadratic path segment, and "3" indicates
+     * the path contains at least one cubic segment.
+     */
     public static int getOrder(PathIterator pi) {
         double[] coords = new double[6];
         int returnValue = 0;
@@ -464,6 +478,9 @@ public class ShapeUtils {
         return returnValue;
     }
 
+    /**
+     * This is a return value for the {@link #getRelationship(Shape, Shape)} method.
+     */
     public enum Relationship {
         /**
          * This indicates a quick scan shows two shapes might intersect.
@@ -492,16 +509,25 @@ public class ShapeUtils {
         NONE
     }
 
+    /**
+     * Return a Relationship for two given shapes.
+     * @param shape1 the left-hand-side shape
+     * @param shape2 the right-hand-side shape
+     *
+     * @return a Relationship enum describing the arguments.
+     */
     public static Relationship getRelationship(Shape shape1, Shape shape2) {
-        return getRelationship(shape1, getBounds2D(shape1), shape2, getBounds2D(shape2));
-    }
+        Objects.requireNonNull(shape1);
+        Objects.requireNonNull(shape2);
 
-    public static Relationship getRelationship(Shape shape1, Rectangle2D shapeBounds1, Shape shape2, Rectangle2D shapeBounds2) {
+        Rectangle2D shapeBounds1 = getBounds2D(shape1);
+        Rectangle2D shapeBounds2 = getBounds2D(shape2);
+
         if (!shapeBounds1.intersects(shapeBounds2))
             return Relationship.NONE;
 
-        int shape1containCtr = 0;
-        int shape2containCtr = 0;
+        int shape1containsOtherSubpathCtr = 0;
+        int shape2containsOtherSubpathCtr = 0;
         int subpathCtr1 = 0;
         int subpathCtr2 = 0;
 
@@ -514,7 +540,7 @@ public class ShapeUtils {
                 subpathCtr1++;
 
                 if (shape2.contains(coords[0], coords[1])) {
-                    shape2containCtr++;
+                    shape2containsOtherSubpathCtr++;
                 }
             }
             pi1.next();
@@ -527,9 +553,9 @@ public class ShapeUtils {
                 subpathCtr2++;
 
                 if (shape1.contains(coords[0], coords[1])) {
-                    shape1containCtr++;
+                    shape1containsOtherSubpathCtr++;
 
-                    if (shape2containCtr > 0)
+                    if (shape2containsOtherSubpathCtr > 0)
                         return Relationship.OTHER;
                 }
             }
@@ -607,14 +633,16 @@ public class ShapeUtils {
                             lastY2 = coords[5];
                             break;
                     }
+                    // TODO: we could recursively break down this potential intersection at least
+                    // a few times to help identify whether they might not intersect
                     if (intersects(r1, r2))
                         return Relationship.MAY_INTERSECT;
                 }
             }
         }
-        if (subpathCtr1 == shape2containCtr && subpathCtr1 > 0)
+        if (subpathCtr1 == shape2containsOtherSubpathCtr && subpathCtr1 > 0)
             return Relationship.RHS_CONTAINS_LHS;
-        if (subpathCtr2 == shape1containCtr && subpathCtr2 > 0)
+        if (subpathCtr2 == shape1containsOtherSubpathCtr && subpathCtr2 > 0)
             return Relationship.LHS_CONTAINS_RHS;
         return Relationship.NONE;
     }
@@ -622,10 +650,12 @@ public class ShapeUtils {
     /**
      * This identifies whether two Rectangle2Ds intersect -- even if
      * either or both of the arguments are lines with no width or height.
-     * (Rectangle2D#intersect returns false if either the width or height is zero,
-     * so it will return false if you ask if a vertical and horizontal line intersect.)
+     * <p>
+     * {@link Rectangle2D#intersects(Rectangle2D)} returns false if either the width or height is zero,
+     * so it will return false if you ask if a vertical and horizontal line intersect.
+     * </p>
      */
-    private static boolean intersects(Rectangle2D r1, Rectangle2D r2) {
+    public static boolean intersects(Rectangle2D r1, Rectangle2D r2) {
         double width1 = r1.getWidth();
         double height1 = r1.getHeight();
 

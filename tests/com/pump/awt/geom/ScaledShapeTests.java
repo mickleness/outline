@@ -4,7 +4,7 @@ import junit.framework.TestCase;
 
 import java.awt.geom.Path2D;
 
-public class ScaleShapeTests extends TestCase {
+public class ScaledShapeTests extends TestCase {
 
     public void test() {
         Path2D path = createTriangle();

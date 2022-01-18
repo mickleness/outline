@@ -7,6 +7,7 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -318,5 +319,67 @@ public class ShapeUtilsTest extends TestCase {
 
         assertEquals(ShapeUtils.Relationship.NONE, ShapeUtils.getRelationship(inner, side));
         assertEquals(ShapeUtils.Relationship.NONE, ShapeUtils.getRelationship(side, inner));
+    }
+
+    public void testRectangleIntersection() {
+        Rectangle2D horizLine = new Rectangle2D.Float(0,5,10,0);
+        Rectangle2D vertLine = new Rectangle2D.Double(5,0,0,10);
+
+        assertTrue( ShapeUtils.intersects(horizLine, vertLine));
+        assertTrue( ShapeUtils.intersects(vertLine, horizLine));
+
+        Rectangle nw_overlap = new Rectangle(-1, -1, 2, 2);
+        Rectangle n_overlap = new Rectangle(4, -1, 2, 2);
+        Rectangle ne_overlap = new Rectangle(9, -1, 2, 2);
+        Rectangle w_overlap = new Rectangle(-1, 4, 2, 2);
+        Rectangle center_overlap = new Rectangle(4, 4, 2, 2);
+        Rectangle e_overlap = new Rectangle(9, 4, 2, 2);
+        Rectangle sw_overlap = new Rectangle(-1, 9, 2, 2);
+        Rectangle s_overlap = new Rectangle(4, 9, 2, 2);
+        Rectangle se_overlap = new Rectangle(9, 9, 2, 2);
+
+        // test each rect against horizontal line:
+        assertFalse( ShapeUtils.intersects(nw_overlap, horizLine));
+        assertFalse( ShapeUtils.intersects(n_overlap, horizLine));
+        assertFalse( ShapeUtils.intersects(ne_overlap, horizLine));
+        assertTrue( ShapeUtils.intersects(w_overlap, horizLine));
+        assertTrue( ShapeUtils.intersects(center_overlap, horizLine));
+        assertTrue( ShapeUtils.intersects(e_overlap, horizLine));
+        assertFalse( ShapeUtils.intersects(sw_overlap, horizLine));
+        assertFalse( ShapeUtils.intersects(s_overlap, horizLine));
+        assertFalse( ShapeUtils.intersects(se_overlap, horizLine));
+
+        // same set, just reverse arguments
+        assertFalse( ShapeUtils.intersects(horizLine, nw_overlap));
+        assertFalse( ShapeUtils.intersects(horizLine, n_overlap));
+        assertFalse( ShapeUtils.intersects(horizLine, ne_overlap));
+        assertTrue( ShapeUtils.intersects(horizLine, w_overlap));
+        assertTrue( ShapeUtils.intersects(horizLine, center_overlap));
+        assertTrue( ShapeUtils.intersects(horizLine, e_overlap));
+        assertFalse( ShapeUtils.intersects(horizLine, sw_overlap));
+        assertFalse( ShapeUtils.intersects(horizLine, s_overlap));
+        assertFalse( ShapeUtils.intersects(horizLine, se_overlap));
+
+        // test each rect against vertical line:
+        assertFalse( ShapeUtils.intersects(nw_overlap, vertLine));
+        assertTrue( ShapeUtils.intersects(n_overlap, vertLine));
+        assertFalse( ShapeUtils.intersects(ne_overlap, vertLine));
+        assertFalse( ShapeUtils.intersects(w_overlap, vertLine));
+        assertTrue( ShapeUtils.intersects(center_overlap, vertLine));
+        assertFalse( ShapeUtils.intersects(e_overlap, vertLine));
+        assertFalse( ShapeUtils.intersects(sw_overlap, vertLine));
+        assertTrue( ShapeUtils.intersects(s_overlap, vertLine));
+        assertFalse( ShapeUtils.intersects(se_overlap, vertLine));
+
+        // same set, just reverse arguments
+        assertFalse( ShapeUtils.intersects(vertLine, nw_overlap));
+        assertTrue( ShapeUtils.intersects(vertLine, n_overlap));
+        assertFalse( ShapeUtils.intersects(vertLine, ne_overlap));
+        assertFalse( ShapeUtils.intersects(vertLine, w_overlap));
+        assertTrue( ShapeUtils.intersects(vertLine, center_overlap));
+        assertFalse( ShapeUtils.intersects(vertLine, e_overlap));
+        assertFalse( ShapeUtils.intersects(vertLine, sw_overlap));
+        assertTrue( ShapeUtils.intersects(vertLine, s_overlap));
+        assertFalse( ShapeUtils.intersects(vertLine, se_overlap));
     }
 }

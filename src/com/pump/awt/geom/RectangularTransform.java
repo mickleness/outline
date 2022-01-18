@@ -9,7 +9,7 @@ import java.util.Objects;
 
 /**
  * This is a transform that only scales and translates. It is a subset of an
- * <code>AffineTransform</code>, except with no rotation/shearing.
+ * <code>AffineTransform</code> with no rotation/shearing.
  */
 public class RectangularTransform implements Serializable {
 
