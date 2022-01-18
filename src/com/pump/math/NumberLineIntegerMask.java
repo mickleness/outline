@@ -154,7 +154,7 @@ public class NumberLineIntegerMask implements Serializable {
      */
     public boolean add(NumberLineIntegerMask other) {
         boolean returnValue = false;
-        for(RangeInteger range : other.getRanges()) {
+        for(RangeInteger range : other.ranges) {
             if (add(range.min, range.max))
                 returnValue = true;
         }
@@ -247,7 +247,7 @@ public class NumberLineIntegerMask implements Serializable {
      */
     public boolean subtract(NumberLineIntegerMask other) {
         boolean returnValue = false;
-        for(RangeInteger range : other.getRanges()) {
+        for(RangeInteger range : other.ranges) {
             if (subtract(range.min, range.max))
                 returnValue = true;
         }
@@ -322,7 +322,7 @@ public class NumberLineIntegerMask implements Serializable {
     }
 
     /**
-     * Remove all data from this NumberLineMask so {@link #getRanges()} returns an empty array.
+     * Remove all data from this NumberLineIntegerMask so {@link #getRanges()} returns an empty array.
      */
     public void clear() {
         ranges.clear();
