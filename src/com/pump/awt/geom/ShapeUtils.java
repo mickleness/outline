@@ -1,5 +1,6 @@
 package com.pump.awt.geom;
 
+import com.pump.awt.geom.outline.AppendedShape;
 import com.pump.util.RangeDouble;
 
 import java.awt.*;
@@ -446,12 +447,13 @@ public class ShapeUtils {
      * Return the exact bounds of the argument.
      * <p>
      * By default the {@link Shape#getBounds2D()} is allowed to generously round up
-     * some bounding boxes so it includes lots of empty space.
+     * some bounding boxes so it can include lots of empty space.
      * </p>
      */
     public static Rectangle2D getBounds2D(Shape shape) {
-        if (shape instanceof Area) {
-            return ((Area) shape).getBounds2D();
+        if (shape instanceof Area || shape instanceof AppendedShape || shape instanceof RectangularShape) {
+            // these shapes are known to have accurate getBounds2D() methods
+            return shape.getBounds2D();
         }
         return getBounds2D(shape.getPathIterator(null));
     }
