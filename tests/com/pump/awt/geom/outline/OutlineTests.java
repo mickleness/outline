@@ -31,21 +31,17 @@ public abstract class OutlineTests extends TestCase {
         List<OutlineEngine> engines = new ArrayList<>();
         engines.add(new PlainAreaEngine());
 
-        for(TubmanEngine.Model track : TubmanEngine.Model.values()) {
-            for(TubmanEngine.Model optimizeContains : TubmanEngine.Model.values()) {
-                for(TubmanEngine.MaskModel maskModel : TubmanEngine.MaskModel.values()) {
-                    for(TubmanEngine.ContainsModel containsModel : TubmanEngine.ContainsModel.values()) {
-                        for (boolean orderSimplerShapesFirst : new boolean[] {false, true}) {
-                            engines.add(new TubmanEngine(track, optimizeContains, false, maskModel, containsModel, orderSimplerShapesFirst));
-                        }
-                    }
+        for (boolean divideAndConquer : new boolean[] {false, true}) {
+            for (TubmanEngine.ContainsModel containsModel : TubmanEngine.ContainsModel.values()) {
+                for (boolean orderSimplerShapesFirst : new boolean[]{false, true}) {
+                    engines.add(new TubmanEngine(divideAndConquer, containsModel, orderSimplerShapesFirst));
                 }
             }
         }
 
-//        engines.add(new OptimizedAreaEngine(1));
-//        engines.add(new MaskedOutlineEngine(1.0 / 64.0));
-//        engines.add(new MaskedOutlineEngine(Double.MAX_VALUE));
+        engines.add(new OptimizedAreaEngine(1));
+        engines.add(new MaskedOutlineEngine(1.0 / 64.0));
+        engines.add(new MaskedOutlineEngine(Double.MAX_VALUE));
         engines.add(new MaskedOutlineEngine2());
         return engines.toArray(new OutlineEngine[0]);
     }
