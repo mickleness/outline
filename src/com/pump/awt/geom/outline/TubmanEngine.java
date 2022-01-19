@@ -1,91 +1,72 @@
 package com.pump.awt.geom.outline;
 
 import com.pump.awt.geom.AppendedShape;
-import com.pump.awt.geom.ClosedPathIterator;
 import com.pump.awt.geom.ShapeUtils;
-import com.pump.awt.geom.mask.RectangleMask2D;
 
 import java.awt.*;
 import java.awt.geom.Area;
-import java.awt.geom.PathIterator;
+import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.geom.RectangularShape;
 import java.util.*;
 import java.util.List;
 
 public class TubmanEngine implements OutlineEngine {
 
-    public enum ContainsModel {
-        SHAPE, SHAPE_UTILS, MASK
+    static class Context {
+        Map<Shape, Rectangle2D> boundsMap = new HashMap<>();
+
+        void setBounds(Shape shape, Rectangle2D bounds) {
+            if (bounds == null || shape instanceof AppendedShape || shape instanceof Area || shape instanceof RectangularShape) {
+                boundsMap.remove(shape);
+            } else {
+                boundsMap.put(shape, bounds);
+            }
+        }
+
+        Rectangle2D getBounds(Shape shape) {
+            if (shape instanceof AppendedShape || shape instanceof Area || shape instanceof RectangularShape) {
+                return shape.getBounds2D();
+            }
+
+            Rectangle2D r = boundsMap.get(shape);
+            if (r == null) {
+                r = ShapeUtils.getBounds2D(shape.getPathIterator(null));
+                boundsMap.put(shape, r);
+            }
+            return (Rectangle2D) r.clone();
+        }
     }
 
     OutlineEngine delegateEngine;
-    final boolean divideAndConquer;
-    final ContainsModel containsModel;
-    final boolean orderSimplerShapesFirst;
 
-    Map<Shape, Rectangle2D> boundsMap = new HashMap<>();
-    Map<Shape, Integer> orderMap = new HashMap<>();
 
-    public TubmanEngine(boolean divideAndConquer, ContainsModel containsModel, boolean orderSimplerShapesFirst) {
-        this(new PlainAreaEngine(), divideAndConquer, containsModel, orderSimplerShapesFirst);
+    public TubmanEngine() {
+        this(new PlainAreaEngine());
     }
 
-    public TubmanEngine(OutlineEngine delegateEngine, boolean divideAndConquer, ContainsModel containsModel, boolean orderSimplerShapesFirst) {
+    public TubmanEngine(OutlineEngine delegateEngine) {
         this.delegateEngine = delegateEngine;
-        this.divideAndConquer = divideAndConquer;
-        this.containsModel = containsModel;
-        this.orderSimplerShapesFirst = orderSimplerShapesFirst;
     }
-
-    Comparator<OutlineOperation> orderComparator = new Comparator<OutlineOperation>() {
-
-        @Override
-        public int compare(OutlineOperation s1, OutlineOperation s2) {
-            int order1 = getOrder(s1.shape);
-            int order2 = getOrder(s2.shape);
-            int k = Integer.compare(order1, order2);
-
-            if (k != 0)
-                return k;
-
-            Rectangle2D r1 = getBounds(s1.shape);
-            Rectangle2D r2 = getBounds(s2.shape);
-            double area1 = r1.getWidth() * r1.getHeight();
-            double area2 = r2.getWidth() * r2.getHeight();
-            return -Double.compare(area1, area2);
-        }
-    };
 
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
-        try {
+        operationQueue = consolidate(operationQueue);
 
-//        if (groupUnrelatedShapes != Model.NONE) {
-//            groupUnrelatedShapes(operationQueue);
-//        }
-
-            if (orderSimplerShapesFirst) {
-                Collections.sort(operationQueue, orderComparator);
-            }
-
-            if (divideAndConquer) {
-                operationQueue = divideAndConquer(operationQueue);
-            } else {
-                operationQueue = serial(operationQueue);
-            }
-
-            if (operationQueue.size() == 1) {
-                return operationQueue.get(0).shape;
-            }
-
-            return delegateEngine.calculate(operationQueue);
-        } finally {
-            boundsMap.clear();
-            orderMap.clear();
+        if (operationQueue.size() == 1) {
+            return operationQueue.get(0).shape;
         }
+
+        return delegateEngine.calculate(operationQueue);
     }
 
-    private List<OutlineOperation> serial(List<OutlineOperation> operationQueue) {
+    /**
+     * Consolidate all consecutive operations of the same type. For example: 5 consecutive add operations
+     * can be consolidated into 1 add operation. 5 clip operations can become 1 clip, etc.
+     */
+    private List<OutlineOperation> consolidate(List<OutlineOperation> operationQueue) {
+        Context context = new Context();
+
         List<OutlineOperation> newQueue = new ArrayList<>(operationQueue.size());
 
         OutlineOperation lastOp = null;
@@ -96,7 +77,7 @@ public class TubmanEngine implements OutlineEngine {
                 lastOp = op;
             } else {
                 if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.SUBTRACT) {
-                    Shape newShape = add(lastOp.shape, op.shape);
+                    Shape newShape = add(context, lastOp.shape, op.shape);
                     lastOp = createOperation(op.type, newShape);
                 } else if (op.type == OutlineOperation.Type.INTERSECT) {
                     Shape newShape = intersect(lastOp.shape, op.shape);
@@ -118,156 +99,39 @@ public class TubmanEngine implements OutlineEngine {
         return newQueue;
     }
 
-    private List<OutlineOperation> divideAndConquer(List<OutlineOperation> operationQueue) {
-        boolean needsAnotherPass = true;
-        do {
-            needsAnotherPass = false;
-
-            List<OutlineOperation> newQueue = new ArrayList<>(operationQueue.size());
-            Iterator<OutlineOperation> iter = operationQueue.iterator();
-            OutlineOperation nextOp = null;
-            while (iter.hasNext()) {
-                if (nextOp == null) {
-                    nextOp = iter.next();
-                }
-                OutlineOperation op1 = nextOp;
-                nextOp = null;
-
-                if (!iter.hasNext()) {
-                    newQueue.add(op1);
-                    break;
-                }
-
-                OutlineOperation op2 = iter.next();
-                if (op2.type == op1.type) {
-                    if (op1.type == OutlineOperation.Type.ADD || op1.type == OutlineOperation.Type.SUBTRACT) {
-                        Shape newShape = add(op1.shape, op2.shape);
-                        newQueue.add(createOperation(op1.type, newShape));
-                        needsAnotherPass = true;
-                    } else if (op1.type == OutlineOperation.Type.INTERSECT) {
-                        Shape newShape = intersect(op1.shape, op2.shape);
-                        newQueue.add(createOperation(OutlineOperation.Type.INTERSECT, newShape));
-                        needsAnotherPass = true;
-                    } else if (op1.type == OutlineOperation.Type.XOR) {
-                        Shape newShape = xor(op1.shape, op2.shape);
-                        newQueue.add(createOperation(OutlineOperation.Type.XOR, newShape));
-                        needsAnotherPass = true;
-                    } else {
-                        // this isn't possible as of this writing, but in case something changes:
-                        newQueue.add(op1);
-                        newQueue.add(op2);
-                    }
-                } else {
-                    newQueue.add(op1);
-                    nextOp = op2;
-                }
-            }
-            if (nextOp != null)
-                newQueue.add(nextOp);
-
-            operationQueue = newQueue;
-        } while (needsAnotherPass);
-
-        return operationQueue;
-    }
-
-    private Shape add(Shape shape1, Shape shape2) {
+    private Shape add(Context context, Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
         boolean empty2 = ShapeUtils.isEmpty(shape2);
 
         if (empty1 && empty2)
-            return new Area();
+            return new Path2D.Double();
         if (empty1)
-            return new Area(shape2);
+            return shape2;
         if (empty2)
-            return new Area(shape1);
+            return shape1;
 
-        Rectangle2D bounds1 = null;
-        Rectangle2D bounds2 = null;
-
-        if (bounds1 == null)
-            bounds1 = getBounds(shape1);
-        if (bounds2 == null)
-            bounds2 = getBounds(shape2);
+        Rectangle2D bounds1 = context.getBounds(shape1);
+        Rectangle2D bounds2 = context.getBounds(shape2);
 
         if (!(bounds1.intersects(bounds2))) {
             AppendedShape appendedShape = new AppendedShape(shape1);
             appendedShape.appendSafely(shape2);
             bounds1.add(bounds2);
-            setBounds(appendedShape, bounds1);
+            context.setBounds(appendedShape, null);
             return appendedShape;
         }
 
-        ShapeUtils.Relationship boundsBasedRelationship = null;
-        if (bounds1 == null)
-            bounds1 = getBounds(shape1);
-        if (bounds2 == null)
-            bounds2 = getBounds(shape2);
-
-        if (bounds1.contains(bounds2)) {
-            if (containsModel == ContainsModel.SHAPE_UTILS) {
-                boundsBasedRelationship = ShapeUtils.getRelationship(shape1, bounds2);
-            } else {
-                boundsBasedRelationship = shape1.contains(bounds2) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
-            }
-        } else if (bounds2.contains(bounds1)) {
-            if (containsModel == ContainsModel.SHAPE_UTILS) {
-                boundsBasedRelationship = ShapeUtils.getRelationship(bounds1, shape2);
-            } else {
-                boundsBasedRelationship = shape2.contains(bounds1) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
-            }
-        } else {
-            boundsBasedRelationship = null;
-        }
-
-        if (boundsBasedRelationship == ShapeUtils.Relationship.LHS_CONTAINS_RHS) {
+        if (bounds1.contains(bounds2) && shape1.contains(bounds2)) {
             return shape1;
-        }
-        if (boundsBasedRelationship == ShapeUtils.Relationship.RHS_CONTAINS_LHS) {
+        } else if (bounds2.contains(bounds1) && shape2.contains(bounds1)) {
             return shape2;
         }
-
-        boolean testedMaskIntersection = false;
-        boolean testedMaskContainment = false;
 
         Area result = new Area(shape1);
         Area area2 = new Area(shape2);
         result.add(area2);
 
-        if (bounds1 != null && bounds2 != null) {
-            Rectangle2D sumBounds = new Rectangle2D.Double();
-            sumBounds.setFrame(bounds1);
-            sumBounds.add(bounds2);
-            setBounds(result, sumBounds);
-        }
-
         return result;
-    }
-
-    private void setBounds(Shape shape, Rectangle2D bounds) {
-        boundsMap.put(shape, bounds);
-    }
-
-    private Rectangle2D getBounds(Shape shape) {
-        Rectangle2D r = boundsMap.get(shape);
-        if (r == null) {
-            r = ShapeUtils.getBounds2D(shape.getPathIterator(null));
-            boundsMap.put(shape, r);
-        }
-        return (Rectangle2D) r.clone();
-    }
-
-    private void setOrder(Shape shape, Integer order) {
-        orderMap.put(shape, order);
-    }
-
-    private Integer getOrder(Shape shape) {
-        Integer order = orderMap.get(shape);
-        if (order == null) {
-            order = ShapeUtils.getOrder(shape.getPathIterator(null));
-            orderMap.put(shape, order);
-        }
-        return order;
     }
 
     private Area intersect(Shape shape1, Shape shape2) {
@@ -307,10 +171,6 @@ public class TubmanEngine implements OutlineEngine {
 
     @Override
     public String toString() {
-        return getClass().getSimpleName()+"["+
-                " divideAndConquer = "+divideAndConquer+
-                " containsModel = "+containsModel+
-                " orderSimplerShapesFirst = "+orderSimplerShapesFirst+
-                "]";
+        return getClass().getSimpleName();
     }
 }

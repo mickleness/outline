@@ -30,15 +30,7 @@ public abstract class OutlineTests extends TestCase {
     public OutlineEngine[] getEngines() {
         List<OutlineEngine> engines = new ArrayList<>();
         engines.add(new PlainAreaEngine());
-
-        for (boolean divideAndConquer : new boolean[] {false, true}) {
-            for (TubmanEngine.ContainsModel containsModel : TubmanEngine.ContainsModel.values()) {
-                for (boolean orderSimplerShapesFirst : new boolean[]{false, true}) {
-                    engines.add(new TubmanEngine(divideAndConquer, containsModel, orderSimplerShapesFirst));
-                }
-            }
-        }
-
+        engines.add(new TubmanEngine());
         engines.add(new OptimizedAreaEngine(1));
         engines.add(new MaskedOutlineEngine(1.0 / 64.0));
         engines.add(new MaskedOutlineEngine(Double.MAX_VALUE));
