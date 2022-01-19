@@ -1,6 +1,4 @@
-package com.pump.awt.geom.outline;
-
-import com.pump.awt.geom.ShapeUtils;
+package com.pump.awt.geom;
 
 import java.awt.*;
 import java.awt.geom.*;

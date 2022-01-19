@@ -1,6 +1,5 @@
 package com.pump.awt.geom;
 
-import com.pump.awt.geom.outline.AppendedShape;
 import com.pump.util.RangeDouble;
 
 import java.awt.*;

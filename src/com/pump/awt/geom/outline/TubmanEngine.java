@@ -1,5 +1,6 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.awt.geom.AppendedShape;
 import com.pump.awt.geom.ClosedPathIterator;
 import com.pump.awt.geom.ShapeUtils;
 import com.pump.awt.geom.mask.RectangleMask2D;
@@ -170,27 +171,6 @@ public class TubmanEngine implements OutlineEngine {
         return operationQueue;
     }
 
-    private MaskedOutlineEngine.AppendedShape getAppendedShape(Shape shape1, Shape shape2) {
-        MaskedOutlineEngine.AppendedShape appendedShape;
-        if (shape1 instanceof MaskedOutlineEngine.AppendedShape) {
-            appendedShape = (MaskedOutlineEngine.AppendedShape) shape1;
-        } else {
-            appendedShape = new MaskedOutlineEngine.AppendedShape();
-            appendedShape.append(shape1);
-        }
-
-        if (shape2 instanceof MaskedOutlineEngine.AppendedShape) {
-            MaskedOutlineEngine.AppendedShape appendedShape2 = (MaskedOutlineEngine.AppendedShape) shape2;
-            for(Shape shape : appendedShape2.shapes) {
-                appendedShape.append(shape);
-            }
-        } else {
-            appendedShape.append(shape2);
-        }
-
-        return appendedShape;
-    }
-
     private Shape add(Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
         boolean empty2 = ShapeUtils.isEmpty(shape2);
@@ -211,7 +191,8 @@ public class TubmanEngine implements OutlineEngine {
             bounds2 = getBounds(shape2);
 
         if (!(bounds1.intersects(bounds2))) {
-            MaskedOutlineEngine.AppendedShape appendedShape = getAppendedShape(shape1, shape2);
+            AppendedShape appendedShape = new AppendedShape(shape1);
+            appendedShape.appendSafely(shape2);
             bounds1.add(bounds2);
             setBounds(appendedShape, bounds1);
             return appendedShape;
@@ -225,13 +206,13 @@ public class TubmanEngine implements OutlineEngine {
 
         if (bounds1.contains(bounds2)) {
             if (containsModel == ContainsModel.SHAPE_UTILS) {
-                boundsBasedRelationship = ShapeUtils.getRelationship(shape1, bounds1, bounds2, bounds2);
+                boundsBasedRelationship = ShapeUtils.getRelationship(shape1, bounds2);
             } else {
                 boundsBasedRelationship = shape1.contains(bounds2) ? ShapeUtils.Relationship.LHS_CONTAINS_RHS : ShapeUtils.Relationship.OTHER;
             }
         } else if (bounds2.contains(bounds1)) {
             if (containsModel == ContainsModel.SHAPE_UTILS) {
-                boundsBasedRelationship = ShapeUtils.getRelationship(bounds1, bounds1, shape2, bounds2);
+                boundsBasedRelationship = ShapeUtils.getRelationship(bounds1, shape2);
             } else {
                 boundsBasedRelationship = shape2.contains(bounds1) ? ShapeUtils.Relationship.RHS_CONTAINS_LHS : ShapeUtils.Relationship.OTHER;
             }

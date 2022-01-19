@@ -1,176 +1,15 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.awt.geom.AppendedShape;
 import com.pump.awt.geom.ShapeUtils;
 import com.pump.awt.geom.mask.RectangleMask2D;
 
 import java.awt.*;
 import java.awt.geom.*;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedList;
+import java.util.*;
 import java.util.List;
 
 public class MaskedOutlineEngine2 implements OutlineEngine {
-
-    static class AppendedShape implements Shape {
-        List<Shape> shapes = new LinkedList<>();
-
-        public void append(Shape shape) {
-            if (shape instanceof AppendedShape) {
-                AppendedShape as = (AppendedShape) shape;
-                shapes.addAll( as.shapes );
-            } else {
-                shapes.add(shape);
-            }
-        }
-
-        @Override
-        public Rectangle getBounds() {
-            return getBounds2D().getBounds();
-        }
-
-        @Override
-        public Rectangle2D getBounds2D() {
-            Rectangle2D sum = null;
-            for(Shape shape : shapes) {
-                Rectangle2D bounds = (Rectangle2D) shape.getBounds2D().clone();
-                if (bounds.isEmpty())
-                    continue;
-                if (sum == null) {
-                    sum = bounds;
-                } else {
-                    sum.add(bounds);
-                }
-            }
-            if (sum == null)
-                sum = new Rectangle2D.Double();
-            return sum;
-        }
-
-        @Override
-        public boolean contains(double x, double y) {
-            for (Shape shape : shapes) {
-                if (shape.contains(x, y))
-                    return true;
-            }
-            return false;
-        }
-
-        @Override
-        public boolean contains(Point2D p) {
-            for (Shape shape : shapes) {
-                if (shape.contains(p))
-                    return true;
-            }
-            return false;
-        }
-
-        @Override
-        public boolean intersects(double x, double y, double w, double h) {
-            for (Shape shape : shapes) {
-                if (shape.intersects(x, y, w, h))
-                    return true;
-            }
-            return false;
-        }
-
-        @Override
-        public boolean intersects(Rectangle2D r) {
-            for (Shape shape : shapes) {
-                if (shape.intersects(r))
-                    return true;
-            }
-            return false;
-        }
-
-        @Override
-        public boolean contains(double x, double y, double w, double h) {
-            for (Shape shape : shapes) {
-                if (shape.contains(x, y, w, h))
-                    return true;
-            }
-            return false;
-        }
-
-        @Override
-        public boolean contains(Rectangle2D r) {
-            for (Shape shape : shapes) {
-                if (shape.contains(r))
-                    return true;
-            }
-            return false;
-        }
-
-        @Override
-        public PathIterator getPathIterator(AffineTransform at) {
-            return new AppendedPathIterator(new LinkedList<>(shapes), at, null);
-        }
-
-        @Override
-        public PathIterator getPathIterator(AffineTransform at, double flatness) {
-            return new AppendedPathIterator(new LinkedList<>(shapes), at, Double.valueOf(flatness));
-        }
-    }
-
-    static class AppendedPathIterator implements PathIterator {
-
-        List<Shape> shapes;
-        AffineTransform transform;
-        Double flatness;
-
-        PathIterator current;
-
-        public AppendedPathIterator(List<Shape> shapes, AffineTransform transform, Double flatness) {
-            this.shapes = shapes;
-            this.transform = transform;
-            this.flatness = flatness;
-
-            next();
-        }
-
-        @Override
-        public int getWindingRule() {
-            // TODO: address winding rule
-            return PathIterator.WIND_NON_ZERO;
-        }
-
-        @Override
-        public boolean isDone() {
-            return current == null;
-        }
-
-        @Override
-        public void next() {
-            if (current != null) {
-                current.next();
-            }
-            if (current == null || current.isDone()) {
-                current = null;
-                if (!shapes.isEmpty()) {
-                    Shape nextShape = shapes.remove(0);
-                    if (flatness != null) {
-                        current = nextShape.getPathIterator(transform, flatness.doubleValue());
-                    } else {
-                        current = nextShape.getPathIterator(transform);
-                    }
-                }
-            }
-        }
-
-        @Override
-        public int currentSegment(float[] coords) {
-            if (current != null)
-                return current.currentSegment(coords);
-            throw new IllegalStateException();
-        }
-
-        @Override
-        public int currentSegment(double[] coords) {
-            if (current != null)
-                return current.currentSegment(coords);
-            throw new IllegalStateException();
-        }
-    }
 
     class ShapeInfo {
         Shape shape;
@@ -250,11 +89,10 @@ public class MaskedOutlineEngine2 implements OutlineEngine {
         public void append(ShapeInfo rhs) {
             if (shape instanceof AppendedShape) {
                 AppendedShape as = (AppendedShape) shape;
-                as.append(rhs.shape);
+                as.appendSafely(rhs.shape);
             } else {
-                AppendedShape newShape = new AppendedShape();
-                newShape.append(shape);
-                newShape.append(rhs.shape);
+                AppendedShape newShape = new AppendedShape(shape);
+                newShape.appendSafely(rhs.shape);
                 shape = newShape;
             }
 
@@ -325,9 +163,7 @@ public class MaskedOutlineEngine2 implements OutlineEngine {
             List<Shape> returnValue = new LinkedList<>();
             if (shape instanceof AppendedShape) {
                 AppendedShape as = (AppendedShape) shape;
-                for (Shape s : as.shapes) {
-                    returnValue.addAll( getShapes(s) );
-                }
+                returnValue.addAll( Arrays.asList(as.getShapes()) );
             } else {
                 returnValue.add(shape);
             }
