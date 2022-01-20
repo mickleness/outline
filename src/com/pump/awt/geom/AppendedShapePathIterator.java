@@ -3,6 +3,8 @@ package com.pump.awt.geom;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.PathIterator;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -10,17 +12,19 @@ import java.util.List;
  */
 public class AppendedShapePathIterator implements PathIterator {
 
-    java.util.List<Shape> shapes;
+    Iterator<Shape> shapes;
     AffineTransform transform;
     Double flatness;
     int windingRule;
     PathIterator current;
 
-    public AppendedShapePathIterator(List<Shape> shapes, AffineTransform transform, Double flatness, int windingRule) {
+    public AppendedShapePathIterator(Iterator<Shape> shapes, AffineTransform transform, Double flatness, int windingRule) {
         this.shapes = shapes;
         this.transform = transform;
         this.flatness = flatness;
-        this.windingRule = windingRule;
+
+        // When winding rule is UNKNOWN: we can pick either.
+        this.windingRule = windingRule == AppendedShape.WIND_UNKNOWN ? PathIterator.WIND_NON_ZERO : windingRule;
 
         next();
     }
@@ -42,8 +46,9 @@ public class AppendedShapePathIterator implements PathIterator {
         }
         if (current == null || current.isDone()) {
             current = null;
-            if (!shapes.isEmpty()) {
-                Shape nextShape = shapes.remove(0);
+            if (shapes.hasNext()) {
+                Shape nextShape = shapes.next();
+
                 if (flatness != null) {
                     current = nextShape.getPathIterator(transform, flatness.doubleValue());
                 } else {
