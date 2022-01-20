@@ -13,16 +13,35 @@ import java.util.List;
 
 public class TubmanEngine implements OutlineEngine {
 
+    /**
+     * This just raises the visibility of appendGenericShape. In our case: we already have a copy of the bounds and
+     * winding rule handy, so it's a waste to regenerate those in a tight loop.
+     */
+    static class MyAppendedShape extends AppendedShape {
+        public MyAppendedShape(Shape shape) {
+            super(shape);
+        }
+
+        public MyAppendedShape() {
+            super();
+        }
+
+        @Override
+        public void appendGenericShape(int shapeWindingRule, Shape shape, Rectangle2D shapeBounds) throws IncompatibleWindingRuleException {
+            super.appendGenericShape(shapeWindingRule, shape, shapeBounds);
+        }
+
+        /**
+         * This spares us the (admittedly small) expense of making an array if we just want to iterate over the shapes
+         * in a tight loop.
+         */
+        public Iterable<? extends Shape> getRealShapes() {
+            return shapes;
+        }
+    }
+
     static class Context {
         Map<Shape, Rectangle2D> boundsMap = new HashMap<>();
-
-        void setBounds(Shape shape, Rectangle2D bounds) {
-            if (bounds == null || shape instanceof AppendedShape || shape instanceof Area || shape instanceof RectangularShape) {
-                boundsMap.remove(shape);
-            } else {
-                boundsMap.put(shape, bounds);
-            }
-        }
 
         Rectangle2D getBounds(Shape shape) {
             if (shape instanceof AppendedShape || shape instanceof Area || shape instanceof RectangularShape) {
@@ -39,14 +58,15 @@ public class TubmanEngine implements OutlineEngine {
     }
 
     OutlineEngine delegateEngine;
+    boolean splitAppendedShapes;
 
-
-    public TubmanEngine() {
-        this(new PlainAreaEngine());
+    public TubmanEngine(boolean splitAppendedShapes) {
+        this(new PlainAreaEngine(), splitAppendedShapes);
     }
 
-    public TubmanEngine(OutlineEngine delegateEngine) {
+    public TubmanEngine(OutlineEngine delegateEngine, boolean splitAppendedShapes) {
         this.delegateEngine = delegateEngine;
+        this.splitAppendedShapes = splitAppendedShapes;
     }
 
     @Override
@@ -114,10 +134,8 @@ public class TubmanEngine implements OutlineEngine {
         Rectangle2D bounds2 = context.getBounds(shape2);
 
         if (!(bounds1.intersects(bounds2))) {
-            AppendedShape appendedShape = new AppendedShape(shape1);
+            MyAppendedShape appendedShape = new MyAppendedShape(shape1);
             appendedShape.appendSafely(shape2);
-            bounds1.add(bounds2);
-            context.setBounds(appendedShape, null);
             return appendedShape;
         }
 
@@ -126,6 +144,39 @@ public class TubmanEngine implements OutlineEngine {
         } else if (bounds2.contains(bounds1) && shape2.contains(bounds1)) {
             return shape2;
         }
+
+        if (splitAppendedShapes && shape1 instanceof MyAppendedShape) {
+            MyAppendedShape src = (MyAppendedShape) shape1;
+            int windingRule = src.getWindingRule();
+            MyAppendedShape intersectingShapes = new MyAppendedShape();
+            MyAppendedShape nonintersectingShapes = new MyAppendedShape();
+
+            try {
+                for (Shape innerShape : src.getRealShapes()) {
+                    Rectangle2D innerShapeBounds = context.getBounds(innerShape);
+                    if (innerShapeBounds.intersects(bounds2)) {
+                        intersectingShapes.appendGenericShape(windingRule, innerShape, innerShapeBounds);
+                    } else {
+                        nonintersectingShapes.appendGenericShape(windingRule, innerShape, innerShapeBounds);
+                    }
+                }
+
+                Area area1 = new Area(intersectingShapes);
+                Area area2 = new Area(shape2);
+                area1.add(area2);
+
+                if (nonintersectingShapes.isEmpty()) {
+                    return area1;
+                }
+
+                nonintersectingShapes.appendGenericShape(windingRule, area1, area1.getBounds2D());
+                return nonintersectingShapes;
+            } catch(AppendedShape.IncompatibleWindingRuleException e) {
+                // this shouldn't happen, since we're just splitting apart an existing AppendedShape into two
+                throw new IllegalStateException(e);
+            }
+        }
+
 
         Area result = new Area(shape1);
         Area area2 = new Area(shape2);
@@ -171,6 +222,6 @@ public class TubmanEngine implements OutlineEngine {
 
     @Override
     public String toString() {
-        return getClass().getSimpleName();
+        return getClass().getSimpleName() + "[ splitAppendedShapes = "+splitAppendedShapes+"]";
     }
 }
