@@ -39,12 +39,26 @@ public class AppendedShape implements Shape {
 
     // TODO: make serializable
 
+    /**
+     * The member shapes and their bounds. These are generally supposed to be
+     * immutable once submitted into this map, but we can't enforce that if
+     * the user tries to mutate a shape.
+     */
     protected Map<Shape, Rectangle2D> shapes = new HashMap<>();
 
-    // this is null when shapes is empty
+    /**
+     * The total bounds of all our member shapes, or null if we have
+     * no member shapes. This is meant to constantly mutate, so we need
+     * to make sure this object is different than any Rectangle2D we store
+     * in the shapes field.
+     */
     private Rectangle2D cachedBounds = null;
 
-    // this is null when it is undefined
+    /**
+     * Our winding rule, which may be WIND_UNKNOWN. As shapes are added this can
+     * change (including changing to a WIND_NON_ZERO, WIND_EVEN_ODD, or back to
+     * WIND_UNKNOWN).
+     */
     private int windingRule = WIND_UNKNOWN;
 
     public AppendedShape() {
@@ -78,6 +92,11 @@ public class AppendedShape implements Shape {
      * Area objects are defined in such a way that their winding rules don't
      * matter, so this method won't throw an IncompatibleWindingRuleException.
      * </p>
+     * <p>
+     * If you call any append method that accepts a Shape (such as {@link #append(Shape)} or
+     * {@link #appendSafely(Shape)}), it will automatically defer to this method if the shape
+     * is an Area.
+     * </p>
      */
     public boolean append(Area area) {
         if (area == null || area.isEmpty())
@@ -85,35 +104,7 @@ public class AppendedShape implements Shape {
 
         // Areas don't need/use winding rules. You can think of them as ambi-winding-rule.
 
-        Rectangle2D incomingBounds = area.getBounds2D();
-
-        if (cachedBounds != null && incomingBounds.contains(cachedBounds) && area.contains(cachedBounds)) {
-            shapes.clear();
-            shapes.put(area, area.getBounds2D());
-            cachedBounds = incomingBounds;
-            return true;
-        }
-
-        if (!intersects(incomingBounds)) {
-            shapes.put(area, area.getBounds2D());
-            if (cachedBounds == null) {
-                cachedBounds = incomingBounds;
-            } else {
-                cachedBounds.add(incomingBounds);
-            }
-        } else if(contains(incomingBounds)) {
-            return false;
-        } else {
-            Area sum = toArea();
-            sum.add(area);
-
-            shapes.clear();
-            shapes.put(sum, sum.getBounds2D());
-            cachedBounds = sum.getBounds2D();
-            windingRule = WIND_UNKNOWN;
-        }
-
-        return true;
+        return appendCommon(area, area.getBounds2D(), WIND_UNKNOWN);
     }
 
     /**
@@ -137,8 +128,15 @@ public class AppendedShape implements Shape {
             AppendedShape s = (AppendedShape) shape;
             boolean returnValue = false;
             int incomingWindingRule = s.getWindingRule();
+
+            if (windingRule == WIND_UNKNOWN) {
+                windingRule = incomingWindingRule;
+            } else if (incomingWindingRule != WIND_UNKNOWN && windingRule != incomingWindingRule) {
+                throw new IncompatibleWindingRuleException();
+            }
+
             for (Map.Entry<Shape, Rectangle2D> incomingShape : s.shapes.entrySet()) {
-                if (appendGeneric(incomingShape.getKey(), incomingShape.getValue(), incomingWindingRule))
+                if (appendCommon(incomingShape.getKey(), incomingShape.getValue(), incomingWindingRule))
                     returnValue = true;
             }
             return returnValue;
@@ -148,57 +146,58 @@ public class AppendedShape implements Shape {
 
         Rectangle2D incomingBounds = ShapeUtils.getBounds2D(shape);
         int incomingWindingRule = shape.getPathIterator(null).getWindingRule();
-        return appendGeneric(shape, incomingBounds, incomingWindingRule);
+        return appendNonArea(shape, incomingBounds, incomingWindingRule);
     }
 
-    private boolean appendGeneric(Shape shape, Rectangle2D incomingBounds, int incomingWindingRule) throws IncompatibleWindingRuleException {
-        if (cachedBounds != null && incomingBounds.contains(cachedBounds) && shape.contains(cachedBounds)) {
-            windingRule = incomingWindingRule;
-            shapes.clear();
-            shapes.put(shape, new Rectangle2D.Double(incomingBounds.getX(), incomingBounds.getY(), incomingBounds.getWidth(), incomingBounds.getHeight()));
-            cachedBounds = incomingBounds;
-            return true;
-        }
-
+    private boolean appendNonArea(Shape incoming, Rectangle2D incomingBounds, int incomingWindingRule) throws IncompatibleWindingRuleException {
         if (windingRule == WIND_UNKNOWN) {
             windingRule = incomingWindingRule;
         } else if (incomingWindingRule != WIND_UNKNOWN && windingRule != incomingWindingRule) {
             throw new IncompatibleWindingRuleException();
         }
 
+        return appendCommon(incoming, incomingBounds, incomingWindingRule);
+    }
+
+    /**
+     * This is shared code that both Areas and non-Areas use to add a new shape. This should be called
+     * after evaluating if an IncompatibleWindingRuleException is warranted.
+     */
+    private boolean appendCommon(Shape incoming, Rectangle2D incomingBounds, int incomingWindingRule) {
         if (!intersects(incomingBounds)) {
-            shapes.put(shape, new Rectangle2D.Double(incomingBounds.getX(), incomingBounds.getY(), incomingBounds.getWidth(), incomingBounds.getHeight()));
+            shapes.put(incoming, incomingBounds);
             if (cachedBounds == null) {
-                cachedBounds = incomingBounds;
+                cachedBounds = new Rectangle2D.Double(incomingBounds.getX(), incomingBounds.getY(), incomingBounds.getWidth(), incomingBounds.getHeight());
             } else {
                 cachedBounds.add(incomingBounds);
             }
+            if (windingRule == WIND_UNKNOWN)
+                windingRule = incomingWindingRule;
+        } else if (cachedBounds != null && incomingBounds.contains(cachedBounds) && incoming.contains(cachedBounds)) {
             windingRule = incomingWindingRule;
+            shapes.clear();
+            shapes.put(incoming, incomingBounds);
+            cachedBounds = new Rectangle2D.Double(incomingBounds.getX(), incomingBounds.getY(), incomingBounds.getWidth(), incomingBounds.getHeight());
+            return true;
         } else if(contains(incomingBounds)) {
             return false;
         } else {
-            Area sum = toArea();
-            sum.add(new Area(shape));
+            Area sum;
+            if (shapes.size() == 1) {
+                // if our only member happens to be an Area then this Area constructor is more efficient:
+                sum = new Area(shapes.keySet().iterator().next());
+            } else {
+                sum = new Area(this);
+            }
+            sum.add(new Area(incoming));
 
             shapes.clear();
-            shapes.put(sum, sum.getBounds2D());
-            cachedBounds = sum.getBounds2D();
+            cachedBounds.add(incomingBounds);
+            shapes.put(sum, new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
             windingRule = WIND_UNKNOWN;
         }
 
         return true;
-    }
-
-    private Area toArea() {
-        if (shapes.size() == 0)
-            return new Area();
-        if (shapes.size() == 1) {
-            Shape element = shapes.keySet().iterator().next();
-            // if element is an Area then this constructor will detect and optimize
-            return new Area(element);
-        }
-
-        return new Area(this);
     }
 
     /**
@@ -208,14 +207,14 @@ public class AppendedShape implements Shape {
      * This may be very expensive, but it is guaranteed to not throw an exception.
      * </p>
      */
-    public void appendSafely(Shape shape) {
+    public boolean appendSafely(Shape shape) {
         if (shape == null)
-            return;
+            return false;
 
         try {
-            append(shape);
+            return append(shape);
         } catch (IncompatibleWindingRuleException e) {
-            append(new Area(shape));
+            return append(new Area(shape));
         }
     }
 
@@ -277,19 +276,19 @@ public class AppendedShape implements Shape {
 
     @Override
     public boolean intersects(double x, double y, double w, double h) {
-        if (cachedBounds == null || !cachedBounds.intersects(x,y,w,h))
-            return false;
-
-        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
-            if (entry.getValue().intersects(x, y, w, h) && entry.getKey().intersects(x, y, w, h))
-                return true;
-        }
-        return false;
+        return intersects(new Rectangle2D.Double(x,y,w,h));
     }
 
     @Override
     public boolean intersects(Rectangle2D r) {
-        return intersects(r.getX(), r.getY(), r.getWidth(), r.getHeight());
+        if (cachedBounds == null || !cachedBounds.intersects(r))
+            return false;
+
+        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
+            if (ShapeUtils.intersects(entry.getValue(), r) && entry.getKey().intersects(r))
+                return true;
+        }
+        return false;
     }
 
     @Override
