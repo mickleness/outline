@@ -39,7 +39,7 @@ public class AppendedShape implements Shape {
 
     // TODO: make serializable
 
-    protected Collection<Shape> shapes = new HashSet<>();
+    protected Map<Shape, Rectangle2D> shapes = new HashMap<>();
 
     // this is null when shapes is empty
     private Rectangle2D cachedBounds = null;
@@ -89,13 +89,13 @@ public class AppendedShape implements Shape {
 
         if (cachedBounds != null && incomingBounds.contains(cachedBounds) && area.contains(cachedBounds)) {
             shapes.clear();
-            shapes.add(area);
+            shapes.put(area, area.getBounds2D());
             cachedBounds = incomingBounds;
             return true;
         }
 
         if (!intersects(incomingBounds)) {
-            shapes.add(area);
+            shapes.put(area, area.getBounds2D());
             if (cachedBounds == null) {
                 cachedBounds = incomingBounds;
             } else {
@@ -108,7 +108,7 @@ public class AppendedShape implements Shape {
             sum.add(area);
 
             shapes.clear();
-            shapes.add(sum);
+            shapes.put(sum, sum.getBounds2D());
             cachedBounds = sum.getBounds2D();
             windingRule = WIND_UNKNOWN;
         }
@@ -136,8 +136,9 @@ public class AppendedShape implements Shape {
         } else if (shape instanceof AppendedShape) {
             AppendedShape s = (AppendedShape) shape;
             boolean returnValue = false;
-            for(Shape incomingShape : s.shapes) {
-                if (append(incomingShape))
+            int incomingWindingRule = s.getWindingRule();
+            for (Map.Entry<Shape, Rectangle2D> incomingShape : s.shapes.entrySet()) {
+                if (appendGeneric(incomingShape.getKey(), incomingShape.getValue(), incomingWindingRule))
                     returnValue = true;
             }
             return returnValue;
@@ -147,11 +148,14 @@ public class AppendedShape implements Shape {
 
         Rectangle2D incomingBounds = ShapeUtils.getBounds2D(shape);
         int incomingWindingRule = shape.getPathIterator(null).getWindingRule();
+        return appendGeneric(shape, incomingBounds, incomingWindingRule);
+    }
 
+    private boolean appendGeneric(Shape shape, Rectangle2D incomingBounds, int incomingWindingRule) throws IncompatibleWindingRuleException {
         if (cachedBounds != null && incomingBounds.contains(cachedBounds) && shape.contains(cachedBounds)) {
             windingRule = incomingWindingRule;
             shapes.clear();
-            shapes.add(shape);
+            shapes.put(shape, new Rectangle2D.Double(incomingBounds.getX(), incomingBounds.getY(), incomingBounds.getWidth(), incomingBounds.getHeight()));
             cachedBounds = incomingBounds;
             return true;
         }
@@ -163,7 +167,7 @@ public class AppendedShape implements Shape {
         }
 
         if (!intersects(incomingBounds)) {
-            shapes.add(shape);
+            shapes.put(shape, new Rectangle2D.Double(incomingBounds.getX(), incomingBounds.getY(), incomingBounds.getWidth(), incomingBounds.getHeight()));
             if (cachedBounds == null) {
                 cachedBounds = incomingBounds;
             } else {
@@ -177,7 +181,7 @@ public class AppendedShape implements Shape {
             sum.add(new Area(shape));
 
             shapes.clear();
-            shapes.add(sum);
+            shapes.put(sum, sum.getBounds2D());
             cachedBounds = sum.getBounds2D();
             windingRule = WIND_UNKNOWN;
         }
@@ -189,9 +193,9 @@ public class AppendedShape implements Shape {
         if (shapes.size() == 0)
             return new Area();
         if (shapes.size() == 1) {
-            Shape element = shapes.iterator().next();
-            if (element instanceof Area)
-                return (Area) element;
+            Shape element = shapes.keySet().iterator().next();
+            // if element is an Area then this constructor will detect and optimize
+            return new Area(element);
         }
 
         return new Area(this);
@@ -219,7 +223,7 @@ public class AppendedShape implements Shape {
      * Return the shapes in this AppendedShape.
      */
     public Shape[] getShapes() {
-        return shapes.toArray(new Shape[0]);
+        return shapes.keySet().toArray(new Shape[0]);
     }
 
     /**
@@ -259,8 +263,8 @@ public class AppendedShape implements Shape {
         if (cachedBounds == null || !cachedBounds.contains(x,y))
             return false;
 
-        for (Shape shape : shapes) {
-            if (shape.contains(x, y))
+        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
+            if (entry.getValue().contains(x,y) && entry.getKey().contains(x, y))
                 return true;
         }
         return false;
@@ -276,8 +280,8 @@ public class AppendedShape implements Shape {
         if (cachedBounds == null || !cachedBounds.intersects(x,y,w,h))
             return false;
 
-        for (Shape shape : shapes) {
-            if (shape.intersects(x, y, w, h))
+        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
+            if (entry.getValue().intersects(x, y, w, h) && entry.getKey().intersects(x, y, w, h))
                 return true;
         }
         return false;
@@ -293,8 +297,8 @@ public class AppendedShape implements Shape {
         if (cachedBounds == null || !cachedBounds.contains(x,y,w,h))
             return false;
 
-        for (Shape shape : shapes) {
-            if (shape.contains(x, y, w, h))
+        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
+            if (entry.getValue().contains(x, y, w, h) && entry.getKey().contains(x, y, w, h))
                 return true;
         }
         return false;
@@ -307,11 +311,11 @@ public class AppendedShape implements Shape {
 
     @Override
     public PathIterator getPathIterator(AffineTransform at) {
-        return new AppendedShapePathIterator(shapes.iterator(), at, null, windingRule);
+        return new AppendedShapePathIterator(shapes.keySet().iterator(), at, null, windingRule);
     }
 
     @Override
     public PathIterator getPathIterator(AffineTransform at, double flatness) {
-        return new AppendedShapePathIterator(shapes.iterator(), at, Double.valueOf(flatness), windingRule);
+        return new AppendedShapePathIterator(shapes.keySet().iterator(), at, Double.valueOf(flatness), windingRule);
     }
 }
