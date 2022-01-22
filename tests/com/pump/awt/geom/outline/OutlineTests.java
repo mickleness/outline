@@ -30,11 +30,8 @@ public abstract class OutlineTests extends TestCase {
     public OutlineEngine[] getEngines() {
         List<OutlineEngine> engines = new ArrayList<>();
         engines.add(new PlainAreaEngine());
-        engines.add(new TubmanEngine());
-        engines.add(new OptimizedAreaEngine(1));
-        engines.add(new MaskedOutlineEngine(1.0 / 64.0));
-        engines.add(new MaskedOutlineEngine(Double.MAX_VALUE));
-        engines.add(new MaskedOutlineEngine2());
+        engines.add(new OptimizedEngine());
+        engines.add(new ScaledMaskOutlineEngine(3));
         return engines.toArray(new OutlineEngine[0]);
     }
 

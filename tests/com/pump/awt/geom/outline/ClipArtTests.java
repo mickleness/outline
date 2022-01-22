@@ -15,6 +15,37 @@ import java.util.List;
 
 public class ClipArtTests extends OutlineTests {
 
+    static class ScaledIcon implements Icon {
+        Icon icon;
+        int iconWidth, iconHeight;
+
+        public ScaledIcon(Icon icon, int width, int height) {
+            iconWidth = width;
+            iconHeight = height;
+            this.icon = icon;
+        }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.translate(x,y);
+            double scaleX = ((double)iconWidth) / ((double)icon.getIconWidth());
+            double scaleY = ((double)iconHeight) / ((double)icon.getIconHeight());
+            g2.scale(scaleX, scaleY);
+            icon.paintIcon(c, g2, 0, 0);
+        }
+
+        @Override
+        public int getIconWidth() {
+            return iconWidth;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return iconHeight;
+        }
+    }
+
     static class ClipArtTest {
         Icon icon;
         String name;
@@ -32,7 +63,7 @@ public class ClipArtTests extends OutlineTests {
         int loops;
 
         ClipArtTest(Icon icon, int loops) {
-            this.icon = icon;
+            this.icon = new ScaledIcon(icon, 600, 600);
             this.loops = loops;
             name = icon.getClass().getSimpleName();
             if (loops > 1)
@@ -273,8 +304,6 @@ public class ClipArtTests extends OutlineTests {
                 String actualName = clipArt.name+"-"+engine.toString();
                 boolean highPrecision = true;
                 if (engine instanceof ScaledMaskOutlineEngine)
-                    highPrecision = false;
-                if (engine instanceof OptimizedAreaEngine && ((OptimizedAreaEngine)engine).getDelegateEngine() instanceof ScaledMaskOutlineEngine)
                     highPrecision = false;
 
                 ShapeUtilsTest.testEquals(expectedName, actualName, result.baselineShape, lastSum, highPrecision);

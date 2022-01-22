@@ -646,8 +646,6 @@ public class ShapeUtils {
                     // TODO: we could recursively break down this potential intersection at least
                     // a few times to help identify whether they might not intersect
                     if (intersects(r1, r2)) {
-                        ctr++;
-                        System.out.println(ctr);
                         return true;
                     }
                 }
@@ -655,8 +653,6 @@ public class ShapeUtils {
         }
         return false;
     }
-
-    static int ctr = 0;
 
     private static void setRect(Rectangle2D r, double x, double y, double[] coords, int coordCount) {
         double x0, x1, y0, y1;

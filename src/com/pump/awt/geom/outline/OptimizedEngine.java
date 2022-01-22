@@ -8,15 +8,19 @@ import java.awt.geom.Area;
 import java.util.*;
 import java.util.List;
 
-public class TubmanEngine implements OutlineEngine {
+/**
+ * This OutlineEngine optimizes some operations before passing them
+ * to a delegate engine.
+ */
+public class OptimizedEngine implements OutlineEngine {
 
     OutlineEngine delegateEngine;
 
-    public TubmanEngine() {
+    public OptimizedEngine() {
         this(new PlainAreaEngine());
     }
 
-    public TubmanEngine(OutlineEngine delegateEngine) {
+    public OptimizedEngine(OutlineEngine delegateEngine) {
         this.delegateEngine = delegateEngine;
     }
 
