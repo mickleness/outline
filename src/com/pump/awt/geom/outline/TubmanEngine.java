@@ -1,34 +1,14 @@
 package com.pump.awt.geom.outline;
 
-import com.pump.awt.geom.AppendedShape;
+import com.pump.awt.geom.AddingShape;
 import com.pump.awt.geom.ShapeUtils;
 
 import java.awt.*;
 import java.awt.geom.Area;
-import java.awt.geom.Path2D;
-import java.awt.geom.Rectangle2D;
-import java.awt.geom.RectangularShape;
 import java.util.*;
 import java.util.List;
 
 public class TubmanEngine implements OutlineEngine {
-
-    static class Context {
-        Map<Shape, Rectangle2D> boundsMap = new HashMap<>();
-
-        Rectangle2D getBounds(Shape shape) {
-            if (shape instanceof AppendedShape || shape instanceof Area || shape instanceof RectangularShape) {
-                return shape.getBounds2D();
-            }
-
-            Rectangle2D r = boundsMap.get(shape);
-            if (r == null) {
-                r = ShapeUtils.getBounds2D(shape.getPathIterator(null));
-                boundsMap.put(shape, r);
-            }
-            return (Rectangle2D) r.clone();
-        }
-    }
 
     OutlineEngine delegateEngine;
 
@@ -56,8 +36,6 @@ public class TubmanEngine implements OutlineEngine {
      * can be consolidated into 1 add operation. 5 clip operations can become 1 clip, etc.
      */
     private List<OutlineOperation> consolidate(List<OutlineOperation> operationQueue) {
-        Context context = new Context();
-
         List<OutlineOperation> newQueue = new ArrayList<>(operationQueue.size());
 
         OutlineOperation lastOp = null;
@@ -68,7 +46,7 @@ public class TubmanEngine implements OutlineEngine {
                 lastOp = op;
             } else {
                 if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.SUBTRACT) {
-                    Shape newShape = add(context, lastOp.shape, op.shape);
+                    Shape newShape = add(lastOp.shape, op.shape);
                     lastOp = createOperation(op.type, newShape);
                 } else if (op.type == OutlineOperation.Type.INTERSECT) {
                     Shape newShape = intersect(lastOp.shape, op.shape);
@@ -90,14 +68,14 @@ public class TubmanEngine implements OutlineEngine {
         return newQueue;
     }
 
-    private AppendedShape add(Context context, Shape shape1, Shape shape2) {
-        AppendedShape baseShape;
-        if (shape1 instanceof AppendedShape) {
-            baseShape = (AppendedShape) shape1;
+    private AddingShape add(Shape shape1, Shape shape2) {
+        AddingShape baseShape;
+        if (shape1 instanceof AddingShape) {
+            baseShape = (AddingShape) shape1;
         } else {
-            baseShape = new AppendedShape(shape1);
+            baseShape = new AddingShape(shape1);
         }
-        baseShape.appendSafely(shape2);
+        baseShape.addSafely(shape2);
 
         return baseShape;
     }

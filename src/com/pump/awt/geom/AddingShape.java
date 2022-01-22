@@ -2,42 +2,48 @@ package com.pump.awt.geom;
 
 import java.awt.*;
 import java.awt.geom.*;
+import java.io.IOException;
+import java.io.Serializable;
 import java.util.*;
 
 
 /**
- * This shape is composed of several shapes appended consecutively.
+ * This shape is composed of several member shapes.
  * <p>
- * This object lazily converts constituent shapes into Areas as necessary.
- * You should not alter a constituent shape after adding it to this object; if you
- * plan to mutate a constituent shape then you should add its clone to this object instead.
+ * This object lazily converts member shapes into Areas as needed to execute
+ * additions. But in many cases if shapes do not touch (or if one shape contains another): this
+ * object just keeps a running list of member shapes.
  * </p>
  * <p>
- * This object automatically inherits the winding rule of its constituent shapes,
- * but it will throw a IncompatibleWindingRuleException if you attempt to combine
- * shapes with different winding rules. When in doubt: remember that an Area class
- * is immune from winding rule constraints, so you can use the {@link #appendSafely(Shape)}.
+ * This object assumes once a Shape object is added that it is not going to change. If this is
+ * not a good assumption then the caller needs to clone the Shapes before they are added.
  * </p>
+ * <p>
+ * This object is not thread-safe.
  */
-public class AppendedShape implements Shape {
+public class AddingShape implements Shape, Serializable {
 
     /**
      * This is an alternative winding rule indicating that the winding rule isn't
-     * WIND_EVEN_ODD or WIND_NON_ZERO yet.
+     * WIND_EVEN_ODD or WIND_NON_ZERO yet. AddingShapes stay in this undefined
+     * shape as long as possible. (If an AddingShape uses this winding rule then
+     * its PathIterator picks a default rule.)
      */
     public static int WIND_UNKNOWN = -1;
 
     /**
-     * This indicates we attempted to append multiple paths with different
-     * winding rules. A PathIterator should only have one constant
+     * This indicates we attempted to add multiple paths with different
+     * winding rules. A PathIterator can only have one constant
      * winding rule, so it's impossible to create a unified shape with
      * multiple winding rules.
      */
     public static class IncompatibleWindingRuleException extends Exception {
-
+        // We could be more clever in assessing when these are necessary.
+        // For example: if we identify a shape is convex, or a quadrilateral/triangle/line:
+        // we could treat it like it's a WIND_UNKNOWN. For now that idea seems like overkill,
+        // but over time if this becomes a problem we might want to evaluate ways to reduce this
+        // risk.
     }
-
-    // TODO: make serializable
 
     /**
      * The member shapes and their bounds. These are generally supposed to be
@@ -61,50 +67,50 @@ public class AppendedShape implements Shape {
      */
     private int windingRule = WIND_UNKNOWN;
 
-    public AppendedShape() {
+    public AddingShape() {
         // intentionally empty
     }
 
-    public AppendedShape(Shape shape) {
+    public AddingShape(Shape shape) {
         try {
-            append(shape);
+            add(shape);
         } catch (IncompatibleWindingRuleException e) {
-            // this shouldn't happen since our internal windingRule should be WIND_UNKNOWN initially
+            // this shouldn't happen since our initial winding rule is UNKNOWN and we only added one shape:
             throw new IllegalStateException(e);
         }
     }
 
     /**
-     * Create a new AppendedShape that combines the argument shapes.
-     * <p>
-     * This constructor avoids recursively nested AppendedShapes.
-     * </p>
+     * Create a new AddingShape that combines the argument shapes.
      */
-    public AppendedShape(Shape... shapes) throws IncompatibleWindingRuleException {
+    public AddingShape(Shape... shapes) throws IncompatibleWindingRuleException {
         for(Shape shape : shapes) {
-            append(shape);
+            add(shape);
         }
     }
 
     /**
-     * Append an Area to this AppendedShape.
+     * Add an Area to this AddingShape.
      * <p>
-     * Area objects are defined in such a way that their winding rules don't
+     * Area objects are defined so that their winding rules don't
      * matter, so this method won't throw an IncompatibleWindingRuleException.
      * </p>
      * <p>
-     * If you call any append method that accepts a Shape (such as {@link #append(Shape)} or
-     * {@link #appendSafely(Shape)}), it will automatically defer to this method if the shape
+     * If you call any add method that accepts a Shape (such as {@link #add(Shape)} or
+     * {@link #addSafely(Shape)}), it will automatically defer to this method if the Shape
      * is an Area.
      * </p>
+     *
+     * @return false if this call definitely did not modify this object. This method returns true if
+     * this call may have modified this object.
      */
-    public boolean append(Area area) {
+    public boolean add(Area area) {
         if (area == null || area.isEmpty())
             return false;
 
         // Areas don't need/use winding rules. You can think of them as ambi-winding-rule.
 
-        return appendCommon(area, area.getBounds2D(), WIND_UNKNOWN);
+        return addCommon(area, area.getBounds2D(), WIND_UNKNOWN);
     }
 
     /**
@@ -116,16 +122,19 @@ public class AppendedShape implements Shape {
     }
 
     /**
-     * Append a shape to this AppendedShape.
+     * Add a shape to this AddingShape.
      *
-     * @throws IncompatibleWindingRuleException if this AppendedShape already has identified
+     * @return false if this call definitely did not modify this object. This method returns true if
+     * this call may have modified this object.
+     *
+     * @throws IncompatibleWindingRuleException if this AddingShape already has identified
      * a winding rule and the incoming shape is a different winding rule.
      */
-    public boolean append(Shape shape) throws IncompatibleWindingRuleException {
+    public boolean add(Shape shape) throws IncompatibleWindingRuleException {
         if (shape instanceof Area) {
-            return append((Area) shape);
-        } else if (shape instanceof AppendedShape) {
-            AppendedShape s = (AppendedShape) shape;
+            return add((Area) shape);
+        } else if (shape instanceof AddingShape) {
+            AddingShape s = (AddingShape) shape;
             boolean returnValue = false;
             int incomingWindingRule = s.getWindingRule();
 
@@ -136,7 +145,7 @@ public class AppendedShape implements Shape {
             }
 
             for (Map.Entry<Shape, Rectangle2D> incomingShape : s.shapes.entrySet()) {
-                if (appendCommon(incomingShape.getKey(), incomingShape.getValue(), incomingWindingRule))
+                if (addCommon(incomingShape.getKey(), incomingShape.getValue(), incomingWindingRule))
                     returnValue = true;
             }
             return returnValue;
@@ -146,24 +155,24 @@ public class AppendedShape implements Shape {
 
         Rectangle2D incomingBounds = ShapeUtils.getBounds2D(shape);
         int incomingWindingRule = shape.getPathIterator(null).getWindingRule();
-        return appendNonArea(shape, incomingBounds, incomingWindingRule);
-    }
 
-    private boolean appendNonArea(Shape incoming, Rectangle2D incomingBounds, int incomingWindingRule) throws IncompatibleWindingRuleException {
         if (windingRule == WIND_UNKNOWN) {
             windingRule = incomingWindingRule;
         } else if (incomingWindingRule != WIND_UNKNOWN && windingRule != incomingWindingRule) {
             throw new IncompatibleWindingRuleException();
         }
 
-        return appendCommon(incoming, incomingBounds, incomingWindingRule);
+        return addCommon(shape, incomingBounds, incomingWindingRule);
     }
 
     /**
      * This is shared code that both Areas and non-Areas use to add a new shape. This should be called
      * after evaluating if an IncompatibleWindingRuleException is warranted.
+     *
+     * @return false if this call definitely did not modify this object. This method returns true if
+     * this call may have modified this object.
      */
-    private boolean appendCommon(Shape incoming, Rectangle2D incomingBounds, int incomingWindingRule) {
+    private boolean addCommon(Shape incoming, Rectangle2D incomingBounds, int incomingWindingRule) {
         if (!intersects(incomingBounds)) {
             shapes.put(incoming, incomingBounds);
             if (cachedBounds == null) {
@@ -173,67 +182,79 @@ public class AppendedShape implements Shape {
             }
             if (windingRule == WIND_UNKNOWN)
                 windingRule = incomingWindingRule;
-        } else if (cachedBounds != null && incomingBounds.contains(cachedBounds) && incoming.contains(cachedBounds)) {
+            return true;
+        }
+
+        if (cachedBounds != null && incomingBounds.contains(cachedBounds) && incoming.contains(cachedBounds)) {
             windingRule = incomingWindingRule;
             shapes.clear();
             shapes.put(incoming, incomingBounds);
             cachedBounds = new Rectangle2D.Double(incomingBounds.getX(), incomingBounds.getY(), incomingBounds.getWidth(), incomingBounds.getHeight());
             return true;
-        } else if(contains(incomingBounds)) {
-            return false;
-        } else {
-            Area sum;
-            if (shapes.size() == 1) {
-                // if our only member happens to be an Area then this Area constructor is more efficient:
-                sum = new Area(shapes.keySet().iterator().next());
-            } else {
-                sum = new Area(this);
-            }
-            sum.add(new Area(incoming));
-
-            shapes.clear();
-            cachedBounds.add(incomingBounds);
-            shapes.put(sum, new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
-            windingRule = WIND_UNKNOWN;
         }
+
+        if(contains(incomingBounds)) {
+            return false;
+        }
+
+        Area sum;
+        if (shapes.size() == 1) {
+            // if our only member happens to be an Area then this Area constructor is more efficient:
+            sum = new Area(shapes.keySet().iterator().next());
+        } else {
+            sum = new Area(this);
+        }
+        sum.add(new Area(incoming));
+
+        shapes.clear();
+        cachedBounds.add(incomingBounds);
+        shapes.put(sum, new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
+        windingRule = WIND_UNKNOWN;
 
         return true;
     }
 
     /**
-     * Append a shape to this AppendedShape.
+     * Add a shape to this AddingShape.
      * <p>
      * If there is a winding rule problem: this method converts the incoming shape to an Area.
      * This may be very expensive, but it is guaranteed to not throw an exception.
      * </p>
+     *
+     * @return false if this call definitely did not modify this object. This method returns true if
+     * this call may have modified this object.
      */
-    public boolean appendSafely(Shape shape) {
+    public boolean addSafely(Shape shape) {
         if (shape == null)
             return false;
 
         try {
-            return append(shape);
+            return add(shape);
         } catch (IncompatibleWindingRuleException e) {
-            return append(new Area(shape));
+            return add(new Area(shape));
         }
     }
 
     /**
-     * Return the shapes in this AppendedShape.
+     * Return the shapes in this AddingShape.
+     * <p>
+     * This may not return the same set of shapes that were added to this object. As shapes are added sometimes they
+     * are flattened/converted into other member shapes.
+     * </p>
      */
     public Shape[] getShapes() {
         return shapes.keySet().toArray(new Shape[0]);
     }
 
     /**
-     * Return true if this AppendedShape is empty.
+     * Return true if this AddingShape is empty.
      */
     public boolean isEmpty() {
         return shapes.isEmpty();
     }
 
     /**
-     * Remove all shapes from this AppendedShape.
+     * Remove all shapes from this AddingShape.
      */
     public void clear() {
         shapes.clear();
@@ -310,11 +331,50 @@ public class AppendedShape implements Shape {
 
     @Override
     public PathIterator getPathIterator(AffineTransform at) {
-        return new AppendedShapePathIterator(shapes.keySet().iterator(), at, null, windingRule);
+        return new MultipleShapePathIterator(shapes.keySet().iterator(), at, null, windingRule);
     }
 
     @Override
     public PathIterator getPathIterator(AffineTransform at, double flatness) {
-        return new AppendedShapePathIterator(shapes.keySet().iterator(), at, Double.valueOf(flatness), windingRule);
+        return new MultipleShapePathIterator(shapes.keySet().iterator(), at, Double.valueOf(flatness), windingRule);
+    }
+
+    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+        out.writeInt(0);
+        out.writeObject(shapes);
+        out.writeObject(cachedBounds);
+    }
+
+    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+        int internalVersion = in.readInt();
+        if (internalVersion == 0) {
+            shapes = (Map<Shape, Rectangle2D>) in.readObject();
+            cachedBounds = (Rectangle2D) in.readObject();
+        } else {
+            throw new IOException("unsupported internal version: " + internalVersion);
+        }
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(getClass().getSimpleName());
+        sb.append("[");
+
+        Iterator<Shape> shapeIter = shapes.keySet().iterator();
+        int ctr = 0;
+        while (shapeIter.hasNext()) {
+            Shape shape = shapeIter.next();
+            ctr++;
+            sb.append(shape.toString());
+            if (shapeIter.hasNext()) {
+                sb.append(", ");
+                if (sb.length() > 200) {
+                    sb.append("... (and " + (shapes.size() - ctr)+" more shapes)");
+                }
+            }
+        }
+        sb.append("]");
+        return sb.toString();
     }
 }

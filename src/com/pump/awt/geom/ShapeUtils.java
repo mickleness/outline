@@ -450,7 +450,7 @@ public class ShapeUtils {
      * </p>
      */
     public static Rectangle2D getBounds2D(Shape shape) {
-        if (shape instanceof Area || shape instanceof AppendedShape || shape instanceof RectangularShape) {
+        if (shape instanceof Area || shape instanceof AddingShape || shape instanceof RectangularShape) {
             // these shapes are known to have accurate getBounds2D() methods
             return shape.getBounds2D();
         }

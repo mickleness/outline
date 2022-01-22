@@ -1,6 +1,6 @@
 package com.pump.awt.geom.outline;
 
-import com.pump.awt.geom.AppendedShape;
+import com.pump.awt.geom.AddingShape;
 import com.pump.awt.geom.ShapeUtils;
 import com.pump.awt.geom.mask.RectangleMask2D;
 
@@ -87,12 +87,12 @@ public class MaskedOutlineEngine implements OutlineEngine {
          * This appends multiple non-overlapping shapes. The actual shape paths don't need to be calculated.
          */
         public void append(ShapeInfo rhs) {
-            if (shape instanceof AppendedShape) {
-                AppendedShape as = (AppendedShape) shape;
-                as.appendSafely(rhs.shape);
+            if (shape instanceof AddingShape) {
+                AddingShape as = (AddingShape) shape;
+                as.addSafely(rhs.shape);
             } else {
-                AppendedShape newShape = new AppendedShape(shape);
-                newShape.appendSafely(rhs.shape);
+                AddingShape newShape = new AddingShape(shape);
+                newShape.addSafely(rhs.shape);
                 shape = newShape;
             }
 
@@ -161,8 +161,8 @@ public class MaskedOutlineEngine implements OutlineEngine {
 
         private List<Shape> getShapes(Shape shape) {
             List<Shape> returnValue = new LinkedList<>();
-            if (shape instanceof AppendedShape) {
-                AppendedShape as = (AppendedShape) shape;
+            if (shape instanceof AddingShape) {
+                AddingShape as = (AddingShape) shape;
                 returnValue.addAll( Arrays.asList(as.getShapes()) );
             } else {
                 returnValue.add(shape);
