@@ -266,8 +266,7 @@ public class ClipArtTests extends OutlineTests {
         AddResult result = new AddResult(clipArt.name);
 
         for(OutlineEngine engine : engines) {
-            // collect more samples for the baseline just to be extra cautious
-            int sampleCount = result.isBaselineDefined() ? 5 : 10;
+            int sampleCount = 20;
 
             long[] times = new long[sampleCount];
             Outline lastSum = null;
