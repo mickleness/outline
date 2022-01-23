@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * This is a composition of double-based java.awt.geom.Rectangle2D.Doubles.
  */
-public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
+public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> implements Iterable<Rectangle2D.Double> {
 
     @Serial
     private static final long serialVersionUID = 1L;

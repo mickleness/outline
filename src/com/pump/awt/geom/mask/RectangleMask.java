@@ -16,7 +16,7 @@ import java.util.List;
 /**
  * This is a composition int-based rectangles.
  */
-public class RectangleMask extends AbstractRectangleMask<Rectangle> {
+public class RectangleMask extends AbstractRectangleMask<Rectangle> implements Iterable<Rectangle> {
     @Serial
     private static final long serialVersionUID = 1L;
 
