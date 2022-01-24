@@ -1,7 +1,5 @@
 package com.pump.awt.geom;
 
-import com.pump.awt.geom.mask.RectangleMask2D;
-
 import java.awt.*;
 import java.awt.geom.*;
 import java.io.IOException;
@@ -33,76 +31,6 @@ public class AddingShape implements Shape, Serializable {
      */
     public static int WIND_UNKNOWN = -1;
 
-    private static class ShapeInfo {
-        final Shape shape;
-        final int windingRule;
-        final Rectangle2D bounds;
-        RectangleMask2D mask;
-
-        ShapeInfo(Area area) {
-            this.shape = area;
-            this.bounds = area.getBounds2D();
-            this.windingRule = WIND_UNKNOWN;
-        }
-
-        ShapeInfo(Shape shape, int windingRule) {
-            this.shape = shape;
-            this.bounds = ShapeUtils.getBounds2D(shape);
-            this.windingRule = WIND_UNKNOWN;
-        }
-
-        public ShapeInfo(Rectangle2D r) {
-            this.shape = r;
-            this.bounds = r;
-            this.windingRule = WIND_UNKNOWN;
-        }
-
-        Rectangle2D cloneBounds() {
-            return new Rectangle2D.Double(bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight());
-        }
-
-        public boolean contains(double x, double y) {
-            if (!bounds.contains(x,y))
-                return false;
-            if (mask != null && !mask.contains(x,y))
-                return false;
-            return shape.contains(x,y);
-        }
-
-        public boolean contains(double x, double y, double w, double h) {
-            if(!bounds.contains(x, y, w, h))
-                return false;
-
-            if (mask!=null && !mask.contains(x, y, w, h))
-                return false;
-
-            return shape.contains(x, y, w, h);
-        }
-
-        public boolean intersects(double x, double y, double w, double h) {
-            if(!bounds.intersects(x, y, w, h))
-                return false;
-
-            if (mask!=null && !mask.intersects(x, y, w, h))
-                return false;
-
-            boolean returnValue = shape.intersects(x, y, w, h);
-
-            if (!returnValue) {
-                if (mask == null) {
-                    mask = new RectangleMask2D(bounds);
-                }
-                mask.subtract(x,y,w,h);
-            }
-
-            return returnValue;
-        }
-
-        public boolean contains(Rectangle2D r) {
-            return contains(r.getX(), r.getY(), r.getWidth(), r.getHeight());
-        }
-    }
-
     /**
      * This indicates we attempted to add multiple paths with different
      * winding rules. A PathIterator can only have one constant
@@ -118,11 +46,11 @@ public class AddingShape implements Shape, Serializable {
     }
 
     /**
-     * The member shapes and their masks. Member shapes are generally supposed to be
+     * The member shapes and their bounds. These are generally supposed to be
      * immutable once submitted into this map, but we can't enforce that if
      * the user tries to mutate a shape.
      */
-    private Collection<ShapeInfo> members = new LinkedList<>();
+    protected Map<Shape, Rectangle2D> shapes = new HashMap<>();
 
     /**
      * The total bounds of all our member shapes, or null if we have
@@ -182,7 +110,7 @@ public class AddingShape implements Shape, Serializable {
 
         // Areas don't need/use winding rules. You can think of them as ambi-winding-rule.
 
-        return addCommon(new ShapeInfo(area));
+        return addCommon(area, area.getBounds2D(), WIND_UNKNOWN);
     }
 
     /**
@@ -216,8 +144,8 @@ public class AddingShape implements Shape, Serializable {
                 throw new IncompatibleWindingRuleException();
             }
 
-            for (ShapeInfo incomingShape : s.members) {
-                if (addCommon(incomingShape))
+            for (Map.Entry<Shape, Rectangle2D> incomingShape : s.shapes.entrySet()) {
+                if (addCommon(incomingShape.getKey(), incomingShape.getValue(), incomingWindingRule))
                     returnValue = true;
             }
             return returnValue;
@@ -225,6 +153,7 @@ public class AddingShape implements Shape, Serializable {
             return false;
         }
 
+        Rectangle2D incomingBounds = ShapeUtils.getBounds2D(shape);
         int incomingWindingRule = shape.getPathIterator(null).getWindingRule();
 
         if (windingRule == WIND_UNKNOWN) {
@@ -233,9 +162,7 @@ public class AddingShape implements Shape, Serializable {
             throw new IncompatibleWindingRuleException();
         }
 
-
-
-        return addCommon(new ShapeInfo(shape, windingRule));
+        return addCommon(shape, incomingBounds, incomingWindingRule);
     }
 
     /**
@@ -245,44 +172,43 @@ public class AddingShape implements Shape, Serializable {
      * @return false if this call definitely did not modify this object. This method returns true if
      * this call may have modified this object.
      */
-    private boolean addCommon(ShapeInfo incoming) {
-        if (!intersects(incoming.bounds)) {
-            members.add(incoming);
-
+    private boolean addCommon(Shape incoming, Rectangle2D incomingBounds, int incomingWindingRule) {
+        if (!intersects(incomingBounds)) {
+            shapes.put(incoming, incomingBounds);
             if (cachedBounds == null) {
-                cachedBounds = incoming.cloneBounds();
+                cachedBounds = new Rectangle2D.Double(incomingBounds.getX(), incomingBounds.getY(), incomingBounds.getWidth(), incomingBounds.getHeight());
             } else {
-                cachedBounds.add(incoming.bounds);
+                cachedBounds.add(incomingBounds);
             }
             if (windingRule == WIND_UNKNOWN)
-                windingRule = incoming.windingRule;
+                windingRule = incomingWindingRule;
             return true;
         }
 
-        if (cachedBounds != null && incoming.contains(cachedBounds)) {
-            windingRule = incoming.windingRule;
-            members.clear();
-            members.add(incoming);
-            cachedBounds = incoming.cloneBounds();
+        if (cachedBounds != null && incomingBounds.contains(cachedBounds) && incoming.contains(cachedBounds)) {
+            windingRule = incomingWindingRule;
+            shapes.clear();
+            shapes.put(incoming, incomingBounds);
+            cachedBounds = new Rectangle2D.Double(incomingBounds.getX(), incomingBounds.getY(), incomingBounds.getWidth(), incomingBounds.getHeight());
             return true;
         }
 
-        if(contains(incoming.bounds)) {
+        if(contains(incomingBounds)) {
             return false;
         }
 
         Area sum;
-        if (members.size() == 1) {
+        if (shapes.size() == 1) {
             // if our only member happens to be an Area then this Area constructor is more efficient:
-            sum = new Area(members.iterator().next().shape);
+            sum = new Area(shapes.keySet().iterator().next());
         } else {
             sum = new Area(this);
         }
-        sum.add(new Area(incoming.shape));
+        sum.add(new Area(incoming));
 
-        members.clear();
-        cachedBounds.add(incoming.bounds);
-        members.add(new ShapeInfo(sum));
+        shapes.clear();
+        cachedBounds.add(incomingBounds);
+        shapes.put(sum, new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
         windingRule = WIND_UNKNOWN;
 
         return true;
@@ -317,26 +243,21 @@ public class AddingShape implements Shape, Serializable {
      * </p>
      */
     public Shape[] getShapes() {
-        Shape[] returnValue = new Shape[members.size()];
-        Iterator<ShapeInfo> iter = members.iterator();
-        for(int i = 0; i < returnValue.length; i++) {
-            returnValue[i] = iter.next().shape;
-        }
-        return returnValue;
+        return shapes.keySet().toArray(new Shape[0]);
     }
 
     /**
      * Return true if this AddingShape is empty.
      */
     public boolean isEmpty() {
-        return members.isEmpty();
+        return shapes.isEmpty();
     }
 
     /**
      * Remove all shapes from this AddingShape.
      */
     public void clear() {
-        members.clear();
+        shapes.clear();
         cachedBounds = null;
         windingRule = WIND_UNKNOWN;
     }
@@ -362,8 +283,8 @@ public class AddingShape implements Shape, Serializable {
         if (cachedBounds == null || !cachedBounds.contains(x,y))
             return false;
 
-        for (ShapeInfo i : members) {
-            if (i.contains(x, y))
+        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
+            if (entry.getValue().contains(x,y) && entry.getKey().contains(x, y))
                 return true;
         }
         return false;
@@ -376,28 +297,28 @@ public class AddingShape implements Shape, Serializable {
 
     @Override
     public boolean intersects(double x, double y, double w, double h) {
-        if (cachedBounds == null || !cachedBounds.intersects(x, y, w, h))
+        return intersects(new Rectangle2D.Double(x,y,w,h));
+    }
+
+    @Override
+    public boolean intersects(Rectangle2D r) {
+        if (cachedBounds == null || !cachedBounds.intersects(r))
             return false;
 
-        for (ShapeInfo member : members) {
-            if (member.intersects(x, y, w, h))
+        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
+            if (ShapeUtils.intersects(entry.getValue(), r) && entry.getKey().intersects(r))
                 return true;
         }
         return false;
     }
 
     @Override
-    public boolean intersects(Rectangle2D r) {
-        return intersects(r.getX(), r.getY(), r.getWidth(), r.getHeight());
-    }
-
-    @Override
     public boolean contains(double x, double y, double w, double h) {
-        if (cachedBounds == null || !cachedBounds.contains(x, y, w, h))
+        if (cachedBounds == null || !cachedBounds.contains(x,y,w,h))
             return false;
 
-        for (ShapeInfo member : members) {
-            if (member.contains(x, y, w, h))
+        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
+            if (entry.getValue().contains(x, y, w, h) && entry.getKey().contains(x, y, w, h))
                 return true;
         }
         return false;
@@ -410,24 +331,24 @@ public class AddingShape implements Shape, Serializable {
 
     @Override
     public PathIterator getPathIterator(AffineTransform at) {
-        return new MultipleShapePathIterator(getMembers(), at, null, windingRule);
+        return new MultipleShapePathIterator(shapes.keySet().iterator(), at, null, windingRule);
     }
 
     @Override
     public PathIterator getPathIterator(AffineTransform at, double flatness) {
-        return new MultipleShapePathIterator(getMembers(), at, Double.valueOf(flatness), windingRule);
+        return new MultipleShapePathIterator(shapes.keySet().iterator(), at, Double.valueOf(flatness), windingRule);
     }
 
     private void writeObject(java.io.ObjectOutputStream out) throws IOException {
         out.writeInt(0);
-        out.writeObject(members);
+        out.writeObject(shapes);
         out.writeObject(cachedBounds);
     }
 
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
         int internalVersion = in.readInt();
         if (internalVersion == 0) {
-            members = (Collection<ShapeInfo>) in.readObject();
+            shapes = (Map<Shape, Rectangle2D>) in.readObject();
             cachedBounds = (Rectangle2D) in.readObject();
         } else {
             throw new IOException("unsupported internal version: " + internalVersion);
@@ -440,7 +361,7 @@ public class AddingShape implements Shape, Serializable {
         sb.append(getClass().getSimpleName());
         sb.append("[");
 
-        Iterator<Shape> shapeIter = getMembers();
+        Iterator<Shape> shapeIter = shapes.keySet().iterator();
         int ctr = 0;
         while (shapeIter.hasNext()) {
             Shape shape = shapeIter.next();
@@ -449,27 +370,11 @@ public class AddingShape implements Shape, Serializable {
             if (shapeIter.hasNext()) {
                 sb.append(", ");
                 if (sb.length() > 200) {
-                    sb.append("... (and " + (members.size() - ctr)+" more shapes)");
+                    sb.append("... (and " + (shapes.size() - ctr)+" more shapes)");
                 }
             }
         }
         sb.append("]");
         return sb.toString();
-    }
-
-    private Iterator<Shape> getMembers() {
-        return new Iterator<Shape>() {
-            Iterator<ShapeInfo> memberIter = members.iterator();
-
-            @Override
-            public boolean hasNext() {
-                return memberIter.hasNext();
-            }
-
-            @Override
-            public Shape next() {
-                return memberIter.next().shape;
-            }
-        };
     }
 }
