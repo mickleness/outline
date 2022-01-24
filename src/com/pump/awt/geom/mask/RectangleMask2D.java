@@ -118,30 +118,14 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> i
      *                       is the more each segment will be partitioned into subsegments. Finer details lead to
      *                       greater accuracy and a larger data structure.
      */
-    public RectangleMask2D(Shape shape, AffineTransform tx, double maxSegmentArea, boolean exactContour) {
+    public RectangleMask2D(Shape shape, AffineTransform tx, double maxSegmentArea) {
         Objects.requireNonNull(shape);
 
         suspendAutoCollapseRows();
 
         // step 1: trace the perimeter/outline of the shape:
 
-        OutlineTracer tracer = new OutlineTracer(shape, tx, maxSegmentArea, exactContour) {
-
-            @Override
-            protected void addRectangle(Rectangle2D.Double r) {
-                double xMin = r.getMinX();
-                double xMax = r.getMaxX();
-
-                double yMin = r.getMinY();
-                double yMax = r.getMaxY();
-
-                if (xMin == xMax)
-                    xMax += Math.ulp(xMax);
-                if (yMin == yMax)
-                    yMax += Math.ulp(yMax);
-
-                performOperation(Operation.ADD, xMin, yMin, xMax, yMax);
-            }
+        OutlineTracer tracer = new OutlineTracer(shape, tx, maxSegmentArea) {
 
             @Override
             protected void addUnsortedEdges(double x0, double x1, double y0, double y1) {

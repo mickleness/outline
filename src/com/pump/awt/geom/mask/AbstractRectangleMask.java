@@ -33,13 +33,11 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
         double maxSegmentArea;
         Shape shape;
         AffineTransform tx;
-        boolean evaluateExactContour;
 
-        OutlineTracer(Shape shape, AffineTransform tx, double maxSegmentArea, boolean evaluateExactContour) {
+        OutlineTracer(Shape shape, AffineTransform tx, double maxSegmentArea) {
             this.shape = shape;
             this.tx = tx;
             this.maxSegmentArea = maxSegmentArea;
-            this.evaluateExactContour = evaluateExactContour;
         }
 
         @Override
@@ -49,7 +47,6 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
             double lastX = 0;
             double lastY = 0;
             double[] coords = new double[8];
-            Rectangle2D.Double scratch = evaluateExactContour ? null : new Rectangle2D.Double();
 
             while (!ri.isDone()) {
                 int k = ri.currentSegment(coords);
@@ -88,44 +85,31 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
                         break;
                     }
                     case PathIterator.SEG_QUADTO: {
-                        if (evaluateExactContour) {
-                            double ax = lastX - 2 * coords[0] + coords[2];
-                            double bx = -2 * lastX + 2 * coords[0];
-                            double cx = lastX;
-                            double ay = lastY - 2 * coords[1] + coords[3];
-                            double by = -2 * lastY + 2 * coords[1];
-                            double cy = lastY;
+                        double ax = lastX - 2 * coords[0] + coords[2];
+                        double bx = -2 * lastX + 2 * coords[0];
+                        double cx = lastX;
+                        double ay = lastY - 2 * coords[1] + coords[3];
+                        double by = -2 * lastY + 2 * coords[1];
+                        double cy = lastY;
 
-                            addQuadSegment(ax, bx, cx, ay, by, cy, 0, 1);
-                        } else {
-                            scratch.setFrame(lastX, lastY, 0, 0);
-                            scratch.add(coords[0], coords[1]);
-                            scratch.add(coords[2], coords[3]);
-                            addRectangle(scratch);
-                        }
+                        addQuadSegment(ax, bx, cx, ay, by, cy, 0, 1);
+
                         lastX = coords[2];
                         lastY = coords[3];
                         break;
                     }
                     case PathIterator.SEG_CUBICTO: {
-                        if (evaluateExactContour) {
-                            double ax = -lastX + 3 * coords[0] - 3 * coords[2] + coords[4];
-                            double bx = 3 * lastX - 6 * coords[0] + 3 * coords[2];
-                            double cx = -3 * lastX + 3 * coords[0];
-                            double dx = lastX;
-                            double ay = -lastY + 3 * coords[1] - 3 * coords[3] + coords[5];
-                            double by = 3 * lastY - 6 * coords[1] + 3 * coords[3];
-                            double cy = -3 * lastY + 3 * coords[1];
-                            double dy = lastY;
+                        double ax = -lastX + 3 * coords[0] - 3 * coords[2] + coords[4];
+                        double bx = 3 * lastX - 6 * coords[0] + 3 * coords[2];
+                        double cx = -3 * lastX + 3 * coords[0];
+                        double dx = lastX;
+                        double ay = -lastY + 3 * coords[1] - 3 * coords[3] + coords[5];
+                        double by = 3 * lastY - 6 * coords[1] + 3 * coords[3];
+                        double cy = -3 * lastY + 3 * coords[1];
+                        double dy = lastY;
 
-                            addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, 0, 1);
-                        } else {
-                            scratch.setFrame(lastX, lastY, 0, 0);
-                            scratch.add(coords[0], coords[1]);
-                            scratch.add(coords[2], coords[3]);
-                            scratch.add(coords[4], coords[5]);
-                            addRectangle(scratch);
-                        }
+                        addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, 0, 1);
+
                         lastX = coords[4];
                         lastY = coords[5];
                         break;
@@ -134,8 +118,6 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
                 ri.next();
             }
         }
-
-        protected abstract void addRectangle(Rectangle2D.Double scratch);
 
         private void addLineSegment(double ax, double bx, double ay, double by, double t0, double t1) {
             double x0 = ax * t0;
