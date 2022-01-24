@@ -12,7 +12,31 @@ import java.io.Serializable;
  * as <code>new Rectangle(0, 0, 2, 2)</code>: we would fill in the first pixel and the second pixel but not the third.)
  * </p>
  */
-public class RangeDouble implements Serializable {
+public class RangeDouble implements Serializable, Comparable<RangeDouble> {
+
+    /**
+     * Return true if two ranges intersect each other.
+     */
+    public static boolean intersects(double min1, double max1, double min2, double max2) {
+        if (min1 == max2)
+            return false;
+        if (min1 > max2)
+            return false;
+
+        if (max1 == min1)
+            return false;
+        return max1 > min2;
+    }
+
+    /**
+     * Return true if the first range contains the second range.
+     */
+    public static boolean contains(double min1, double max1, double min2, double max2) {
+        if (min1 > min2)
+            return false;
+
+        return max1 >= max2;
+    }
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -41,12 +65,9 @@ public class RangeDouble implements Serializable {
     /**
      * Return true if this RangeDouble contains the arguments.
      */
-    public boolean contains(double otherX1,
-                            double otherX2) {
-        if (min > otherX1)
-            return false;
-
-        return max >= otherX2;
+    public boolean contains(double otherMin,
+                            double otherMax) {
+        return contains(min, max, otherMin, otherMax);
     }
 
     /**
@@ -57,17 +78,10 @@ public class RangeDouble implements Serializable {
     }
 
     /**
-     * Return true if this RangeDouble intersects the arguments.
+     * Return true if this RangeDouble intersects the argument range.
      */
-    public boolean intersects(double otherX1, double otherX2) {
-        if (min == otherX2)
-            return false;
-        if (min > otherX2)
-            return false;
-
-        if (max == otherX1)
-            return false;
-        return max > otherX1;
+    public boolean intersects(double otherMin, double otherMax) {
+        return intersects(min, max, otherMin, otherMax);
     }
 
     /**
@@ -133,5 +147,14 @@ public class RangeDouble implements Serializable {
         } else {
             throw new IOException("Unsupported internal version: "+internalVersion);
         }
+    }
+
+    @Override
+    public int compareTo(RangeDouble o) {
+        int k = Double.compare(min, o.min);
+        if (k != 0)
+            return k;
+        k = Double.compare(max, o.max);
+        return k;
     }
 }

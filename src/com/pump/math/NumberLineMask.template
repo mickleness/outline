@@ -1,7 +1,7 @@
 package com.pump.math;
 
 import com.pump.util.Range%name%;
-
+F
 import java.io.IOException;
 import java.io.Serial;
 import java.io.Serializable;
@@ -18,7 +18,7 @@ public class NumberLine%name%Mask implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    protected TreeMap<%name%, Range%name%> ranges;
+    protected TreeSet<Range%name%> ranges;
 
     public NumberLine%name%Mask() {
         initialize();
@@ -26,24 +26,24 @@ public class NumberLine%name%Mask implements Serializable {
 
     public NumberLine%name%Mask(NumberLine%name%Mask maskToCopy) {
         initialize();
-        ranges.putAll(maskToCopy.ranges);
+        ranges.addAll(maskToCopy.ranges);
     }
 
     protected void initialize() {
-        ranges = new TreeMap<>();
+        ranges = new TreeSet<>();
     }
 
     @Override
     public String toString() {
-        return ranges.values().toString();
+        return ranges.toString();
     }
 
     /**
      * Return true if the argument is contained inside this NumberLine%name%.
      */
     public boolean contains(%type% x) {
-        Map.Entry<%name%, Range%name%> floorEntry = ranges.floorEntry(%box%(x));
-        Range%name% range = floorEntry == null ? null : floorEntry.getValue();
+        Range%name% floorEntry = ranges.floor(new Range%name%(x, %name%.MAX_VALUE));
+        Range%name% range = floorEntry == null ? null : floorEntry;
         if (range == null)
             return false;
         return range.contains(x);
@@ -60,8 +60,8 @@ public class NumberLine%name%Mask implements Serializable {
      * Return true if the argument is contained inside this NumberLine%name%Mask.
      */
     public boolean contains(%type% min, %type% max) {
-        Map.Entry<%name%, Range%name%> floorEntry = ranges.floorEntry(%box%(min));
-        Range%name% range = floorEntry == null ? null : floorEntry.getValue();
+        Range%name% floorEntry = ranges.floor(new Range%name%(min, %name%.MAX_VALUE));
+        Range%name% range = floorEntry == null ? null : floorEntry;
         if (range == null)
             return false;
         return range.contains(min, max);
@@ -78,13 +78,13 @@ public class NumberLine%name%Mask implements Serializable {
      * Return true if the argument intersects this NumberLine.
      */
     public boolean intersects(%type% min, %type% max) {
-        Map.Entry<%name%, Range%name%> floorEntry = ranges.floorEntry(%box%(min));
+        Range%name% floorEntry = ranges.floor(new Range%name%(min, %name%.MAX_VALUE));
 
         Iterator<Range%name%> iter;
         if (floorEntry == null) {
-            iter = ranges.values().iterator();
+            iter = ranges.iterator();
         } else {
-            iter = ranges.tailMap(floorEntry.getKey()).values().iterator();
+            iter = ranges.tailSet(floorEntry).iterator();
         }
         while (iter.hasNext()) {
             Range%name% range = iter.next();
@@ -106,19 +106,18 @@ public class NumberLine%name%Mask implements Serializable {
         while (repeat) {
             repeat = false;
 
-            Map.Entry<%name%, Range%name%> floorEntry = ranges.floorEntry(%box%(x1));
-            Map.Entry<%name%, Range%name%> ceilingEntry = ranges.ceilingEntry(%box%(x2));
+            Range%name% floorEntry = ranges.floor(new Range%name%(x1, %name%.MAX_VALUE));
+            Range%name% ceilingEntry = ranges.ceiling(new Range%name%(x2, %name%.MAX_VALUE));
 
-            Iterator<Map.Entry<%name%, Range%name%>> iter;
+            Iterator<Range%name%> iter;
             if (floorEntry != null) {
-                iter = ranges.tailMap(floorEntry.getKey(), true).entrySet().iterator();
+                iter = ranges.tailSet(floorEntry, true).iterator();
             } else {
-                iter = ranges.entrySet().iterator();
+                iter = ranges.iterator();
             }
 
             while (iter.hasNext()) {
-                Map.Entry<%name%, Range%name%> entry = iter.next();
-                Range%name% existingRange = entry.getValue();
+                Range%name% existingRange = iter.next();
                 if (existingRange.contains(x1, x2)) {
                     return returnValue;
                 } else if (existingRange.intersects(x1, x2) ||
@@ -132,12 +131,12 @@ public class NumberLine%name%Mask implements Serializable {
                         x2 = existingRange.max;
                     repeat = true;
                 }
-                if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
+                if (ceilingEntry != null && existingRange == ceilingEntry) {
                     break;
                 }
             }
 
-            ranges.put(x1, new Range%name%(x1, x2));
+            ranges.add(new Range%name%(x1, x2));
             return true;
         }
         return returnValue;
@@ -155,7 +154,7 @@ public class NumberLine%name%Mask implements Serializable {
      */
     public boolean add(NumberLine%name%Mask other) {
         boolean returnValue = false;
-        for(Range%name% range : other.getRanges()) {
+        for(Range%name% range : other.ranges) {
             if (add(range.min, range.max))
                 returnValue = true;
         }
@@ -176,19 +175,18 @@ public class NumberLine%name%Mask implements Serializable {
         while (repeat) {
             repeat = false;
 
-            Map.Entry<%name%, Range%name%> floorEntry = ranges.floorEntry(%box%(range.min));
-            Map.Entry<%name%, Range%name%> ceilingEntry = ranges.ceilingEntry(%box%(range.max));
+            Range%name% floorEntry = ranges.floor(range);
+            Range%name% ceilingEntry = ranges.ceiling(new Range%name%(range.max, %name%.MAX_VALUE));
 
-            Iterator<Map.Entry<%name%, Range%name%>> iter;
+            Iterator<Range%name%> iter;
             if (floorEntry != null) {
-                iter = ranges.tailMap(floorEntry.getKey(), true).entrySet().iterator();
+                iter = ranges.tailSet(floorEntry, true).iterator();
             } else {
-                iter = ranges.entrySet().iterator();
+                iter = ranges.iterator();
             }
 
             while (iter.hasNext()) {
-                Map.Entry<%name%, Range%name%> entry = iter.next();
-                Range%name% existingRange = entry.getValue();
+                Range%name% existingRange = iter.next();
                 boolean addLeftEdge = false;
                 boolean addRightEdge = false;
                 try {
@@ -229,14 +227,14 @@ public class NumberLine%name%Mask implements Serializable {
                     }
                 } finally {
                     if (addLeftEdge) {
-                        ranges.put(existingRange.min, new Range%name%(existingRange.min, range.min));
+                        ranges.add(new Range%name%(existingRange.min, range.min));
                     }
                     if (addRightEdge) {
-                        ranges.put(range.max, new Range%name%(range.max, existingRange.max));
+                        ranges.add(new Range%name%(range.max, existingRange.max));
                     }
                 }
 
-                if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
+                if (ceilingEntry != null && existingRange == ceilingEntry) {
                     break;
                 }
             }
@@ -249,7 +247,7 @@ public class NumberLine%name%Mask implements Serializable {
      */
     public boolean subtract(NumberLine%name%Mask other) {
         boolean returnValue = false;
-        for(Range%name% range : other.getRanges()) {
+        for(Range%name% range : other.ranges) {
             if (subtract(range.min, range.max))
                 returnValue = true;
         }
@@ -281,10 +279,10 @@ public class NumberLine%name%Mask implements Serializable {
             return true;
         }
 
-        %type% minA = ranges.firstEntry().getValue().min;
-        %type% minB = other.ranges.firstEntry().getValue().min;
-        %type% maxA = ranges.lastEntry().getValue().max;
-        %type% maxB = other.ranges.lastEntry().getValue().max;
+        %type% minA = ranges.first().min;
+        %type% minB = other.ranges.first().min;
+        %type% maxA = ranges.last().max;
+        %type% maxB = other.ranges.last().max;
         %type% min = minA < minB ? minA : minB;
         %type% max = maxA > maxB ? maxA : maxB;
         NumberLine%name%Mask scratch = new NumberLine%name%Mask();
@@ -301,7 +299,7 @@ public class NumberLine%name%Mask implements Serializable {
     public %type% getMin() {
         if (ranges.isEmpty())
             throw new EmptyNumberLineMaskException();
-        return ranges.firstEntry().getValue().min;
+        return ranges.first().min;
     }
 
     /**
@@ -313,7 +311,7 @@ public class NumberLine%name%Mask implements Serializable {
     public %type% getMax() {
         if (ranges.isEmpty())
             throw new EmptyNumberLineMaskException();
-        return ranges.lastEntry().getValue().max;
+        return ranges.last().max;
     }
 
     /**
@@ -324,7 +322,7 @@ public class NumberLine%name%Mask implements Serializable {
     }
 
     /**
-     * Remove all data from this NumberLineMask so {@link #getRanges()} returns an empty array.
+     * Remove all data from this NumberLine%name%Mask so {@link #getRanges()} returns an empty array.
      */
     public void clear() {
         ranges.clear();
@@ -334,14 +332,14 @@ public class NumberLine%name%Mask implements Serializable {
      * Return all the Range%name%s that make up this mask.
      */
     public Range%name%[] getRanges() {
-        return ranges.values().toArray(new Range%name%[0]);
+        return ranges.toArray(new Range%name%[0]);
     }
 
     @Serial
     private void writeObject(java.io.ObjectOutputStream out)
             throws IOException {
         out.writeInt(0);
-        Range%name%[] array = ranges.values().toArray(new Range%name%[0]);
+        Range%name%[] array = ranges.toArray(new Range%name%[0]);
         out.writeObject(array);
     }
 
@@ -354,7 +352,7 @@ public class NumberLine%name%Mask implements Serializable {
         if (internalVersion == 0) {
             Range%name%[] array = (Range%name%[]) in.readObject();
             for(Range%name% range : array) {
-                ranges.put( %box%(range.min), range);
+                ranges.add(range);
             }
         } else {
             throw new IOException("Unsupported internal version: "+internalVersion);
@@ -367,7 +365,7 @@ public class NumberLine%name%Mask implements Serializable {
     public boolean isEqual(Range%name% range) {
         if (ranges.size() != 1)
             return false;
-        return ranges.entrySet().iterator().next().getValue().equals(range);
+        return ranges.first().equals(range);
     }
 
     @Override
@@ -375,7 +373,24 @@ public class NumberLine%name%Mask implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         NumberLine%name%Mask that = (NumberLine%name%Mask) o;
-        return Objects.equals(ranges, that.ranges);
+
+        // this should be slightly more efficient than calling
+        // ranges.equals(that.ranges), because here we get to
+        // rely on their sorted order:
+
+        if (ranges.size() != that.ranges.size())
+            return false;
+
+        Iterator<Range%name%> iter1 = ranges.iterator();
+        Iterator<Range%name%> iter2 = that.ranges.iterator();
+
+        while (iter1.hasNext()) {
+            Range%name% r1 = iter1.next();
+            Range%name% r2 = iter2.next();
+            if (r1.min != r2.min || r1.max != r2.max)
+                return false;
+        }
+        return true;
     }
 
     @Override
@@ -392,11 +407,10 @@ public class NumberLine%name%Mask implements Serializable {
 
         Collection<Range%name%> additions = new ArrayList<>();
 
-        Iterator<Map.Entry<%name%, Range%name%>> iter = ranges.entrySet().iterator();
+        Iterator<Range%name%> iter = ranges.iterator();
         %name% lastXinRange = null;
         while (iter.hasNext()) {
-            Map.Entry<%name%, Range%name%> entry = iter.next();
-            Range%name% existing = entry.getValue();
+            Range%name% existing = iter.next();
 
             if (existing.max == x1) {
                 iter.remove();
@@ -449,10 +463,24 @@ public class NumberLine%name%Mask implements Serializable {
         if (uncommitted != null)
             additions.add(uncommitted);
 
-        for(Range%name% r : additions) {
-            ranges.put(r.min, r);
-        }
+        ranges.addAll(additions);
 
         return returnValue;
+    }
+
+    public boolean contains(NumberLine%name%Mask other) {
+        for(Range%name% otherRange : other.ranges) {
+            if (!contains(otherRange.min, otherRange.max))
+                return false;
+        }
+        return true;
+    }
+
+    public boolean intersects(NumberLine%name%Mask other) {
+        for(Range%name% otherRange : other.ranges) {
+            if (intersects(otherRange.min, otherRange.max))
+                return true;
+        }
+        return false;
     }
 }

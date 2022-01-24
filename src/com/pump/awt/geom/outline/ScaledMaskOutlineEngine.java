@@ -1,9 +1,12 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.awt.geom.RectangularTransform;
+import com.pump.awt.geom.ScaledShape;
+import com.pump.awt.geom.ShapeUtils;
 import com.pump.awt.geom.mask.RectangleMask;
 
 import java.awt.*;
-import java.awt.geom.AffineTransform;
+import java.awt.geom.*;
 import java.util.List;
 
 /**
@@ -19,7 +22,7 @@ import java.util.List;
 public class ScaledMaskOutlineEngine implements OutlineEngine {
 
     private final double resolution;
-    private final AffineTransform scaleUp, scaleDown;
+    private final RectangularTransform scaleUp, scaleDown;
 
     /**
      * The number of
@@ -28,15 +31,27 @@ public class ScaledMaskOutlineEngine implements OutlineEngine {
         if (resolution < 1)
             throw new IllegalArgumentException("resolution must be greater than zero");
         this.resolution = resolution;
-        scaleUp = AffineTransform.getScaleInstance(resolution, resolution);
-        scaleDown = AffineTransform.getScaleInstance(1.0 / resolution, 1.0 / resolution);
+        scaleUp = RectangularTransform.getScaleInstance(resolution);
+        scaleDown = RectangularTransform.getScaleInstance(1.0 / resolution);
     }
 
     @Override
     public Shape calculate(List<OutlineOperation> operations) {
         RectangleMask returnValue = new RectangleMask();
         for(OutlineOperation op : operations) {
-            RectangleMask operand = new RectangleMask(op.shape, scaleUp, 1);
+            RectangleMask operand;
+            Shape shape = op.shape;
+            if (shape instanceof ScaledShape) {
+                ScaledShape ss = (ScaledShape) shape;
+                if (ss.getTransform().equals(scaleDown))
+                    shape = ss.getUntransformedShape();
+            }
+            if (shape instanceof RectangleMask) {
+                operand = (RectangleMask) shape;
+            } else {
+                operand = new RectangleMask(op.shape, scaleUp.createAffineTransform(), 1);
+            }
+
             switch (op.type) {
                 case ADD:
                     returnValue.add(operand);
@@ -52,7 +67,7 @@ public class ScaledMaskOutlineEngine implements OutlineEngine {
                     break;
             }
         }
-        return scaleDown.createTransformedShape(returnValue);
+        return new ScaledShape(returnValue, scaleDown);
     }
 
     @Override

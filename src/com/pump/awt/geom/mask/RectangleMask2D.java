@@ -1,9 +1,8 @@
 package com.pump.awt.geom.mask;
 
+import com.pump.awt.geom.RectangularTransform;
 import com.pump.math.NumberLineDoubleMask;
-import com.pump.math.NumberLineIntegerMask;
 import com.pump.util.RangeDouble;
-import com.pump.util.RangeInteger;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -16,33 +15,33 @@ import java.util.List;
 /**
  * This is a composition of double-based java.awt.geom.Rectangle2D.Doubles.
  */
-public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
+public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> implements Iterable<Rectangle2D.Double> {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
     class MaskIterator implements Iterator<Rectangle2D.Double> {
-        Iterator<Map.Entry<Double, NumberLineDoubleMask>> iter;
+        Iterator<Row> iter;
         List<Rectangle2D.Double> iteratorValues = new LinkedList<>();
-        Map.Entry<Double, NumberLineDoubleMask> prevRow;
+        Row prevRow;
         final int expectedModCount;
 
         {
             expectedModCount = modCount;
-            iter = rows.entrySet().iterator();
+            iter = rows.iterator();
             prevRow = iter.hasNext() ? iter.next() : null;
             updateIteratorValues();
         }
 
         private void updateIteratorValues() {
             while (iter.hasNext()) {
-                Map.Entry<Double, NumberLineDoubleMask> currentRow = iter.next();
+                Row currentRow = iter.next();
 
-                for (RangeDouble range : prevRow.getValue().getRanges()) {
+                for (RangeDouble range : prevRow.xMask.getRanges()) {
                     double x = range.min;
-                    double y = prevRow.getKey();
+                    double y = prevRow.y;
                     double x2 = range.max;
-                    double y2 = currentRow.getKey();
+                    double y2 = currentRow.y;
                     Rectangle2D.Double rect = new Rectangle2D.Double(x, y, x2 - x, y2 - y);
                     iteratorValues.add(rect);
                 }
@@ -73,7 +72,27 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         }
     }
 
-    protected final TreeMap<Double, NumberLineDoubleMask> rows = new TreeMap<>();
+    protected static class Row implements Comparable<Row> {
+        double y;
+        NumberLineDoubleMask xMask;
+
+        public Row(double y) {
+            this.y = y;
+        }
+
+        public Row(double y, NumberLineDoubleMask xMask) {
+            this.y = y;
+            this.xMask = xMask;
+        }
+
+        @Override
+        public int compareTo(Row o) {
+            return Double.compare(y, o.y);
+        }
+    }
+
+    protected TreeSet<Row> rows = new TreeSet<>();
+
     protected double[] touchedRows;
 
     public RectangleMask2D() {
@@ -90,6 +109,9 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     }
 
     /**
+     * Create a RectangleMask2D that traces a given shape. This may be a little too large especially on the right
+     * and bottom edges; it is not guaranteed to be a perfect match.
+     *
      * @param shape the shape to create a mask of
      * @param tx the optional AffineTransform to apply to the shape
      * @param maxSegmentArea the maximum area (width * height) of each segment's bounds. The smaller this value
@@ -141,13 +163,13 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
             }
 
             public void run() {
-                Map.Entry<Double, NumberLineDoubleMask> lastEntry = null;
-                for(Map.Entry<Double, NumberLineDoubleMask> entry : rows.entrySet()) {
-                    if (lastEntry != null) {
-                        fill(lastEntry.getKey(), entry.getKey(), lastEntry.getValue());
+                Row lastRow = null;
+                for(Row row : rows) {
+                    if (lastRow != null) {
+                        fill(lastRow.y, row.y, lastRow.xMask);
                     }
 
-                    lastEntry = entry;
+                    lastRow = row;
                 }
             }
 
@@ -216,25 +238,33 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     public boolean clear() {
         boolean uninitialized = rows.isEmpty();
         if (!isEmpty() || uninitialized) {
-            rows.clear();
-            rows.put(0.0, new NumberLineDoubleMask());
-            modCount++;
-            cachedBounds = null;
+            try {
+                rows.clear();
+                rows.add(new Row(0.0, new NumberLineDoubleMask()));
+            } finally {
+                modCount++;
+                cachedBounds = null;
+            }
             return true;
         }
         return false;
     }
 
-    private void ensureRow(double y) {
-        Map.Entry<Double, NumberLineDoubleMask> nearestRow = rows.floorEntry(y);
-        if (nearestRow == null) {
-            NumberLineDoubleMask newRow = new NumberLineDoubleMask();
-            rows.put( Double.valueOf(y), newRow);
-        } else if (nearestRow.getKey().doubleValue() == y) {
-            // intentionally empty
-        } else {
-            NumberLineDoubleMask newRow = new NumberLineDoubleMask(nearestRow.getValue());
-            rows.put(y, newRow);
+    private void ensureRows(double[] y) {
+        Row[] nearestRows = new Row[y.length];
+        for(int a = 0; a < y.length; a++) {
+            nearestRows[a] = rows.floor(new Row(y[a]));
+        }
+        for(int a = 0; a < y.length; a++) {
+            if (nearestRows[a] == null) {
+                Row newRow = new Row(y[a], new NumberLineDoubleMask());
+                rows.add(newRow);
+            } else if (nearestRows[a].y == y[a]) {
+                // intentionally empty
+            } else {
+                Row newRow = new Row(y[a], new NumberLineDoubleMask(nearestRows[a].xMask));
+                rows.add(newRow);
+            }
         }
     }
 
@@ -275,11 +305,10 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     }
 
     protected boolean performOperation(Operation op, double x, double y, double x2, double y2) {
-        ensureRow(y);
-        ensureRow(y2);
+        ensureRows(new double[] { y, y2 });
 
         if (touchedRows == null) {
-            touchedRows = new double[] {y, y2};
+            touchedRows = new double[]{y, y2};
         } else {
             touchedRows[0] = Math.min(y, touchedRows[0]);
             touchedRows[1] = Math.max(y, touchedRows[1]);
@@ -289,15 +318,15 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
 
         try {
             boolean returnValue = false;
-            for (Map.Entry<Double, NumberLineDoubleMask> entry : rows.tailMap(y).entrySet()) {
-                if (entry.getKey().equals(y2))
+            for (Row row : rows.tailSet(new Row(y), true)) {
+                if (row.y == y2)
                     break;
 
                 boolean opResults = switch (op) {
-                    case ADD -> entry.getValue().add(x, x2);
-                    case SUBTRACT -> entry.getValue().subtract(x, x2);
-                    case CLIP -> entry.getValue().clip(x, x2);
-                    case XOR -> entry.getValue().xor(x, x2);
+                    case ADD -> row.xMask.add(x, x2);
+                    case SUBTRACT -> row.xMask.subtract(x, x2);
+                    case CLIP -> row.xMask.clip(x, x2);
+                    case XOR -> row.xMask.xor(x, x2);
                 };
 
                 if (opResults)
@@ -319,22 +348,21 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     }
 
     private void removeRowsAboveAndBelow(double y1, double y2) {
-        Iterator<Map.Entry<Double, NumberLineDoubleMask>> iter;
-        iter = rows.entrySet().iterator();
+        Iterator<Row> iter = rows.iterator();
 
         NumberLineDoubleMask prevRowMask = new NumberLineDoubleMask();
         while (iter.hasNext()) {
-            Map.Entry<Double, NumberLineDoubleMask> entry = iter.next();
-            if (entry.getKey().doubleValue() < y1 || entry.getKey().doubleValue() > y2) {
+            Row entry = iter.next();
+            if (entry.y < y1 || entry.y > y2) {
                 iter.remove();
-            } else if (entry.getKey().compareTo(y2) == 0) {
+            } else if (entry.y == y2) {
                 if (prevRowMask != null && prevRowMask.isEmpty()) {
                     iter.remove();
-                } else if (!entry.getValue().isEmpty()) {
-                    entry.getValue().clear();
+                } else if (!entry.xMask.isEmpty()) {
+                    entry.xMask.clear();
                 }
             } else {
-                NumberLineDoubleMask currentMask = entry.getValue();
+                NumberLineDoubleMask currentMask = entry.xMask;
                 if (currentMask.equals(prevRowMask)) {
                     iter.remove();
                 }
@@ -342,43 +370,43 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
             }
         }
 
-        if (!rows.isEmpty() && !rows.lastEntry().getValue().isEmpty()) {
-            rows.put(y2, new NumberLineDoubleMask());
+        if (!rows.isEmpty() && !rows.last().xMask.isEmpty()) {
+            rows.add(new Row(y2, new NumberLineDoubleMask()));
         }
     }
 
     @Override
     protected Rectangle2D.Double createBounds() {
-        if (rows.isEmpty() || (rows.size()==1 && rows.entrySet().iterator().next().getValue().isEmpty()) ) {
+        if (rows.isEmpty() || (rows.size()==1 && rows.first().xMask.isEmpty()) ) {
             return new Rectangle2D.Double();
         }
 
         double x1, y1, x2, y2;
         x1 = y1 = x2 = y2 = 0;
         boolean undefined = true;
-        for(Map.Entry<Double, NumberLineDoubleMask> rowEntry : rows.entrySet()) {
-            NumberLineDoubleMask row = rowEntry.getValue();
+        for(Row rowEntry : rows) {
+            NumberLineDoubleMask row = rowEntry.xMask;
             if (undefined) {
                 undefined = false;
-                y1 = rowEntry.getKey();
+                y1 = rowEntry.y;
                 x1 = row.getMin();
                 x2 = row.getMax();
             }
             if (!row.isEmpty()) {
-                x1 = x1 < rowEntry.getValue().getMin() ? x1 : rowEntry.getValue().getMin();
-                x2 = x2 > rowEntry.getValue().getMax() ? x2 : rowEntry.getValue().getMax();
+                x1 = x1 < rowEntry.xMask.getMin() ? x1 : rowEntry.xMask.getMin();
+                x2 = x2 > rowEntry.xMask.getMax() ? x2 : rowEntry.xMask.getMax();
             }
-            y2 = rowEntry.getKey();
+            y2 = rowEntry.y;
         }
 
         return new Rectangle2D.Double(x1, y1, x2 - x1, y2 - y1);
     }
 
     public boolean contains(double x, double y) {
-        Map.Entry<Double, NumberLineDoubleMask> floorRow = rows.floorEntry(y);
+        Row floorRow = rows.floor(new Row(y));
         if (floorRow == null)
             return false;
-        return floorRow.getValue().contains(x);
+        return floorRow.xMask.contains(x);
     }
 
     public boolean contains(double x, double y, double width,double height) {
@@ -389,16 +417,16 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         if (width == 0 || height == 0)
             return false;
 
-        Double floorKey = rows.floorKey(y);
-        if (floorKey == null)
+        Row floor = rows.floor(new Row(y));
+        if (floor == null)
             return false;
         double y2 = y + height;
         double x2 = x + width;
-        for (Map.Entry<Double, NumberLineDoubleMask> entry : rows.tailMap(floorKey, true).entrySet()) {
-            if (entry.getKey().compareTo(y2) >= 0)
+        for (Row entry : rows.tailSet(floor, true)) {
+            if (entry.y >= y2)
                 return true;
 
-            if (!entry.getValue().contains(x, x2)) {
+            if (!entry.xMask.contains(x, x2)) {
                 return false;
             }
         }
@@ -413,18 +441,18 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         if (width == 0 || height == 0)
             return false;
 
-        Double floorKey = rows.floorKey(y);
-        Iterator<Map.Entry<Double, NumberLineDoubleMask>> iter = floorKey == null ?
-                rows.entrySet().iterator() :
-                rows.tailMap(floorKey, true).entrySet().iterator();
+        Row floor = rows.floor(new Row(y));
+        Iterator<Row> iter = floor == null ?
+                rows.iterator() :
+                rows.tailSet(floor, true).iterator();
         double y2 = y + height;
         double x2 = x + width;
         while (iter.hasNext()) {
-            Map.Entry<Double, NumberLineDoubleMask> entry = iter.next();
-            if (entry.getKey().compareTo(y2) >= 0)
+            Row entry = iter.next();
+            if (entry.y >= y2)
                 return false;
 
-            if (entry.getValue().intersects(x, x2)) {
+            if (entry.xMask.intersects(x, x2)) {
                 return true;
             }
         }
@@ -433,28 +461,28 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
 
     @Override
     public boolean isEmpty() {
-        return rows.isEmpty() || rows.firstEntry().getValue().isEmpty();
+        return rows.isEmpty() || rows.first().xMask.isEmpty();
     }
 
     @Override
     protected Rectangle2D.Double toRectangle() {
         double x1, y1, x2, y2;
-        Iterator<Map.Entry<Double, NumberLineDoubleMask>> iter = rows.entrySet().iterator();
+        Iterator<Row> iter = rows.iterator();
         if (!iter.hasNext())
             return null;
-        Map.Entry<Double, NumberLineDoubleMask> firstEntry = iter.next();
+        Row firstEntry = iter.next();
 
-        y1 = firstEntry.getKey();
-        x1 = firstEntry.getValue().getMin();
-        x2 = firstEntry.getValue().getMax();
+        y1 = firstEntry.y;
+        x1 = firstEntry.xMask.getMin();
+        x2 = firstEntry.xMask.getMax();
 
         if (!iter.hasNext())
             return null;
 
-        Map.Entry<Double, NumberLineDoubleMask> secondEntry = iter.next();
-        if (!secondEntry.getValue().isEmpty())
+        Row secondEntry = iter.next();
+        if (!secondEntry.xMask.isEmpty())
             return null;
-        y2 = secondEntry.getKey();
+        y2 = secondEntry.y;
 
         return new Rectangle2D.Double(x1, y1, x2 - x1, y2 - y1);
     }
@@ -470,7 +498,7 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        RectangleMask rMask = (RectangleMask) o;
+        RectangleMask2D rMask = (RectangleMask2D) o;
         return Objects.equals(rows, rMask.rows);
     }
 
@@ -508,32 +536,34 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
     protected void collapseRows() {
         if (touchedRows == null)
             return;
-        Double k1 = rows.floorKey(touchedRows[0]);
-        Double k2 = rows.ceilingKey(touchedRows[1]);
+        Row k1 = rows.floor(new Row(touchedRows[0]));
+        Row k2 = rows.ceiling(new Row(touchedRows[1]));
 
         if (k1 != null) {
-            k1 = rows.lowerKey(k1);
+            k1 = rows.lower(k1);
         }
 
         if (k2 != null) {
-            Double k3 = rows.higherKey(k2);
+            Row k3 = rows.higher(k2);
             if (k3 != null)
                 k2 = k3;
         }
 
-        Iterator<Map.Entry<Double, NumberLineDoubleMask>> iter;
+        Iterator<Row> iter;
         if (k1 == null) {
-            iter = rows.entrySet().iterator();
+            iter = rows.iterator();
+        } else if (k2 == null) {
+            iter = rows.tailSet(k1, true).iterator();
         } else {
-            iter = rows.subMap(k1, true, k2, true).entrySet().iterator();
+            iter = rows.subSet(k1, true, k2, true).iterator();
         }
 
-        Map.Entry<Double, NumberLineDoubleMask> lowerEntry = k1 == null ? null : rows.lowerEntry(k1);
-        NumberLineDoubleMask prevRowMask = lowerEntry == null ? new NumberLineDoubleMask() : lowerEntry.getValue();
+        Row lowerEntry = k1 == null ? null : rows.lower(k1);
+        NumberLineDoubleMask prevRowMask = lowerEntry == null ? new NumberLineDoubleMask() : lowerEntry.xMask;
 
         while (iter.hasNext()) {
-            Map.Entry<Double, NumberLineDoubleMask> entry = iter.next();
-            NumberLineDoubleMask currentMask = entry.getValue();
+            Row entry = iter.next();
+            NumberLineDoubleMask currentMask = entry.xMask;
             if (currentMask.equals(prevRowMask)) {
                 iter.remove();
             }
@@ -546,5 +576,163 @@ public class RectangleMask2D extends AbstractRectangleMask<Rectangle2D.Double> {
         RectangleMask2D copy = new RectangleMask2D();
         copy.add(this);
         return copy;
+    }
+
+    /**
+     * Transform this mask.
+     */
+    public void transform(RectangularTransform transform) {
+        try {
+            cachedBounds = null;
+
+            // TODO: we could optimize this further when scaleX and scaleY are positive
+
+            RectangleMask2D newMask = new RectangleMask2D();
+            Iterator<Rectangle2D.Double> iter = iterator();
+            while (iter.hasNext()) {
+                Rectangle2D.Double rect = iter.next();
+                transform.transform(rect, rect);
+                newMask.add(rect);
+            }
+            rows.clear();
+            rows.addAll(newMask.rows);
+        } finally {
+            modCount++;
+            collapseRows();
+        }
+    }
+
+    public boolean contains(RectangleMask2D mask) {
+        if (isEmpty() || mask.isEmpty())
+            return false;
+
+        Iterator<Rectangle2D.Double> iter = mask.iterator();
+        while (iter.hasNext()) {
+            if (!contains(iter.next()))
+                return false;
+        }
+
+        return true;
+    }
+
+    public boolean intersects(RectangleMask2D mask) {
+        if (isEmpty() || mask.isEmpty())
+            return false;
+
+        Iterator<Rectangle2D.Double> iter = mask.iterator();
+        while (iter.hasNext()) {
+            if (intersects(iter.next()))
+                return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Add another mask to this mask.
+     *
+     * @return true if this operation changed this mask.
+     */
+    public boolean add(RectangleMask2D rhs) {
+        if (rhs.isEmpty())
+            return false;
+
+        suspendAutoCollapseRows();
+        try {
+            boolean returnValue = false;
+            if (isEmpty()) {
+                rows.clear();
+                for (Row entry : rhs.rows) {
+                    rows.add(new Row(entry.y, new NumberLineDoubleMask(entry.xMask)));
+                }
+                returnValue = true;
+            } else if(isAboveOrBelow(rhs)) {
+                for (Row entry : rhs.rows) {
+                    rows.add(new Row(entry.y, new NumberLineDoubleMask(entry.xMask)));
+                }
+                returnValue = true;
+            } else {
+                double[] rowYs = new double[rhs.rows.size()];
+                int i = 0;
+                for (Row otherRow : rhs.rows) {
+                    rowYs[i++] = otherRow.y;
+                }
+                ensureRows(rowYs);
+
+                Iterator<Row> myIter = rows.subSet(rhs.rows.first(), true, rhs.rows.last(), true).iterator();
+                while (myIter.hasNext()) {
+                    Row myRow = myIter.next();
+                    Row otherRow = rhs.rows.floor(myRow);
+                    if (otherRow != null && myRow.xMask.add(otherRow.xMask))
+                        returnValue = true;
+                }
+
+                if (touchedRows == null) {
+                    touchedRows = new double[] {rhs.rows.first().y, rhs.rows.last().y};
+                } else {
+                    touchedRows[0] = Math.min(touchedRows[0], rhs.rows.first().y);
+                    touchedRows[1] = Math.max(touchedRows[1], rhs.rows.last().y);
+                }
+            }
+
+            if (returnValue) {
+                modCount++;
+                cachedBounds = null;
+            }
+
+            return returnValue;
+        } finally {
+            resumeAutoCollapseRows();
+        }
+    }
+
+    /**
+     * Subtract another mask from this mask.
+     *
+     * @return true if this operation changed this mask.
+     */
+    public boolean subtract(RectangleMask2D rhs) {
+        if (rhs.isEmpty() || isEmpty() || !getBounds2D().intersects(rhs.getBounds2D()))
+            return false;
+
+        suspendAutoCollapseRows();
+        try {
+            boolean returnValue = false;
+
+            double[] rowYs = new double[rhs.rows.size()];
+            int i = 0;
+            for (Row otherRow : rhs.rows) {
+                rowYs[i++] = otherRow.y;
+            }
+            ensureRows(rowYs);
+
+            Iterator<Row> myIter = rows.subSet(rhs.rows.first(), true, rhs.rows.last(), true).iterator();
+            while (myIter.hasNext()) {
+                Row myRow = myIter.next();
+                Row otherRow = rhs.rows.floor(myRow);
+                if (otherRow != null && myRow.xMask.subtract(otherRow.xMask))
+                    returnValue = true;
+            }
+
+            if (touchedRows == null) {
+                touchedRows = new double[] {rhs.rows.first().y, rhs.rows.last().y};
+            } else {
+                touchedRows[0] = Math.min(touchedRows[0], rhs.rows.first().y);
+                touchedRows[1] = Math.max(touchedRows[1], rhs.rows.last().y);
+            }
+
+            if (returnValue) {
+                modCount++;
+                cachedBounds = null;
+            }
+
+            return returnValue;
+        } finally {
+            resumeAutoCollapseRows();
+        }
+    }
+
+    private boolean isAboveOrBelow(RectangleMask2D other) {
+        return rows.last().y < other.rows.first().y || rows.first().y > other.rows.last().y;
     }
 }

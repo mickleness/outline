@@ -1,27 +1,28 @@
 package com.pump.awt.geom.outline;
 
-import com.pump.awt.geom.outline.OptimizedAreaEngine;
-import com.pump.awt.geom.outline.Outline;
-import com.pump.awt.geom.outline.OutlineEngine;
-import com.pump.awt.geom.outline.PlainAreaEngine;
 import junit.framework.TestCase;
 
-import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
-import java.awt.image.BufferedImage;
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public abstract class OutlineTests extends TestCase {
 
-    public Writer createLog(String name) throws FileNotFoundException {if (name.contains("/") || name.contains("\\"))
+    public Writer createLog(String name, boolean writeFile) throws FileNotFoundException {if (name.contains("/") || name.contains("\\"))
         throw new IllegalArgumentException("illegal name = "+name);
-        File file = new File(name+" Output.log");
-        FileOutputStream fileOut = new FileOutputStream(file);
-        OutputStreamWriter writer = new OutputStreamWriter(fileOut) {
+        OutputStream out;
+        if (writeFile) {
+            File file = new File(name + " Output.log");
+            FileOutputStream fileOut = new FileOutputStream(file);
+            out = fileOut;
+        } else {
+            out = new ByteArrayOutputStream();
+        }
+        OutputStreamWriter writer = new OutputStreamWriter(out) {
             @Override
             public void write(String str) throws IOException {
                 super.write(str);
@@ -33,11 +34,11 @@ public abstract class OutlineTests extends TestCase {
     }
 
     public OutlineEngine[] getEngines() {
-        return new OutlineEngine[] { new PlainAreaEngine(),
-                new OptimizedAreaEngine(1),
-                new OptimizedAreaEngine(4),
-                new ScaledMaskOutlineEngine(2),
-                new ScaledMaskOutlineEngine(4) };
+        List<OutlineEngine> engines = new ArrayList<>();
+        engines.add(new PlainAreaEngine());
+        engines.add(new OptimizedEngine());
+        engines.add(new ScaledMaskOutlineEngine(3));
+        return engines.toArray(new OutlineEngine[0]);
     }
 
     /**

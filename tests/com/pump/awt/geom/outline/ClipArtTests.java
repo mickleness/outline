@@ -7,13 +7,62 @@ import org.junit.Test;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.List;
 
+/**
+ * When run as a unit test this makes sure all our OutlineEngines return results consistent with the
+ * default Area-based implementation. (This may take 5 minutes.)
+ * <p>
+ * When run as an executable this takes several minutes (1 hour) to profile
+ * the relative performance of each engine. The profile should be run in an environment with minimal
+ * CPU turbulence.
+ * <p>
+ */
 public class ClipArtTests extends OutlineTests {
+
+    static boolean PROFILE_MODE = false;
+
+    public static void main(String[] args) throws Exception {
+        ClipArtTests tests = new ClipArtTests();
+        PROFILE_MODE = true;
+        tests.testAdd();
+    }
+
+    static class ScaledIcon implements Icon {
+        Icon icon;
+        int iconWidth, iconHeight;
+
+        public ScaledIcon(Icon icon, int width, int height) {
+            iconWidth = width;
+            iconHeight = height;
+            this.icon = icon;
+        }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.translate(x,y);
+            double scaleX = ((double)iconWidth) / ((double)icon.getIconWidth());
+            double scaleY = ((double)iconHeight) / ((double)icon.getIconHeight());
+            g2.scale(scaleX, scaleY);
+            icon.paintIcon(c, g2, 0, 0);
+        }
+
+        @Override
+        public int getIconWidth() {
+            return iconWidth;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return iconHeight;
+        }
+    }
 
     static class ClipArtTest {
         Icon icon;
@@ -32,7 +81,7 @@ public class ClipArtTests extends OutlineTests {
         int loops;
 
         ClipArtTest(Icon icon, int loops) {
-            this.icon = icon;
+            this.icon = new ScaledIcon(icon, 600, 600);
             this.loops = loops;
             name = icon.getClass().getSimpleName();
             if (loops > 1)
@@ -73,9 +122,15 @@ public class ClipArtTests extends OutlineTests {
     @Test
     public void testAdd() throws Exception {
         List<AddResult> results = new LinkedList<>();
-        try(Writer logWriter = createLog("Clip Art Outlines")) {
+        try(Writer logWriter = createLog("Clip Art Outlines", PROFILE_MODE)) {
 
             logWriter.write("This table shows how long it takes to create an outline of clip art using different models.\n\n");
+
+            if (PROFILE_MODE) {
+                logWriter.write("The full profiler is running, which may take over an hour.\n\n");
+            } else {
+                logWriter.write("Running as a unit test. The times shown in this table are approximate, but each engine is also being tested for accuracy.\n\n");
+            }
 
             StringBuilder sb = new StringBuilder();
             OutlineEngine[] engines = getEngines();
@@ -235,14 +290,14 @@ public class ClipArtTests extends OutlineTests {
         AddResult result = new AddResult(clipArt.name);
 
         for(OutlineEngine engine : engines) {
-            // collect more samples for the baseline just to be extra cautious
-            int sampleCount = result.isBaselineDefined() ? 5 : 10;
+            int sampleCount = PROFILE_MODE ? 20 : 1;
 
             long[] times = new long[sampleCount];
             Outline lastSum = null;
             for (int a = 0; a < times.length; a++) {
                 long totalTime = 0;
-                for(int loopIndex = 0; loopIndex < clipArt.loops; loopIndex++) {
+                int loopCount = PROFILE_MODE ? clipArt.loops : 1;
+                for(int loopIndex = 0; loopIndex < loopCount; loopIndex++) {
                     // try and get GC churn out of the way before our timer:
                     System.gc();
                     System.runFinalization();
@@ -271,7 +326,10 @@ public class ClipArtTests extends OutlineTests {
                 result.addEngineTime(engine, medianTime);
                 String expectedName = clipArt.name;
                 String actualName = clipArt.name+"-"+engine.toString();
-                boolean highPrecision = engine instanceof ScaledMaskOutlineEngine ? false : true;
+                boolean highPrecision = true;
+                if (engine instanceof ScaledMaskOutlineEngine)
+                    highPrecision = false;
+
                 ShapeUtilsTest.testEquals(expectedName, actualName, result.baselineShape, lastSum, highPrecision);
             }
         }

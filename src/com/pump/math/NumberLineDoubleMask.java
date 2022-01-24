@@ -1,7 +1,6 @@
 package com.pump.math;
 
 import com.pump.util.RangeDouble;
-import com.pump.util.RangeInteger;
 
 import java.io.IOException;
 import java.io.Serial;
@@ -19,7 +18,7 @@ public class NumberLineDoubleMask implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    protected TreeMap<Double, RangeDouble> ranges;
+    protected TreeSet<RangeDouble> ranges;
 
     public NumberLineDoubleMask() {
         initialize();
@@ -27,24 +26,24 @@ public class NumberLineDoubleMask implements Serializable {
 
     public NumberLineDoubleMask(NumberLineDoubleMask maskToCopy) {
         initialize();
-        ranges.putAll(maskToCopy.ranges);
+        ranges.addAll(maskToCopy.ranges);
     }
 
     protected void initialize() {
-        ranges = new TreeMap<>();
+        ranges = new TreeSet<>();
     }
 
     @Override
     public String toString() {
-        return ranges.values().toString();
+        return ranges.toString();
     }
 
     /**
      * Return true if the argument is contained inside this NumberLineDouble.
      */
     public boolean contains(double x) {
-        Map.Entry<Double, RangeDouble> floorEntry = ranges.floorEntry(Double.valueOf(x));
-        RangeDouble range = floorEntry == null ? null : floorEntry.getValue();
+        RangeDouble floorEntry = ranges.floor(new RangeDouble(x, Double.MAX_VALUE));
+        RangeDouble range = floorEntry == null ? null : floorEntry;
         if (range == null)
             return false;
         return range.contains(x);
@@ -61,8 +60,8 @@ public class NumberLineDoubleMask implements Serializable {
      * Return true if the argument is contained inside this NumberLineDoubleMask.
      */
     public boolean contains(double min, double max) {
-        Map.Entry<Double, RangeDouble> floorEntry = ranges.floorEntry(Double.valueOf(min));
-        RangeDouble range = floorEntry == null ? null : floorEntry.getValue();
+        RangeDouble floorEntry = ranges.floor(new RangeDouble(min, Double.MAX_VALUE));
+        RangeDouble range = floorEntry == null ? null : floorEntry;
         if (range == null)
             return false;
         return range.contains(min, max);
@@ -79,13 +78,13 @@ public class NumberLineDoubleMask implements Serializable {
      * Return true if the argument intersects this NumberLine.
      */
     public boolean intersects(double min, double max) {
-        Map.Entry<Double, RangeDouble> floorEntry = ranges.floorEntry(Double.valueOf(min));
+        RangeDouble floorEntry = ranges.floor(new RangeDouble(min, Double.MAX_VALUE));
 
         Iterator<RangeDouble> iter;
         if (floorEntry == null) {
-            iter = ranges.values().iterator();
+            iter = ranges.iterator();
         } else {
-            iter = ranges.tailMap(floorEntry.getKey()).values().iterator();
+            iter = ranges.tailSet(floorEntry).iterator();
         }
         while (iter.hasNext()) {
             RangeDouble range = iter.next();
@@ -107,19 +106,18 @@ public class NumberLineDoubleMask implements Serializable {
         while (repeat) {
             repeat = false;
 
-            Map.Entry<Double, RangeDouble> floorEntry = ranges.floorEntry(Double.valueOf(x1));
-            Map.Entry<Double, RangeDouble> ceilingEntry = ranges.ceilingEntry(Double.valueOf(x2));
+            RangeDouble floorEntry = ranges.floor(new RangeDouble(x1, Double.MAX_VALUE));
+            RangeDouble ceilingEntry = ranges.ceiling(new RangeDouble(x2, Double.MAX_VALUE));
 
-            Iterator<Map.Entry<Double, RangeDouble>> iter;
+            Iterator<RangeDouble> iter;
             if (floorEntry != null) {
-                iter = ranges.tailMap(floorEntry.getKey(), true).entrySet().iterator();
+                iter = ranges.tailSet(floorEntry, true).iterator();
             } else {
-                iter = ranges.entrySet().iterator();
+                iter = ranges.iterator();
             }
 
             while (iter.hasNext()) {
-                Map.Entry<Double, RangeDouble> entry = iter.next();
-                RangeDouble existingRange = entry.getValue();
+                RangeDouble existingRange = iter.next();
                 if (existingRange.contains(x1, x2)) {
                     return returnValue;
                 } else if (existingRange.intersects(x1, x2) ||
@@ -133,12 +131,12 @@ public class NumberLineDoubleMask implements Serializable {
                         x2 = existingRange.max;
                     repeat = true;
                 }
-                if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
+                if (ceilingEntry != null && existingRange == ceilingEntry) {
                     break;
                 }
             }
 
-            ranges.put(x1, new RangeDouble(x1, x2));
+            ranges.add(new RangeDouble(x1, x2));
             return true;
         }
         return returnValue;
@@ -156,7 +154,7 @@ public class NumberLineDoubleMask implements Serializable {
      */
     public boolean add(NumberLineDoubleMask other) {
         boolean returnValue = false;
-        for(RangeDouble range : other.getRanges()) {
+        for(RangeDouble range : other.ranges) {
             if (add(range.min, range.max))
                 returnValue = true;
         }
@@ -177,19 +175,18 @@ public class NumberLineDoubleMask implements Serializable {
         while (repeat) {
             repeat = false;
 
-            Map.Entry<Double, RangeDouble> floorEntry = ranges.floorEntry(Double.valueOf(range.min));
-            Map.Entry<Double, RangeDouble> ceilingEntry = ranges.ceilingEntry(Double.valueOf(range.max));
+            RangeDouble floorEntry = ranges.floor(range);
+            RangeDouble ceilingEntry = ranges.ceiling(new RangeDouble(range.max, Double.MAX_VALUE));
 
-            Iterator<Map.Entry<Double, RangeDouble>> iter;
+            Iterator<RangeDouble> iter;
             if (floorEntry != null) {
-                iter = ranges.tailMap(floorEntry.getKey(), true).entrySet().iterator();
+                iter = ranges.tailSet(floorEntry, true).iterator();
             } else {
-                iter = ranges.entrySet().iterator();
+                iter = ranges.iterator();
             }
 
             while (iter.hasNext()) {
-                Map.Entry<Double, RangeDouble> entry = iter.next();
-                RangeDouble existingRange = entry.getValue();
+                RangeDouble existingRange = iter.next();
                 boolean addLeftEdge = false;
                 boolean addRightEdge = false;
                 try {
@@ -230,14 +227,14 @@ public class NumberLineDoubleMask implements Serializable {
                     }
                 } finally {
                     if (addLeftEdge) {
-                        ranges.put(existingRange.min, new RangeDouble(existingRange.min, range.min));
+                        ranges.add(new RangeDouble(existingRange.min, range.min));
                     }
                     if (addRightEdge) {
-                        ranges.put(range.max, new RangeDouble(range.max, existingRange.max));
+                        ranges.add(new RangeDouble(range.max, existingRange.max));
                     }
                 }
 
-                if (ceilingEntry != null && existingRange == ceilingEntry.getValue()) {
+                if (ceilingEntry != null && existingRange == ceilingEntry) {
                     break;
                 }
             }
@@ -250,7 +247,7 @@ public class NumberLineDoubleMask implements Serializable {
      */
     public boolean subtract(NumberLineDoubleMask other) {
         boolean returnValue = false;
-        for(RangeDouble range : other.getRanges()) {
+        for(RangeDouble range : other.ranges) {
             if (subtract(range.min, range.max))
                 returnValue = true;
         }
@@ -282,10 +279,10 @@ public class NumberLineDoubleMask implements Serializable {
             return true;
         }
 
-        double minA = ranges.firstEntry().getValue().min;
-        double minB = other.ranges.firstEntry().getValue().min;
-        double maxA = ranges.lastEntry().getValue().max;
-        double maxB = other.ranges.lastEntry().getValue().max;
+        double minA = ranges.first().min;
+        double minB = other.ranges.first().min;
+        double maxA = ranges.last().max;
+        double maxB = other.ranges.last().max;
         double min = minA < minB ? minA : minB;
         double max = maxA > maxB ? maxA : maxB;
         NumberLineDoubleMask scratch = new NumberLineDoubleMask();
@@ -302,7 +299,7 @@ public class NumberLineDoubleMask implements Serializable {
     public double getMin() {
         if (ranges.isEmpty())
             throw new EmptyNumberLineMaskException();
-        return ranges.firstEntry().getValue().min;
+        return ranges.first().min;
     }
 
     /**
@@ -314,7 +311,7 @@ public class NumberLineDoubleMask implements Serializable {
     public double getMax() {
         if (ranges.isEmpty())
             throw new EmptyNumberLineMaskException();
-        return ranges.lastEntry().getValue().max;
+        return ranges.last().max;
     }
 
     /**
@@ -325,7 +322,7 @@ public class NumberLineDoubleMask implements Serializable {
     }
 
     /**
-     * Remove all data from this NumberLineMask so {@link #getRanges()} returns an empty array.
+     * Remove all data from this NumberLineDoubleMask so {@link #getRanges()} returns an empty array.
      */
     public void clear() {
         ranges.clear();
@@ -335,14 +332,14 @@ public class NumberLineDoubleMask implements Serializable {
      * Return all the RangeDoubles that make up this mask.
      */
     public RangeDouble[] getRanges() {
-        return ranges.values().toArray(new RangeDouble[0]);
+        return ranges.toArray(new RangeDouble[0]);
     }
 
     @Serial
     private void writeObject(java.io.ObjectOutputStream out)
             throws IOException {
         out.writeInt(0);
-        RangeDouble[] array = ranges.values().toArray(new RangeDouble[0]);
+        RangeDouble[] array = ranges.toArray(new RangeDouble[0]);
         out.writeObject(array);
     }
 
@@ -355,7 +352,7 @@ public class NumberLineDoubleMask implements Serializable {
         if (internalVersion == 0) {
             RangeDouble[] array = (RangeDouble[]) in.readObject();
             for(RangeDouble range : array) {
-                ranges.put( Double.valueOf(range.min), range);
+                ranges.add(range);
             }
         } else {
             throw new IOException("Unsupported internal version: "+internalVersion);
@@ -368,7 +365,7 @@ public class NumberLineDoubleMask implements Serializable {
     public boolean isEqual(RangeDouble range) {
         if (ranges.size() != 1)
             return false;
-        return ranges.entrySet().iterator().next().getValue().equals(range);
+        return ranges.first().equals(range);
     }
 
     @Override
@@ -376,7 +373,24 @@ public class NumberLineDoubleMask implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         NumberLineDoubleMask that = (NumberLineDoubleMask) o;
-        return Objects.equals(ranges, that.ranges);
+
+        // this should be slightly more efficient than calling
+        // ranges.equals(that.ranges), because here we get to
+        // rely on their sorted order:
+
+        if (ranges.size() != that.ranges.size())
+            return false;
+
+        Iterator<RangeDouble> iter1 = ranges.iterator();
+        Iterator<RangeDouble> iter2 = that.ranges.iterator();
+
+        while (iter1.hasNext()) {
+            RangeDouble r1 = iter1.next();
+            RangeDouble r2 = iter2.next();
+            if (r1.min != r2.min || r1.max != r2.max)
+                return false;
+        }
+        return true;
     }
 
     @Override
@@ -393,11 +407,10 @@ public class NumberLineDoubleMask implements Serializable {
 
         Collection<RangeDouble> additions = new ArrayList<>();
 
-        Iterator<Map.Entry<Double, RangeDouble>> iter = ranges.entrySet().iterator();
+        Iterator<RangeDouble> iter = ranges.iterator();
         Double lastXinRange = null;
         while (iter.hasNext()) {
-            Map.Entry<Double, RangeDouble> entry = iter.next();
-            RangeDouble existing = entry.getValue();
+            RangeDouble existing = iter.next();
 
             if (existing.max == x1) {
                 iter.remove();
@@ -450,10 +463,24 @@ public class NumberLineDoubleMask implements Serializable {
         if (uncommitted != null)
             additions.add(uncommitted);
 
-        for(RangeDouble r : additions) {
-            ranges.put(r.min, r);
-        }
+        ranges.addAll(additions);
 
         return returnValue;
+    }
+
+    public boolean contains(NumberLineDoubleMask other) {
+        for(RangeDouble otherRange : other.ranges) {
+            if (!contains(otherRange.min, otherRange.max))
+                return false;
+        }
+        return true;
+    }
+
+    public boolean intersects(NumberLineDoubleMask other) {
+        for(RangeDouble otherRange : other.ranges) {
+            if (intersects(otherRange.min, otherRange.max))
+                return true;
+        }
+        return false;
     }
 }

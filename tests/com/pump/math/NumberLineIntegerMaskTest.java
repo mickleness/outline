@@ -417,4 +417,15 @@ public class NumberLineIntegerMaskTest extends TestCase {
         }
         return returnValue;
     }
+    
+    public void testContains() {
+        NumberLineIntegerMask m1 = new NumberLineIntegerMask();
+        NumberLineIntegerMask m2 = new NumberLineIntegerMask();
+
+        m1.add(2, 4);
+        m2.add(2, 3);
+
+        assertTrue( m1.contains(m2) );
+        assertFalse( m2.contains(m1) );
+    }
 }

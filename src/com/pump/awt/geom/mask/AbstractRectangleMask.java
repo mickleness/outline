@@ -1,13 +1,13 @@
 package com.pump.awt.geom.mask;
 
-import com.pump.awt.geom.ClosedPathIterator;
-import com.pump.awt.geom.MonotonicPathIterator;
+import com.pump.awt.geom.*;
 
 import java.awt.*;
 import java.awt.geom.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
+import java.util.List;
 
 /**
  * This is a composition of rectangles.
@@ -43,19 +43,35 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
         @Override
         public void run() {
             MonotonicPathIterator pi = new MonotonicPathIterator(new ClosedPathIterator(shape.getPathIterator(tx)));
+            RectangleIterator ri = new RectangleIterator(pi);
             double lastX = 0;
             double lastY = 0;
-            double[] coords = new double[6];
+            double[] coords = new double[8];
 
-            while (!pi.isDone()) {
-                int k = pi.currentSegment(coords);
+            while (!ri.isDone()) {
+                int k = ri.currentSegment(coords);
 
                 switch (k) {
-                    case PathIterator.SEG_MOVETO -> {
+                    case RectangleIterator.SEG_RECTANGLE_EARLY_CLOSE:
+                    case RectangleIterator.SEG_RECTANGLE_EARLY_DONE:
+                    case RectangleIterator.SEG_RECTANGLE_FULL_CLOSE:
+                    case RectangleIterator.SEG_RECTANGLE_FULL_NO_CLOSE:
+                    {
+                        double minX = Math.min(Math.min(coords[0], coords[2]), Math.min(coords[4], coords[6]));
+                        double minY = Math.min(Math.min(coords[1], coords[3]), Math.min(coords[5], coords[7]));
+                        double maxX = Math.max(Math.max(coords[0], coords[2]), Math.max(coords[4], coords[6]));
+                        double maxY = Math.max(Math.max(coords[1], coords[3]), Math.max(coords[5], coords[7]));
+                        addUnsortedEdges(minX, maxX, minY, maxY);
+                        lastX = coords[6];
+                        lastY = coords[7];
+                        break;
+                    }
+                    case PathIterator.SEG_MOVETO: {
                         lastX = coords[0];
                         lastY = coords[1];
+                        break;
                     }
-                    case PathIterator.SEG_LINETO -> {
+                    case PathIterator.SEG_LINETO: {
                         {
                             double ax = -lastX + coords[0];
                             double bx = lastX;
@@ -66,39 +82,40 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
                         }
                         lastX = coords[0];
                         lastY = coords[1];
+                        break;
                     }
-                    case PathIterator.SEG_QUADTO -> {
-                        {
-                            double ax = lastX - 2 * coords[0] + coords[2];
-                            double bx = -2 * lastX + 2 * coords[0];
-                            double cx = lastX;
-                            double ay = lastY - 2 * coords[1] + coords[3];
-                            double by = -2 * lastY + 2 * coords[1];
-                            double cy = lastY;
+                    case PathIterator.SEG_QUADTO: {
+                        double ax = lastX - 2 * coords[0] + coords[2];
+                        double bx = -2 * lastX + 2 * coords[0];
+                        double cx = lastX;
+                        double ay = lastY - 2 * coords[1] + coords[3];
+                        double by = -2 * lastY + 2 * coords[1];
+                        double cy = lastY;
 
-                            addQuadSegment(ax, bx, cx, ay, by, cy, 0, 1);
-                        }
+                        addQuadSegment(ax, bx, cx, ay, by, cy, 0, 1);
+
                         lastX = coords[2];
                         lastY = coords[3];
+                        break;
                     }
-                    case PathIterator.SEG_CUBICTO -> {
-                        {
-                            double ax = -lastX + 3 * coords[0] - 3 * coords[2] + coords[4];
-                            double bx = 3 * lastX - 6 * coords[0] + 3 * coords[2];
-                            double cx = -3 * lastX + 3 * coords[0];
-                            double dx = lastX;
-                            double ay = -lastY + 3 * coords[1] - 3 * coords[3] + coords[5];
-                            double by = 3 * lastY - 6 * coords[1] + 3 * coords[3];
-                            double cy = -3 * lastY + 3 * coords[1];
-                            double dy = lastY;
+                    case PathIterator.SEG_CUBICTO: {
+                        double ax = -lastX + 3 * coords[0] - 3 * coords[2] + coords[4];
+                        double bx = 3 * lastX - 6 * coords[0] + 3 * coords[2];
+                        double cx = -3 * lastX + 3 * coords[0];
+                        double dx = lastX;
+                        double ay = -lastY + 3 * coords[1] - 3 * coords[3] + coords[5];
+                        double by = 3 * lastY - 6 * coords[1] + 3 * coords[3];
+                        double cy = -3 * lastY + 3 * coords[1];
+                        double dy = lastY;
 
-                            addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, 0, 1);
-                        }
+                        addCubicSegment(ax, bx, cx, dx, ay, by, cy, dy, 0, 1);
+
                         lastX = coords[4];
                         lastY = coords[5];
+                        break;
                     }
                 }
-                pi.next();
+                ri.next();
             }
         }
 
@@ -200,7 +217,9 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
     public Rectangle getBounds() {
         if (cachedBounds == null)
             cachedBounds = createBounds();
-        return (Rectangle) cachedBounds.clone();
+        if (cachedBounds instanceof Rectangle)
+            return (Rectangle) cachedBounds.clone();
+        return cachedBounds.getBounds();
     }
 
     @Override
@@ -215,7 +234,7 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
 
     @Override
     public boolean contains(Rectangle2D r) {
-        return r.contains(r.getX(), r.getY(), r.getWidth(), r.getHeight());
+        return contains(r.getX(), r.getY(), r.getWidth(), r.getHeight());
     }
 
     /**
@@ -247,77 +266,14 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
     public abstract boolean clip(R rect);
 
     /**
-     * Return true if this mask contains the argument.
-     */
-    public boolean contains(AbstractRectangleMask<R> mask) {
-        Iterator<R> iter = mask.iterator();
-        while(iter.hasNext()) {
-            if (!contains(iter.next()))
-                return false;
-        }
-        return true;
-    }
-
-    /**
-     * Return true if this mask intersects the argument.
-     */
-    public boolean intersects(AbstractRectangleMask<R> mask) {
-        Iterator<R> iter = mask.iterator();
-        while(iter.hasNext()) {
-            if (!intersects(iter.next()))
-                return true;
-        }
-        return false;
-    }
-
-    /**
-     * Add another mask to this mask.
-     *
-     * @return true if this operation changed this mask.
-     */
-    public boolean add(AbstractRectangleMask<R> mask) {
-        suspendAutoCollapseRows();
-        try {
-            Iterator<R> iter = mask.iterator();
-            boolean returnValue = false;
-            while(iter.hasNext()) {
-                R r = iter.next();
-                if (add(r))
-                    returnValue = true;
-            }
-            return returnValue;
-        } finally {
-            resumeAutoCollapseRows();
-        }
-    }
-
-    /**
-     * Subtract another mask from this mask.
-     *
-     * @return true if this operation changed this mask.
-     */
-    public boolean subtract(AbstractRectangleMask<R> mask) {
-        suspendAutoCollapseRows();
-        try {
-            Iterator<R> iter = mask.iterator();
-            boolean returnValue = false;
-            while (iter.hasNext()) {
-                R r = iter.next();
-                if (subtract(r))
-                    returnValue = true;
-            }
-            return returnValue;
-        } finally {
-            resumeAutoCollapseRows();
-        }
-    }
-
-    /**
      * Xor (exclusive or) another mask to this mask.
      *
      * @return true if this operation changed this mask.
      */
     public boolean xor(AbstractRectangleMask<R> mask) {
+        if (mask.isEmpty())
+            return false;
+
         suspendAutoCollapseRows();
         try {
             Iterator<R> iter = mask.iterator();
@@ -422,11 +378,17 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
 
     /**
      * Clip this mask to another mask.
-     * <p>
-     * This is more computationally expensive than {@link #add(AbstractRectangleMask)}
-     * or {@link #subtract(AbstractRectangleMask)}.
+     *
+     * @return true if this operation changed this mask.
      */
-    public void clip(AbstractRectangleMask<R> mask) {
+    public boolean clip(AbstractRectangleMask<R> mask) {
+        if (isEmpty())
+            return false;
+        if (mask.isEmpty()) {
+            clear();
+            return true;
+        }
+
         AbstractRectangleMask<R> src = clone();
 
         clear();
@@ -453,6 +415,7 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
         }
 
         resumeAutoCollapseRows();
+        return true;
     }
 
     public abstract AbstractRectangleMask<R> clone();
