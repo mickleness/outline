@@ -38,7 +38,7 @@ public class OptimizedEngine implements OutlineEngine {
 
         if (operationQueue.size() == 1) {
             OutlineOperation op = operationQueue.get(0);
-           return op.shape;
+            return op.shape;
         }
 
         return delegateEngine.calculate(operationQueue);
@@ -71,24 +71,43 @@ public class OptimizedEngine implements OutlineEngine {
      */
     private void removeOperationsOutsideOfClipping(List<OutlineOperation> operationQueue) {
         ListIterator<OutlineOperation> iter = operationQueue.listIterator();
+
+        // This won't notice when two clip operations are separated by another op.
+        // TODO: instead we should iterate backwards, restricting the clip each time we get
+        // a CLIP operation. Once the clip is empty we can eliminate everything, and in the meantime
+        // we can apply the Clipper class
+
         while (iter.hasNext()) {
             OutlineOperation op = iter.next();
             if (op.type == OutlineOperation.Type.INTERSECT) {
-                int expectedCursor = iter.nextIndex();
                 Rectangle2D clipBounds = ShapeUtils.getBounds2D(op.shape);
-                iter.previous();
-                while (iter.hasPrevious()) {
-                    OutlineOperation op2 = iter.previous();
-                    if (op2.type != OutlineOperation.Type.INTERSECT) {
-                        Rectangle2D opBounds2 = ShapeUtils.getBounds2D(op2.shape);
-                        if (!clipBounds.intersects(opBounds2))
-                            iter.remove();
+
+                if (clipBounds.isEmpty()) {
+                    // everything can be purged. This (an empty clip) could happen when two consecutive but
+                    // non-overlapping clip operations were concatenated
+
+                    iter.remove();
+                    while (iter.hasPrevious()) {
+                        iter.previous();
+                        iter.remove();
+                    }
+                } else {
+                    iter.previous();
+                    while (iter.hasPrevious()) {
+                        OutlineOperation op2 = iter.previous();
+                        if (op2.type != OutlineOperation.Type.INTERSECT) {
+                            Rectangle2D opBounds2 = ShapeUtils.getBounds2D(op2.shape);
+                            if (!clipBounds.intersects(opBounds2))
+                                iter.remove();
+                        }
+                    }
+
+                    // return to our starting point
+                    OutlineOperation z = iter.next();
+                    while (z != op && iter.hasNext()) {
+                        z = iter.next();
                     }
                 }
-
-                // return to our starting point
-                while (iter.nextIndex() != expectedCursor && iter.hasNext())
-                    iter.next();
             }
         }
     }
