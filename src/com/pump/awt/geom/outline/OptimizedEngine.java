@@ -29,16 +29,10 @@ public class OptimizedEngine implements OutlineEngine {
 
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
-        // remove transforms by propogating them across all the ops they affect
+        // remove transforms by propagating them across all the ops they affect
         removeTransforms(operationQueue);
-
-        removeLeadingHiddenOperations(operationQueue);
-
         removeOperationsOutsideOfClipping(operationQueue);
-
-        // run again after pruning ops based on clipping:
         removeLeadingHiddenOperations(operationQueue);
-
         operationQueue = consolidateOperationsWithSameType(operationQueue);
 
         if (operationQueue.size() == 1) {
