@@ -35,11 +35,17 @@ public class Outline implements Shape, Serializable {
     protected Shape shape;
 
     public Outline(OutlineEngine engine) {
-        setEngine(engine);
+        this(engine, null);
     }
 
-    public Outline() {
-        this(getDefaultEngine());
+    public Outline(Shape shape) {
+        this(getDefaultEngine(), shape);
+    }
+
+    public Outline(OutlineEngine engine, Shape shape) {
+        setEngine(engine);
+        if (shape != null)
+            add(shape);
     }
 
     public OutlineEngine getEngine() {
@@ -61,28 +67,35 @@ public class Outline implements Shape, Serializable {
     public void add(Shape shape) {
         Objects.requireNonNull(shape);
         synchronized(this) {
-            operationQueue.add(getEngine().createOperation(OutlineOperation.Type.ADD, shape));
+            operationQueue.add(new OutlineOperation(OutlineOperation.Type.ADD, shape));
         }
     }
 
     public void subtract(Shape shape) {
         Objects.requireNonNull(shape);
         synchronized(this) {
-            operationQueue.add(getEngine().createOperation(OutlineOperation.Type.SUBTRACT, shape));
+            operationQueue.add(new OutlineOperation(OutlineOperation.Type.SUBTRACT, shape));
         }
     }
 
     public synchronized void intersect(Shape shape) {
         Objects.requireNonNull(shape);
         synchronized(this) {
-            operationQueue.add(getEngine().createOperation(OutlineOperation.Type.INTERSECT, shape));
+            operationQueue.add(new OutlineOperation(OutlineOperation.Type.INTERSECT, shape));
         }
     }
 
     public synchronized void exclusiveOr(Shape shape) {
         Objects.requireNonNull(shape);
         synchronized(this) {
-            operationQueue.add(getEngine().createOperation(OutlineOperation.Type.XOR, shape));
+            operationQueue.add(new OutlineOperation(OutlineOperation.Type.XOR, shape));
+        }
+    }
+
+    public synchronized void transform(AffineTransform transform) {
+        Objects.requireNonNull(transform);
+        synchronized(this) {
+            operationQueue.add(new OutlineOperation(transform));
         }
     }
 
@@ -105,7 +118,7 @@ public class Outline implements Shape, Serializable {
             if (shape instanceof Area && ((Area)shape).isEmpty()) {
                 // intentionally empty
             } else {
-                OutlineOperation initOp = getEngine().createOperation(OutlineOperation.Type.ADD, shape);
+                OutlineOperation initOp = new OutlineOperation(OutlineOperation.Type.ADD, shape);
                 operationQueue.add(0, initOp);
             }
         }

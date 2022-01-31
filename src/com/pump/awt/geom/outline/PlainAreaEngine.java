@@ -34,16 +34,14 @@ public class PlainAreaEngine implements OutlineEngine {
                     rhs = new Area(operation.shape);
                     area.intersect(rhs);
                     break;
+                case TRANSFORM:
+                    area.transform(operation.transform);
+                    break;
             }
         }
         if (area.isEmpty())
             return null;
         return area;
-    }
-
-    @Override
-    public OutlineOperation createOperation(OutlineOperation.Type type, Shape shape) {
-        return new OutlineOperation(type, shape);
     }
 
     @Override

@@ -10,6 +10,4 @@ public interface OutlineEngine {
      * @return this may be null if there is no shape data
      */
     Shape calculate(List<OutlineOperation> operationQueue);
-
-    OutlineOperation createOperation(OutlineOperation.Type type, Shape shape);
 }

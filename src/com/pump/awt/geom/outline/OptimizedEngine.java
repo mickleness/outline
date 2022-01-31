@@ -4,6 +4,7 @@ import com.pump.awt.geom.AddingShape;
 import com.pump.awt.geom.ShapeUtils;
 
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
 import java.util.*;
 import java.util.List;
@@ -26,13 +27,57 @@ public class OptimizedEngine implements OutlineEngine {
 
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
+        removeTransforms(operationQueue);
         operationQueue = consolidate(operationQueue);
 
         if (operationQueue.size() == 1) {
-            return operationQueue.get(0).shape;
+            OutlineOperation op = operationQueue.get(0);
+            if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.XOR)
+               return op.shape;
         }
 
         return delegateEngine.calculate(operationQueue);
+    }
+
+    /**
+     * This identifies all Operation.Type.TRANSFORM operations and modifies
+     * preceding shape-based operations. This also removes TRANSFORM operations.
+     * So after this method is run: the queue will not contain any TRANSFORM
+     * operations, and some shape-based operations in the queue may be replaced.
+     */
+    public void removeTransforms(List<OutlineOperation> operationQueue) {
+        ListIterator<OutlineOperation> iter = operationQueue.listIterator();
+        AffineTransform currentTx = null;
+        while (iter.hasNext()) {
+            OutlineOperation op = iter.next();
+            if (op.type == OutlineOperation.Type.TRANSFORM) {
+                if (currentTx == null) {
+                    currentTx = new AffineTransform(op.transform);
+                } else {
+                    currentTx.preConcatenate(op.transform);
+                }
+                iter.remove();
+            } else if (currentTx != null) {
+                if (!currentTx.isIdentity()) {
+                    iter.previous();
+                    while (iter.hasPrevious()) {
+                        OutlineOperation op2 = iter.previous();
+                        iter.set(new OutlineOperation(op2.type, currentTx.createTransformedShape(op2.shape)));
+                    }
+                }
+                currentTx = null;
+            }
+        }
+
+        if (currentTx != null) {
+            if (!currentTx.isIdentity()) {
+                while (iter.hasPrevious()) {
+                    OutlineOperation op2 = iter.previous();
+                    iter.set(new OutlineOperation(op2.type, currentTx.createTransformedShape(op2.shape)));
+                }
+            }
+            currentTx = null;
+        }
     }
 
     /**
@@ -51,13 +96,13 @@ public class OptimizedEngine implements OutlineEngine {
             } else {
                 if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.SUBTRACT) {
                     Shape newShape = add(lastOp.shape, op.shape);
-                    lastOp = createOperation(op.type, newShape);
+                    lastOp = new OutlineOperation(op.type, newShape);
                 } else if (op.type == OutlineOperation.Type.INTERSECT) {
                     Shape newShape = intersect(lastOp.shape, op.shape);
-                    lastOp = createOperation(OutlineOperation.Type.INTERSECT, newShape);
+                    lastOp = new OutlineOperation(OutlineOperation.Type.INTERSECT, newShape);
                 } else if (op.type == OutlineOperation.Type.XOR) {
                     Shape newShape = xor(lastOp.shape, op.shape);
-                    lastOp = createOperation(OutlineOperation.Type.XOR, newShape);
+                    lastOp = new OutlineOperation(OutlineOperation.Type.XOR, newShape);
                 } else {
                     // this shouldn't be possible, but in case something changes:
                     newQueue.add(lastOp);
@@ -112,11 +157,6 @@ public class OptimizedEngine implements OutlineEngine {
         Area area2 = new Area(shape2);
         area1.exclusiveOr(area2);
         return area1;
-    }
-
-    @Override
-    public OutlineOperation createOperation(OutlineOperation.Type type, Shape shape) {
-        return delegateEngine.createOperation(type, shape);
     }
 
     @Override

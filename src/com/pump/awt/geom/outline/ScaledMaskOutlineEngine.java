@@ -37,6 +37,7 @@ public class ScaledMaskOutlineEngine implements OutlineEngine {
 
     @Override
     public Shape calculate(List<OutlineOperation> operations) {
+        new OptimizedEngine().removeTransforms(operations);
         RectangleMask returnValue = new RectangleMask();
         for(OutlineOperation op : operations) {
             RectangleMask operand;
@@ -68,11 +69,6 @@ public class ScaledMaskOutlineEngine implements OutlineEngine {
             }
         }
         return new ScaledShape(returnValue, scaleDown);
-    }
-
-    @Override
-    public OutlineOperation createOperation(OutlineOperation.Type type, Shape shape) {
-        return new OutlineOperation(type, shape);
     }
 
     @Override
