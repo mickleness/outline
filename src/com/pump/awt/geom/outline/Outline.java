@@ -30,6 +30,8 @@ public class Outline implements Shape, Serializable {
     }
 
     protected transient OutlineEngine engine;
+
+    // the queue should be a LinkedList because the OutlineEngine may alter it a lot
     protected transient List<OutlineOperation> operationQueue = new LinkedList<>();
 
     protected Shape shape;

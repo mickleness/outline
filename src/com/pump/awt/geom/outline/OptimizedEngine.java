@@ -6,6 +6,7 @@ import com.pump.awt.geom.ShapeUtils;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
+import java.awt.geom.Rectangle2D;
 import java.util.*;
 import java.util.List;
 
@@ -28,15 +29,68 @@ public class OptimizedEngine implements OutlineEngine {
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
         removeTransforms(operationQueue);
-        operationQueue = consolidate(operationQueue);
+        removeLeadingHiddenOperations(operationQueue);
+        operationQueue = consolidateOperationsWithSameType(operationQueue);
+
+        removeOperationsOutsideOfClipping(operationQueue);
+        // call again after removeOperationsOutsideOfClipping
+        removeLeadingHiddenOperations(operationQueue);
 
         if (operationQueue.size() == 1) {
             OutlineOperation op = operationQueue.get(0);
-            if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.XOR)
-               return op.shape;
+           return op.shape;
         }
 
         return delegateEngine.calculate(operationQueue);
+    }
+
+    /**
+     * Remove all operations at the head of the queue that are hidden. For ex: if a queue
+     * contains operations that resemble: SUBTRACT, TRANSFORM, ADD (in that order), then the
+     * first two operations are null-ops because there is nothing visual to subtract or transform
+     * until the ADD comes along.
+     */
+    private void removeLeadingHiddenOperations(List<OutlineOperation> operationQueue) {
+        Iterator<OutlineOperation> iter = operationQueue.iterator();
+        int firstVisibleOp = 0;
+        while (iter.hasNext()) {
+            OutlineOperation op = iter.next();
+            if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.XOR) {
+                return;
+            }
+            iter.remove();
+        }
+    }
+
+    /**
+     * This removes operations if their bounds fall completely outside of a future clipping operation.
+     *
+     * This should be called after we consolidate operations of the same type, and remove transforms.
+     *
+     * @param operationQueue
+     */
+    private void removeOperationsOutsideOfClipping(List<OutlineOperation> operationQueue) {
+        ListIterator<OutlineOperation> iter = operationQueue.listIterator();
+        while (iter.hasNext()) {
+            OutlineOperation op = iter.next();
+            if (op.type == OutlineOperation.Type.INTERSECT) {
+                int expectedCursor = iter.nextIndex();
+                Rectangle2D clipBounds = ShapeUtils.getBounds2D(op.shape);
+                iter.previous();
+                while (iter.hasPrevious()) {
+                    OutlineOperation op2 = iter.previous();
+                    if (op2.type != OutlineOperation.Type.INTERSECT) {
+                        Rectangle2D opBounds2 = ShapeUtils.getBounds2D(op2.shape);
+                        if (!clipBounds.intersects(opBounds2))
+                            iter.remove();
+                    }
+                }
+
+                // return to our starting point
+                while (iter.nextIndex() != expectedCursor && iter.hasNext())
+                    iter.next();
+            }
+        }
     }
 
     /**
@@ -83,8 +137,11 @@ public class OptimizedEngine implements OutlineEngine {
     /**
      * Consolidate all consecutive operations of the same type. For example: 5 consecutive add operations
      * can be consolidated into 1 add operation. 5 clip operations can become 1 clip, etc.
+     *
+     * TODO: modify the incoming list if possible; avoid returning a new list here. Just for consistency with other
+     * methods in this class.
      */
-    private List<OutlineOperation> consolidate(List<OutlineOperation> operationQueue) {
+    private List<OutlineOperation> consolidateOperationsWithSameType(List<OutlineOperation> operationQueue) {
         List<OutlineOperation> newQueue = new ArrayList<>(operationQueue.size());
 
         OutlineOperation lastOp = null;
@@ -134,6 +191,12 @@ public class OptimizedEngine implements OutlineEngine {
         boolean empty2 = ShapeUtils.isEmpty(shape2);
 
         if (empty1 || empty2)
+            return new Area();
+
+        Rectangle2D r1 = ShapeUtils.getBounds2D(shape1);
+        Rectangle2D r2 = ShapeUtils.getBounds2D(shape2);
+
+        if (!r1.intersects(r2))
             return new Area();
 
         Area area1 = new Area(shape1);
