@@ -2,6 +2,7 @@ package com.pump.awt.geom.outline;
 
 import com.pump.awt.geom.AddingShape;
 import com.pump.awt.geom.ShapeUtils;
+import com.pump.util.ListUtils;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -28,13 +29,17 @@ public class OptimizedEngine implements OutlineEngine {
 
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
+        // remove transforms by propogating them across all the ops they affect
         removeTransforms(operationQueue);
+
         removeLeadingHiddenOperations(operationQueue);
-        operationQueue = consolidateOperationsWithSameType(operationQueue);
 
         removeOperationsOutsideOfClipping(operationQueue);
-        // call again after removeOperationsOutsideOfClipping
+
+        // run again after pruning ops based on clipping:
         removeLeadingHiddenOperations(operationQueue);
+
+        operationQueue = consolidateOperationsWithSameType(operationQueue);
 
         if (operationQueue.size() == 1) {
             OutlineOperation op = operationQueue.get(0);
@@ -64,49 +69,36 @@ public class OptimizedEngine implements OutlineEngine {
 
     /**
      * This removes operations if their bounds fall completely outside of a future clipping operation.
-     *
-     * This should be called after we consolidate operations of the same type, and remove transforms.
+     * This should be called after we remove transforms.
      *
      * @param operationQueue
      */
     private void removeOperationsOutsideOfClipping(List<OutlineOperation> operationQueue) {
-        ListIterator<OutlineOperation> iter = operationQueue.listIterator();
+        Iterator<OutlineOperation> listIter = ListUtils.descendingIterator(operationQueue);
+        Rectangle2D clippingBounds = null;
+        while (listIter.hasNext()) {
+            OutlineOperation op = listIter.next();
+            Rectangle2D bounds = ShapeUtils.getBounds2D(op.shape);
 
-        // This won't notice when two clip operations are separated by another op.
-        // TODO: instead we should iterate backwards, restricting the clip each time we get
-        // a CLIP operation. Once the clip is empty we can eliminate everything, and in the meantime
-        // we can apply the Clipper class
-
-        while (iter.hasNext()) {
-            OutlineOperation op = iter.next();
             if (op.type == OutlineOperation.Type.INTERSECT) {
-                Rectangle2D clipBounds = ShapeUtils.getBounds2D(op.shape);
-
-                if (clipBounds.isEmpty()) {
-                    // everything can be purged. This (an empty clip) could happen when two consecutive but
-                    // non-overlapping clip operations were concatenated
-
-                    iter.remove();
-                    while (iter.hasPrevious()) {
-                        iter.previous();
-                        iter.remove();
-                    }
+                if (clippingBounds == null) {
+                    clippingBounds = bounds;
                 } else {
-                    iter.previous();
-                    while (iter.hasPrevious()) {
-                        OutlineOperation op2 = iter.previous();
-                        if (op2.type != OutlineOperation.Type.INTERSECT) {
-                            Rectangle2D opBounds2 = ShapeUtils.getBounds2D(op2.shape);
-                            if (!clipBounds.intersects(opBounds2))
-                                iter.remove();
-                        }
-                    }
+                    Rectangle2D.intersect(clippingBounds, bounds, clippingBounds);
+                }
 
-                    // return to our starting point
-                    OutlineOperation z = iter.next();
-                    while (z != op && iter.hasNext()) {
-                        z = iter.next();
+                if (clippingBounds.isEmpty()) {
+                    // nothing else is showing:
+                    listIter.remove();
+                    while (listIter.hasNext()) {
+                        listIter.next();
+                        listIter.remove();
                     }
+                    return;
+                }
+            } else {
+                if (clippingBounds != null && !bounds.intersects(clippingBounds)) {
+                    listIter.remove();
                 }
             }
         }
