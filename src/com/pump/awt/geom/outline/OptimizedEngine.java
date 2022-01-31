@@ -32,7 +32,7 @@ public class OptimizedEngine implements OutlineEngine {
         // remove transforms by propagating them across all the ops they affect
         removeTransforms(operationQueue);
         removeOperationsOutsideOfClipping(operationQueue);
-        removeLeadingHiddenOperations(operationQueue);
+        removeSubtractionsAndReplaceXors(operationQueue);
         operationQueue = consolidateOperationsWithSameType(operationQueue);
 
         if (operationQueue.size() == 1) {
@@ -44,28 +44,55 @@ public class OptimizedEngine implements OutlineEngine {
     }
 
     /**
-     * Remove all operations at the head of the queue that are hidden. For ex: if a queue
-     * contains operations that resemble: SUBTRACT, TRANSFORM, ADD (in that order), then the
-     * first two operations are null-ops because there is nothing visual to subtract or transform
-     * until the ADD comes along.
+     * This iterates forward through the queue and does two things:
+     * 1. If a subtraction op doesn't intersect the existing bounds, then that op is removed.
+     * 2. If an xor op doesn't intersect the existing bounds, then it is converted to an add op.
+     *
+     * This uses rectangles to approximate intersection, so it's possible this scan will mess
+     * some subtraction/xor ops that should (to a human eye) be removed or converted.
      */
-    private void removeLeadingHiddenOperations(List<OutlineOperation> operationQueue) {
-        Iterator<OutlineOperation> iter = operationQueue.iterator();
-        int firstVisibleOp = 0;
+    private void removeSubtractionsAndReplaceXors(List<OutlineOperation> operationQueue) {
+        ListIterator<OutlineOperation> iter = operationQueue.listIterator();
+        Rectangle2D totalBounds = null;
         while (iter.hasNext()) {
             OutlineOperation op = iter.next();
-            if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.XOR) {
-                return;
+            Rectangle2D opBounds = ShapeUtils.getBounds2D(op.shape);
+
+            if (op.type == OutlineOperation.Type.XOR) {
+                if (totalBounds == null || !totalBounds.intersects(opBounds)) {
+                    op = new OutlineOperation(OutlineOperation.Type.ADD, op.shape);
+                    iter.set(op);
+                }
             }
-            iter.remove();
+
+            switch (op.type) {
+                case SUBTRACT:
+                    if (totalBounds == null || !totalBounds.intersects(opBounds))
+                        iter.remove();
+                    break;
+                case INTERSECT:
+                    if (totalBounds == null) {
+                        iter.remove();
+                    } else {
+                        Rectangle2D.intersect(totalBounds, opBounds, totalBounds);
+                        if (totalBounds.isEmpty())
+                            totalBounds = null;
+                    }
+                    break;
+                default:
+                    if (totalBounds == null) {
+                        totalBounds = opBounds;
+                    } else {
+                        totalBounds.add(opBounds);
+                    }
+                    break;
+            }
         }
     }
 
     /**
      * This removes operations if their bounds fall completely outside of a future clipping operation.
      * This should be called after we remove transforms.
-     *
-     * @param operationQueue
      */
     private void removeOperationsOutsideOfClipping(List<OutlineOperation> operationQueue) {
         Iterator<OutlineOperation> listIter = ListUtils.descendingIterator(operationQueue);
@@ -135,7 +162,6 @@ public class OptimizedEngine implements OutlineEngine {
                     iter.set(new OutlineOperation(op2.type, currentTx.createTransformedShape(op2.shape)));
                 }
             }
-            currentTx = null;
         }
     }
 
@@ -184,6 +210,9 @@ public class OptimizedEngine implements OutlineEngine {
         if (shape1 instanceof AddingShape) {
             baseShape = (AddingShape) shape1;
         } else {
+            // TODO: should we pass our delegate engine into AddingShape's constructor?
+            // AddingShape currently creates Areas, which is really what the delegate engine should
+            // decide to do or not. (Someday an alt engine might use a different class.)
             baseShape = new AddingShape(shape1);
         }
         baseShape.addSafely(shape2);
@@ -204,22 +233,26 @@ public class OptimizedEngine implements OutlineEngine {
         if (!r1.intersects(r2))
             return new Area();
 
+        // TODO: use delegateEngine to decide whether to use Areas or not, use Clipper for rects
+
         Area area1 = new Area(shape1);
         Area area2 = new Area(shape2);
         area1.intersect(area2);
         return area1;
     }
 
-    private Area xor(Shape shape1, Shape shape2) {
+    private Shape xor(Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
         boolean empty2 = ShapeUtils.isEmpty(shape2);
 
         if (empty1 && empty2)
             return new Area();
         if (empty1)
-            return new Area(shape2);
+            return shape2;
         if (empty2)
-            return new Area(shape1);
+            return shape1;
+
+        // TODO: use delegateEngine to decide whether to use Areas or not
 
         Area area1 = new Area(shape1);
         Area area2 = new Area(shape2);
