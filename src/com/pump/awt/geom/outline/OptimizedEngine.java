@@ -2,6 +2,8 @@ package com.pump.awt.geom.outline;
 
 import com.pump.awt.geom.AddingShape;
 import com.pump.awt.geom.ShapeUtils;
+import com.pump.awt.geom.clip.RectangularClipper;
+import com.pump.awt.geom.clip.RectangularClipperFactory;
 import com.pump.util.ListUtils;
 
 import java.awt.*;
@@ -29,10 +31,14 @@ public class OptimizedEngine implements OutlineEngine {
 
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
-        // remove transforms by propagating them across all the ops they affect
+        // remove transforms by propagating them across all the ops they affected
         removeTransforms(operationQueue);
         removeOperationsOutsideOfClipping(operationQueue);
         removeSubtractionsAndReplaceXors(operationQueue);
+
+        removeRectangularClipping(operationQueue);
+        // removeNonRectangularClipping(operationQueue);
+
         operationQueue = consolidateOperationsWithSameType(operationQueue);
 
         if (operationQueue.size() == 1) {
@@ -41,6 +47,43 @@ public class OptimizedEngine implements OutlineEngine {
         }
 
         return delegateEngine.calculate(operationQueue);
+    }
+
+    private void removeRectangularClipping(List<OutlineOperation> operationQueue) {
+        ListIterator<OutlineOperation> iter = operationQueue.listIterator(operationQueue.size());
+        Rectangle2D clipBounds = null;
+        while (iter.hasPrevious()) {
+            OutlineOperation op = iter.previous();
+            if (op.type == OutlineOperation.Type.INTERSECT) {
+                Rectangle2D opBounds = ShapeUtils.getBounds2D(op.shape);
+                Rectangle2D opAsRect = ShapeUtils.toRectangle2D(op.shape.getPathIterator(null));
+                if (opAsRect != null) {
+                    iter.remove();
+                }
+
+                if (clipBounds == null) {
+                    clipBounds = opBounds;
+                } else {
+                    Rectangle2D.intersect(clipBounds, opBounds, clipBounds);
+                }
+
+                if (clipBounds.isEmpty()) {
+                    // we should have previously identified this condition in another method, but just in case
+                    // it's trivial to address here too:
+                    while (iter.hasPrevious()) {
+                        iter.previous();
+                        iter.remove();
+                    }
+                    return;
+                }
+            } else {
+                if (clipBounds != null) {
+                    Shape clippedShape = RectangularClipperFactory.get().createClipper().clip(op.shape, null, clipBounds);
+                    OutlineOperation newOp = new OutlineOperation(op.type, clippedShape);
+                    iter.set(newOp);
+                }
+            }
+        }
     }
 
     /**
