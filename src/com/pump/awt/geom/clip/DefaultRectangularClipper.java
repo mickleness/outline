@@ -36,15 +36,10 @@ public class DefaultRectangularClipper implements RectangularClipper {
      * A function used to describe one of the 2 parametric equations for a
      * segment of a path. This can be thought of is <code>x = f(t)</code>.
      */
-    static abstract class Function {
-
-        /**
-         * The value when t = 1
-         */
-        double endX;
+    interface Function {
 
         /** evaluates this function at a given value */
-        abstract double evaluate(double t);
+        double evaluate(double t);
 
         /**
          * Calculates all the t-values between (0,1) which will yield the result "f" in this
@@ -58,13 +53,13 @@ public class DefaultRectangularClipper implements RectangularClipper {
          *            the offset at which data will be added to the array
          * @return the number of solutions found.
          */
-        abstract int evaluateInverse(double f, double[] dest, int destOffset);
+        int evaluateInverse(double f, double[] dest, int destOffset);
 
         /** Return the derivative (df/dt) for a given value of t */
-        abstract double getDerivative(double t);
+        double getDerivative(double t);
     }
 
-    static class LinearFunction extends Function {
+    static class LinearFunction implements Function {
         double slope, intercept;
 
         /**
@@ -78,7 +73,6 @@ public class DefaultRectangularClipper implements RectangularClipper {
         public void define(double x1, double x2) {
             slope = (x2 - x1);
             intercept = x1;
-            endX = x2;
         }
 
         @Override
@@ -107,7 +101,7 @@ public class DefaultRectangularClipper implements RectangularClipper {
         }
     }
 
-    static class QuadraticFunction extends Function {
+    static class QuadraticFunction implements Function {
         double a, b, c;
 
         @Override
@@ -122,7 +116,6 @@ public class DefaultRectangularClipper implements RectangularClipper {
             a = x0 - 2.0 * x1 + x2;
             b = -2.0 * x0 + 2.0 * x1;
             c = x0;
-            endX = x2;
         }
 
         @Override
@@ -169,7 +162,7 @@ public class DefaultRectangularClipper implements RectangularClipper {
         }
     }
 
-    static class CubicFunction extends Function {
+    static class CubicFunction implements Function {
         double a, b, c, d;
 
         @Override
@@ -182,7 +175,6 @@ public class DefaultRectangularClipper implements RectangularClipper {
             b = 3.0 * x0 - 6.0 * x1 + 3.0 * x2;
             c = -3.0 * x0 + 3.0 * x1;
             d = x0;
-            endX = x3;
         }
 
         @Override
@@ -245,15 +237,24 @@ public class DefaultRectangularClipper implements RectangularClipper {
             return (x >= rLeft && x <= rRight && y >= rTop && y <= rBottom);
         }
 
-        void cap(Point2D.Double p) {
-            if (p.x < rLeft)
+        boolean cap(Point2D.Double p) {
+            boolean returnValue = false;
+            if (p.x < rLeft) {
                 p.x = rLeft;
-            if (p.x > rRight)
+                returnValue = true;
+            } else if (p.x > rRight) {
                 p.x = rRight;
-            if (p.y < rTop)
+                returnValue = true;
+            }
+
+            if (p.y < rTop) {
                 p.y = rTop;
-            if (p.y > rBottom)
+                returnValue = true;
+            } else if (p.y > rBottom) {
                 p.y = rBottom;
+                returnValue = true;
+            }
+            return returnValue;
         }
 
         int collectIntersectionTimes(Function xf, Function yf,
@@ -295,7 +296,7 @@ public class DefaultRectangularClipper implements RectangularClipper {
                 k = i.currentSegment(f);
                 if (k == PathIterator.SEG_MOVETO) {
                     point.setLocation(f[0], f[1]);
-                    cap(point);
+                    lastValueWasCapped = cap(point);
 
                     p.moveTo(point.x, point.y);
 
@@ -312,18 +313,27 @@ public class DefaultRectangularClipper implements RectangularClipper {
 
                         xf = lxf;
                         yf = lyf;
+
+                        lastX = f[0];
+                        lastY = f[1];
                     } else if (k == PathIterator.SEG_QUADTO) {
                         qxf.define(lastX, f[0], f[2]);
                         qyf.define(lastY, f[1], f[3]);
 
                         xf = qxf;
                         yf = qyf;
+
+                        lastX = f[2];
+                        lastY = f[3];
                     } else if (k == PathIterator.SEG_CUBICTO) {
                         cxf.define(lastX, f[0], f[2], f[4]);
                         cyf.define(lastY, f[1], f[3], f[5]);
 
                         xf = cxf;
                         yf = cyf;
+
+                        lastX = f[4];
+                        lastY = f[5];
                     } else {
                         throw new IllegalStateException("currentSegment = "+k);
                     }
@@ -342,43 +352,37 @@ public class DefaultRectangularClipper implements RectangularClipper {
 
                     for (int a = 0; a < tCtr; a++) {
                         double currentT = intersectionTimes[a];
-                        if (currentT != prevT) {
-                            // this is the magic: take 2 t values and see what we
-                            // need to
-                            // do with them.
-                            // Remember we can make redundant horizontal/vertical
-                            // lines
-                            // all we want to because the ClippedPath will clean up
-                            // the mess.
-                            x = xf.evaluate(currentT);
-                            y = yf.evaluate(currentT);
-                            point.setLocation(x, y);
-                            cap(point);
-
-                            thisValueIsCapped = !(Math.abs(x - point.x) < TOLERANCE
-                                    && Math.abs(y - point.y) < TOLERANCE);
-
-                            double midT = (currentT + prevT) / 2.0;
-                            x2 = xf.evaluate(midT);
-                            y2 = yf.evaluate(midT);
-                            midValueInvalid = !contains(x2, y2);
-
-                            if ((xf instanceof LinearFunction) || thisValueIsCapped
-                                    || lastValueWasCapped || midValueInvalid) {
-                                p.lineTo(point.x, point.y);
-                            } else if ((xf instanceof QuadraticFunction)
-                                    || (xf instanceof CubicFunction)) {
-                                p.curveTo(xf, yf, prevT, currentT);
-                            } else {
-                                throw new RuntimeException("Unexpected condition.");
-                            }
-
-                            lastValueWasCapped = thisValueIsCapped;
+                        if (prevT == currentT) {
+                            // this is a harmless condition that could happen if both the x & y functions
+                            // identified the same interesting times.
+                            continue;
                         }
+
+                        // this is the magic: take 2 t values and see what we
+                        // need to do with them.
+                        // Remember we can make redundant horizontal/vertical
+                        // lines all we want to because the ClippedPath will clean up
+                        // the redundant info.
+                        x = xf.evaluate(currentT);
+                        y = yf.evaluate(currentT);
+                        point.setLocation(x, y);
+                        thisValueIsCapped = cap(point);
+
+                        double midT = (currentT + prevT) / 2.0;
+                        x2 = xf.evaluate(midT);
+                        y2 = yf.evaluate(midT);
+                        midValueInvalid = !contains(x2, y2);
+
+                        if ((xf instanceof LinearFunction) || thisValueIsCapped
+                                || lastValueWasCapped || midValueInvalid) {
+                            p.lineTo(point.x, point.y);
+                        } else {
+                            p.curveTo(xf, yf, prevT, currentT);
+                        }
+
+                        lastValueWasCapped = thisValueIsCapped;
                         prevT = currentT;
                     }
-                    lastX = xf.endX;
-                    lastY = yf.endX;
                 }
 
                 i.next();
