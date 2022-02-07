@@ -18,7 +18,7 @@ import java.util.List;
  */
 public class PolynomialFunction {
 
-	double[] coeffs;
+	protected final double[] coeffs;
 
 	/**
 	 * Create a new <code>PolynomialFunction</code>.
@@ -98,20 +98,20 @@ public class PolynomialFunction {
 			double x = (y - coeffs[1]) / coeffs[0];
 			return new double[] { x };
 		}
-		PolynomialFunction f = this;
 		if (y != 0) {
 			double[] newCoeffs = new double[coeffs.length];
 			System.arraycopy(coeffs, 0, newCoeffs, 0, coeffs.length);
 			newCoeffs[newCoeffs.length - 1] -= y;
-			f = new PolynomialFunction(newCoeffs);
+			PolynomialFunction f = new PolynomialFunction(newCoeffs);
+			return f.evaluateInverse(0);
 		}
 
-		PolynomialFunction derivative = f.getDerivative();
+		PolynomialFunction derivative = getDerivative();
 
 		double[] extrema = derivative.solve();
 		double[] extremaYs = new double[extrema.length];
 		for (int a = 0; a < extrema.length; a++) {
-			extremaYs[a] = f.evaluate(extrema[a]);
+			extremaYs[a] = evaluate(extrema[a]);
 		}
 
 		double[] interest = new double[extrema.length + 2];
@@ -121,42 +121,38 @@ public class PolynomialFunction {
 		System.arraycopy(extremaYs, 0, interestYs, 1, extremaYs.length);
 
 		// seek the first interesting time:
-		boolean seekPos;
+		boolean seekPositive;
 		if (coeffs.length % 2 == 0) {
 			// an odd-degree polynomial
 			if (coeffs[0] < 0) {
 				// with a negative leading coefficient
 
 				// f(-infinity) = +infinity && f(+infinity) = -infinity
-				seekPos = true;
+				seekPositive = true;
 			} else {
-				seekPos = false;
+				seekPositive = false;
 			}
 		} else {
 			// an even-degree polynomial
 			if (coeffs[0] < 0) {
-				seekPos = false;
+				seekPositive = false;
 			} else {
-				seekPos = true;
+				seekPositive = true;
 			}
 		}
 
 		double initialValue = extrema.length == 0 ? 0 : extrema[0];
 		identifyBoundary: for (int power = 1; power < 30; power++) {
 			double x = initialValue - Math.pow(10, power);
-			double v = f.evaluate(x);
-			if (seekPos) {
-				if (v > 0) {
-					interest[0] = x;
-					interestYs[0] = v;
-					break identifyBoundary;
-				}
-			} else { // we seek negative
-				if (v < 0) {
-					interest[0] = x;
-					interestYs[0] = v;
-					break identifyBoundary;
-				}
+			double v = evaluate(x);
+			if (seekPositive && v > 0) {
+				interest[0] = x;
+				interestYs[0] = v;
+				break identifyBoundary;
+			} else if (!seekPositive && v < 0) {
+				interest[0] = x;
+				interestYs[0] = v;
+				break identifyBoundary;
 			}
 		}
 
@@ -164,7 +160,7 @@ public class PolynomialFunction {
 
 		if (coeffs.length % 2 == 0) {
 			// an odd-degree polynomial
-			seekPos = !seekPos;
+			seekPositive = !seekPositive;
 		} else {
 			// leave seekPos as-is
 		}
@@ -172,19 +168,15 @@ public class PolynomialFunction {
 		initialValue = extrema.length == 0 ? 0 : extrema[extrema.length - 1];
 		identifyBoundary: for (int power = 1; power < 30; power++) {
 			double x = initialValue + Math.pow(10, power);
-			double v = f.evaluate(x);
-			if (seekPos) {
-				if (v > 0) {
-					interest[interest.length - 1] = x;
-					interestYs[interest.length - 1] = v;
-					break identifyBoundary;
-				}
-			} else { // we seek negative
-				if (v < 0) {
-					interest[interest.length - 1] = x;
-					interestYs[interest.length - 1] = v;
-					break identifyBoundary;
-				}
+			double v = evaluate(x);
+			if (seekPositive && v > 0) {
+				interest[interest.length - 1] = x;
+				interestYs[interest.length - 1] = v;
+				break identifyBoundary;
+			} else if (!seekPositive && v < 0) {
+				interest[interest.length - 1] = x;
+				interestYs[interest.length - 1] = v;
+				break identifyBoundary;
 			}
 		}
 
@@ -194,8 +186,13 @@ public class PolynomialFunction {
 			double y1 = interestYs[a];
 			double y2 = interestYs[a + 1];
 			if ((y1 > 0 && y2 < 0) || (y1 < 0 && y2 > 0)) {
-				applyNewtonsMethod(f, derivative, interest[a], interest[a + 1],
-						solutions);
+				Double solution = refineNewtonsMethod(this, derivative, interest[a], interest[a + 1]);
+				if (solution != null) {
+					solutions.add(solution);
+				} else {
+					double solution2 = refineBinarySearch(this, interest[a], y1, interest[a + 1], y2);
+					solutions.add(solution2);
+				}
 			} else if (y1 == 0) {
 				solutions.add(interest[a]);
 			}
@@ -208,36 +205,77 @@ public class PolynomialFunction {
 		return returnArray;
 	}
 
-	private static void applyNewtonsMethod(PolynomialFunction function,
-			PolynomialFunction derivative, double min, double max,
-			List<Double> solutions) {
+	private static Double refineNewtonsMethod(PolynomialFunction function,
+			PolynomialFunction derivative, double minX, double maxX) {
 
-		double dt;
-		double t = (max + min) / 2;
+		double dx;
+		double x = (maxX + minX) / 2;
 
 		int k = 0;
 
 		while (k < 300) { // sometimes .00000000001 is too strict; 300
 							// iterations may be our best shot
-			dt = derivative.evaluate(t);
-			if (dt == 0) {
+			dx = derivative.evaluate(x);
+			if (dx == 0) {
 				k = 300; // abort!
 			} else {
-				double newT = t - function.evaluate(t) / dt;
+				double newX = x - function.evaluate(x) / dx;
 
-				double delta = t - newT;
+				double delta = x - newX;
 				if (delta < 0)
 					delta = -delta;
 				if (delta <= .00000000001) {
-					solutions.add(new Double(t));
-					return;
+					return Double.valueOf(x);
 				}
 
-				t = newT;
+				x = newX;
 			}
 			k++;
 		}
-		return;
+		return null;
+	}
+
+	private static double refineBinarySearch(PolynomialFunction function, double x1, double y1, double x2, double y2) {
+		int ctr = 0;
+		if (y1 < 0 && y2 > 0) {
+			// our left Y is negative, our right Y is positive
+			while (true) {
+				if (x1 == x2)
+					return x1;
+				double midX = (x1 + x2) / 2.0;
+				double midY = function.evaluate(midX);
+				if (midY == 0 || ctr > 300) {
+					return midX;
+				} else if (midY > 0) {
+					x2 = midX;
+				} else {
+					x1 = midX;
+				}
+				ctr++;
+			}
+		} else if (y1 > 0 && y2 < 0) {
+			// our left Y is positive, our right Y is negative
+			while (true) {
+				if (x1 == x2)
+					return x1;
+				double midX = (x1 + x2) / 2.0;
+				double midY = function.evaluate(midX);
+				if (midY == 0 || ctr > 300) {
+					return midX;
+				} else if (midY > 0) {
+					x1 = midX;
+				} else {
+					x2 = midX;
+				}
+				ctr++;
+			}
+		} else if( y1 == 0 ) {
+			return x1;
+		} else if( y2 == 0 ) {
+			return x2;
+		} else {
+			throw new IllegalStateException("("+x1+", "+y1+") and ("+x2+", "+y2+") are on the same side of y = 0");
+		}
 	}
 
 	/**
