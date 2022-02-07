@@ -29,8 +29,28 @@ public class PolynomialFunction {
 	 *            4] then this function will evaluate as (2*t*t+3*t+4).
 	 */
 	public PolynomialFunction(double[] coeffs) {
+		coeffs = trimLeadingZeroes(coeffs);
 		this.coeffs = new double[coeffs.length];
 		System.arraycopy(coeffs, 0, this.coeffs, 0, coeffs.length);
+	}
+
+	/**
+	 * Return an array based on the argument with no trailing zeroes.
+	 */
+	private double[] trimLeadingZeroes(double[] coeffs) {
+		int zeroCtr = 0;
+		for(int a = 0; a < coeffs.length; a++) {
+			if (coeffs[a] == 0) {
+				zeroCtr++;
+			} else {
+				break;
+			}
+		}
+		if (zeroCtr == 0)
+			return coeffs;
+		double[] newArray = new double[coeffs.length - zeroCtr];
+		System.arraycopy(coeffs, zeroCtr, newArray, 0, newArray.length);
+		return newArray;
 	}
 
 	public double evaluate(double x) {
