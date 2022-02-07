@@ -221,6 +221,7 @@ public class EngineAccuracyTests extends OutlineTests {
             max = 57_000_000;
         }
 
+        int errorCtr = 0;
         for (int ctr = 0; ctr <= max; ctr++) {
             long time = System.currentTimeMillis();
             long elapsedTime = time - lastOutput;
@@ -236,6 +237,11 @@ public class EngineAccuracyTests extends OutlineTests {
                 System.err.println("sample = "+ctr);
                 e.printStackTrace();
                 fail = true;
+
+                // it's nice to know if a few tests fail together, but if we keep running
+                // once we have hundreds of errors: that's more wasted time than useful feedback
+                if (errorCtr++ > 100)
+                    break;
             }
         }
 
