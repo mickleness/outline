@@ -1,6 +1,7 @@
 package com.pump.awt.geom.clip;
 
 import com.pump.awt.geom.ClosedPathIterator;
+import com.pump.math.MathUtils;
 
 import java.awt.*;
 import java.awt.geom.*;
@@ -203,7 +204,7 @@ public class DefaultRectangularClipper implements RectangularClipper {
             eqn[2] = b;
             eqn[3] = a;
 
-            int k = CubicCurve2D.solveCubic(eqn, t2);
+            int k = MathUtils.solveCubic(eqn, t2, 0, 1);
             if (k < 0)
                 return 0;
 
@@ -274,8 +275,6 @@ public class DefaultRectangularClipper implements RectangularClipper {
             double[] f = new double[6];
             double lastX = 0.0;
             double lastY = 0.0;
-            boolean lastValueWasCapped, thisValueIsCapped, midValueInvalid;
-            double x, y, x2, y2;
 
             // create 1 copy of objects and recycle them
             // to reduce memory allocation:
@@ -294,9 +293,11 @@ public class DefaultRectangularClipper implements RectangularClipper {
 
             while (!i.isDone()) {
                 k = i.currentSegment(f);
+                i.next();
+
                 if (k == PathIterator.SEG_MOVETO) {
                     point.setLocation(f[0], f[1]);
-                    lastValueWasCapped = cap(point);
+                    cap(point);
 
                     p.moveTo(point.x, point.y);
 
@@ -342,14 +343,11 @@ public class DefaultRectangularClipper implements RectangularClipper {
                     // crossing the bounds of our rectangle:
 
                     tCtr = collectIntersectionTimes(xf, yf, intersectionTimes);
-
+                    intersectionTimes[tCtr++] = 1.0;
                     // put them in ascending order:
                     Arrays.sort(intersectionTimes, 0, tCtr);
-                    intersectionTimes[tCtr++] = 1.0;
 
                     double prevT = 0;
-                    lastValueWasCapped = !contains(lastX, lastY);
-
                     for (int a = 0; a < tCtr; a++) {
                         double currentT = intersectionTimes[a];
                         if (prevT == currentT) {
@@ -358,34 +356,24 @@ public class DefaultRectangularClipper implements RectangularClipper {
                             continue;
                         }
 
-                        // this is the magic: take 2 t values and see what we
-                        // need to do with them.
-                        // Remember we can make redundant horizontal/vertical
-                        // lines all we want to because the ClippedPath will clean up
-                        // the redundant info.
-                        x = xf.evaluate(currentT);
-                        y = yf.evaluate(currentT);
-                        point.setLocation(x, y);
-                        thisValueIsCapped = cap(point);
+                        // Remember it's OK if we end up making redundant horiz/vert lines,
+                        // because the object we're writing to should clean those up.
 
                         double midT = (currentT + prevT) / 2.0;
-                        x2 = xf.evaluate(midT);
-                        y2 = yf.evaluate(midT);
-                        midValueInvalid = !contains(x2, y2);
+                        point.setLocation(xf.evaluate(midT), yf.evaluate(midT));
+                        boolean outside = cap(point);
 
-                        if ((xf instanceof LinearFunction) || thisValueIsCapped
-                                || lastValueWasCapped || midValueInvalid) {
+                        if (outside || xf instanceof LinearFunction) {
+                            point.setLocation(xf.evaluate(currentT), yf.evaluate(currentT));
+                            cap(point);
                             p.lineTo(point.x, point.y);
                         } else {
                             p.curveTo(xf, yf, prevT, currentT);
                         }
 
-                        lastValueWasCapped = thisValueIsCapped;
                         prevT = currentT;
                     }
                 }
-
-                i.next();
             }
             p.flush();
             return p.p;
