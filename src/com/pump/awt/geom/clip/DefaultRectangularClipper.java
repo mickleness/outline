@@ -363,6 +363,18 @@ public class DefaultRectangularClipper implements RectangularClipper {
                         point.setLocation(xf.evaluate(midT), yf.evaluate(midT));
                         boolean outside = cap(point);
 
+                        // TODO: this resolves unit test failures; we need to find a better solution:
+                        {
+                            midT = (currentT + 2 * prevT) / 3.0;
+                            point.setLocation(xf.evaluate(midT), yf.evaluate(midT));
+                            if (cap(point))
+                                outside = true;
+
+                            midT = (currentT * 2 + prevT) / 3.0;
+                            point.setLocation(xf.evaluate(midT), yf.evaluate(midT));
+                            if (cap(point))
+                                outside = true;
+                        }
                         if (outside || xf instanceof LinearFunction) {
                             point.setLocation(xf.evaluate(currentT), yf.evaluate(currentT));
                             cap(point);
