@@ -219,6 +219,40 @@ public class ShapeUtils {
     }
 
     /**
+     * This returns the Rectangle2D (or Rectangle) that a Shape represents, or null if the
+     * argument is not a rectangle. If the argument is already Rectangle2D or Rectangle
+     * then this method may simply return the argument. If the argument is a Rectangle2D
+     * that happens to be int-based, then this method returns a Rectangle.
+     */
+    public static Rectangle2D toRectangle2D(Shape shape) {
+        if (shape instanceof Rectangle)
+            return (Rectangle) shape;
+        if (shape instanceof Rectangle2D) {
+            Rectangle2D r = (Rectangle2D) shape;
+            double minX = r.getMinX();
+            int minXi = (int) Math.round(minX);
+            if (minX == minXi) {
+                double minY = r.getMinY();
+                int minYi = (int) Math.round(minY);
+                if (minY == minYi) {
+                    double maxX = r.getMaxX();
+                    int maxXi = (int) Math.round(maxX);
+                    if (maxX == maxXi) {
+                        double maxY = r.getMaxY();
+                        int maxYi = (int) Math.round(maxY);
+                        if (maxY == maxYi) {
+                            return new Rectangle(minXi, minYi, maxXi - minXi, maxYi - minYi);
+                        }
+                    }
+                }
+            }
+            return r;
+        }
+
+        return toRectangle2D(shape.getPathIterator(null));
+    }
+
+    /**
      * This returns the Rectangle2D (or Rectangle) that a PathIterator represents, or null if the
      * argument is not a rectangle.
      */

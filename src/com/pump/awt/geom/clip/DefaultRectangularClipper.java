@@ -526,7 +526,7 @@ public class DefaultRectangularClipper extends AbstractRectangularClipper {
     }
 
     @Override
-    public Shape clip(Shape shape, AffineTransform tx, Rectangle2D clip) {
+    public Shape clipAsShape(Shape shape, AffineTransform tx, Rectangle2D clip) {
         RectangleClipper clipper = new RectangleClipper(clip);
         return clipper.clip(shape, tx);
     }

@@ -10,6 +10,7 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -140,5 +141,36 @@ public class RectangularClipperTest extends TestCase {
 
     private RectangularClipper[] getClippers() {
         return new RectangularClipper[] { new AreaRectangularClipper(), new DefaultRectangularClipper() };
+    }
+
+    /**
+     * This confirms that we return an int-based java.awt.Rectangle when we can
+     */
+    public void testReturnType_int() {
+        Rectangle r1 = new Rectangle(0,0,10,10);
+        Rectangle r2 = new Rectangle(5,5,10,10);
+        assertEquals(Rectangle.class, new DefaultRectangularClipper().clip(r1, null, r2).getClass());
+
+        Shape shape = new Path2D.Double(r1);
+        assertEquals(Rectangle.class, new DefaultRectangularClipper().clip(shape, null, r2).getClass());
+
+        assertEquals(Rectangle.class, new DefaultRectangularClipper().clip(shape, AffineTransform.getScaleInstance(2.0, 2.0), r2).getClass());
+
+        // but this transform means we have to expect a double-based Rectangle2D
+        assertEquals(Rectangle2D.Double.class, new DefaultRectangularClipper().clip(shape, AffineTransform.getScaleInstance(.33, .33), r2).getClass());
+    }
+
+    /**
+     * This confirms that we return a double-based rectangle when we can
+     */
+    public void testReturnType_double() {
+        Rectangle.Double r1 = new Rectangle.Double(0.25,0.25,10,10);
+        Rectangle r2 = new Rectangle(5,5,10,10);
+        assertEquals(Rectangle2D.Double.class, new DefaultRectangularClipper().clip(r1, null, r2).getClass());
+
+        Shape shape = new Path2D.Double(r1);
+        assertEquals(Rectangle2D.Double.class, new DefaultRectangularClipper().clip(shape, null, r2).getClass());
+
+        assertEquals(Rectangle2D.Double.class, new DefaultRectangularClipper().clip(shape, AffineTransform.getScaleInstance(2.0, 2.0), r2).getClass());
     }
 }

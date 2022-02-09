@@ -13,9 +13,9 @@ import java.awt.geom.Rectangle2D;
  * unexpected bugs in production. (See {@link RectangularClipperFactory#set(RectangularClipperFactory).
  * </p>
  */
-public class AreaRectangularClipper implements RectangularClipper {
+public class AreaRectangularClipper extends AbstractRectangularClipper {
     @Override
-    public Shape clip(Shape shape, AffineTransform tx, Rectangle2D clip) {
+    public Shape clipAsShape(Shape shape, AffineTransform tx, Rectangle2D clip) {
         if (tx != null && !tx.isIdentity()) {
             shape = tx.createTransformedShape(shape);
         }
