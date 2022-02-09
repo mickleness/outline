@@ -21,7 +21,7 @@ import java.util.Stack;
  *      "https://javagraphics.blogspot.com/2007/04/shapes-clipping-to-rectangle.html">Shapes:
  *      Clipping to a Rectangle</a>
  */
-public class DefaultRectangularClipper implements RectangularClipper {
+public class DefaultRectangularClipper extends AbstractRectangularClipper {
 
     /**
      * This is the tolerance with which 2 numbers must be similar to be
@@ -87,8 +87,22 @@ public class DefaultRectangularClipper implements RectangularClipper {
         }
 
         @Override
-        public int evaluateInverse(double x, double[] dest, int offset) {
-            double value = (x - intercept) / slope;
+        public int evaluateInverse(double y, double[] dest, int offset) {
+            if (slope == 0) {
+                // this is a flat horizontal line
+                if (y == intercept) {
+                    // technically there are infinitely many solutions here,
+                    // but this class as exclusively interested in *intersections*
+                    // where we cross a boundary, and here we're not crossing:
+                    return 0;
+                }
+
+                // there are no solutions here:
+
+                return 0;
+            }
+
+            double value = (y - intercept) / slope;
             if (value <= 0.0 || value >= 1.0)
                 return 0;
 
