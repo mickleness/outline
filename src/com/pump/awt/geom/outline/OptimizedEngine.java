@@ -287,7 +287,7 @@ public class OptimizedEngine implements OutlineEngine {
 
         List<OutlineOperation> newQueue = new LinkedList<>();
         newQueue.add(new OutlineOperation(OutlineOperation.Type.ADD, shape1));
-        newQueue.add(new OutlineOperation(OutlineOperation.Type.INTERSECT, shape2);
+        newQueue.add(new OutlineOperation(OutlineOperation.Type.INTERSECT, shape2));
         return delegateEngine.calculate(newQueue);
     }
 
