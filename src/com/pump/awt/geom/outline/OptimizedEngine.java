@@ -263,7 +263,7 @@ public class OptimizedEngine implements OutlineEngine {
         return baseShape;
     }
 
-    private Area intersect(Shape shape1, Shape shape2) {
+    private Shape intersect(Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
         boolean empty2 = ShapeUtils.isEmpty(shape2);
 
@@ -276,12 +276,19 @@ public class OptimizedEngine implements OutlineEngine {
         if (!r1.intersects(r2))
             return new Area();
 
-        // TODO: use delegateEngine to decide whether to use Areas or not, use Clipper for rects
+        Rectangle2D r1b = ShapeUtils.toRectangle2D(shape1);
+        Rectangle2D r2b = ShapeUtils.toRectangle2D(shape2);
 
-        Area area1 = new Area(shape1);
-        Area area2 = new Area(shape2);
-        area1.intersect(area2);
-        return area1;
+        if (r1b != null) {
+            return RectangularClipperFactory.get().createClipper().clip(shape2, null, r1b);
+        } else if(r2b != null) {
+            return RectangularClipperFactory.get().createClipper().clip(shape1, null, r2b);
+        }
+
+        List<OutlineOperation> newQueue = new LinkedList<>();
+        newQueue.add(new OutlineOperation(OutlineOperation.Type.ADD, shape1));
+        newQueue.add(new OutlineOperation(OutlineOperation.Type.INTERSECT, shape2);
+        return delegateEngine.calculate(newQueue);
     }
 
     private Shape xor(Shape shape1, Shape shape2) {
