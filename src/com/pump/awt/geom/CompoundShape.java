@@ -331,12 +331,12 @@ public class CompoundShape implements Shape, Serializable {
 
     @Override
     public PathIterator getPathIterator(AffineTransform at) {
-        return new MultipleShapePathIterator(shapes.keySet().iterator(), at, null, windingRule);
+        return new CompoundShapePathIterator(shapes.keySet().iterator(), at, null, windingRule);
     }
 
     @Override
     public PathIterator getPathIterator(AffineTransform at, double flatness) {
-        return new MultipleShapePathIterator(shapes.keySet().iterator(), at, Double.valueOf(flatness), windingRule);
+        return new CompoundShapePathIterator(shapes.keySet().iterator(), at, Double.valueOf(flatness), windingRule);
     }
 
     private void writeObject(java.io.ObjectOutputStream out) throws IOException {

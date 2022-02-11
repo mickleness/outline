@@ -6,9 +6,9 @@ import java.awt.geom.PathIterator;
 import java.util.Iterator;
 
 /**
- * This iterates over multiple shapes.
+ * This iterates over multiple shapes sequentially.
  */
-public class MultipleShapePathIterator implements PathIterator {
+public class CompoundShapePathIterator implements PathIterator {
 
     Iterator<Shape> shapes;
     AffineTransform transform;
@@ -16,7 +16,7 @@ public class MultipleShapePathIterator implements PathIterator {
     int windingRule;
     PathIterator current;
 
-    public MultipleShapePathIterator(Iterator<Shape> shapes, AffineTransform transform, Double flatness, int windingRule) {
+    public CompoundShapePathIterator(Iterator<Shape> shapes, AffineTransform transform, Double flatness, int windingRule) {
         this.shapes = shapes;
         this.transform = transform;
         this.flatness = flatness;
