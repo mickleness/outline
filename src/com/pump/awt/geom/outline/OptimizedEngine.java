@@ -253,10 +253,7 @@ public class OptimizedEngine implements OutlineEngine {
         if (shape1 instanceof CompoundShape) {
             baseShape = (CompoundShape) shape1;
         } else {
-            // TODO: should we pass our delegate engine into CompoundShape's constructor?
-            // CompoundShape currently creates Areas, which is really what the delegate engine should
-            // decide to do or not. (Someday an alt engine might use a different class.)
-            baseShape = new CompoundShape(shape1);
+            baseShape = new CompoundShape(delegateEngine, shape1);
         }
         baseShape.addSafely(shape2);
 
@@ -265,10 +262,12 @@ public class OptimizedEngine implements OutlineEngine {
 
     private Shape intersect(Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
-        boolean empty2 = ShapeUtils.isEmpty(shape2);
+        if (empty1)
+            return shape1;
 
-        if (empty1 || empty2)
-            return new Area();
+        boolean empty2 = ShapeUtils.isEmpty(shape2);
+        if (empty2)
+            return shape2;
 
         Rectangle2D r1 = ShapeUtils.getBounds2D(shape1);
         Rectangle2D r2 = ShapeUtils.getBounds2D(shape2);
@@ -276,7 +275,7 @@ public class OptimizedEngine implements OutlineEngine {
         if (!r1.intersects(r2))
             return new Area();
 
-        // TODO:
+        // TODO: use CompoundShape#clip
 //        if (shape1 instanceof CompoundShape) {
 //            CompoundShape cs = (CompoundShape) shape1;
 //            cs.clip(shape2);
@@ -304,21 +303,20 @@ public class OptimizedEngine implements OutlineEngine {
 
     private Shape xor(Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
-        boolean empty2 = ShapeUtils.isEmpty(shape2);
-
-        if (empty1 && empty2)
-            return new Area();
         if (empty1)
             return shape2;
+
+        boolean empty2 = ShapeUtils.isEmpty(shape2);
         if (empty2)
             return shape1;
 
-        // TODO: use delegateEngine to decide whether to use Areas or not
+        // TODO: use CompoundShape#xor
 
-        Area area1 = new Area(shape1);
-        Area area2 = new Area(shape2);
-        area1.exclusiveOr(area2);
-        return area1;
+        List<OutlineOperation> queue = new ArrayList<>(2);
+        queue.add(new OutlineOperation(OutlineOperation.Type.ADD, shape1));
+        queue.add(new OutlineOperation(OutlineOperation.Type.XOR, shape2));
+
+        return delegateEngine.calculate(queue);
     }
 
     @Override

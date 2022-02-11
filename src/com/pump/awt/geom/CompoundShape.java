@@ -76,10 +76,28 @@ public class CompoundShape implements Shape, Serializable {
     private OutlineEngine engine = new PlainAreaEngine();
 
     public CompoundShape() {
-        // intentionally empty
+        this( (OutlineEngine) null);
+    }
+
+    /**
+     * @param engine the optional engine to use when this shape needs to perform a complex operation.
+     */
+    public CompoundShape(OutlineEngine engine) {
+        if (engine != null)
+            this.engine = engine;
     }
 
     public CompoundShape(Shape shape) {
+        this(null, shape);
+    }
+
+    /**
+     * @param engine the optional engine to use when this shape needs to perform a complex operation.
+     */
+    public CompoundShape(OutlineEngine engine, Shape shape) {
+        if (engine != null)
+            this.engine = engine;
+
         try {
             add(shape);
         } catch (IncompatibleWindingRuleException e) {
@@ -92,6 +110,18 @@ public class CompoundShape implements Shape, Serializable {
      * Create a new CompoundShape that combines the argument shapes.
      */
     public CompoundShape(Shape... shapes) throws IncompatibleWindingRuleException {
+        this(null, shapes);
+    }
+
+    /**
+     * Create a new CompoundShape that combines the argument shapes.
+     *
+     * @param engine the optional engine to use when this shape needs to perform a complex operation.
+     */
+    public CompoundShape(OutlineEngine engine, Shape... shapes) throws IncompatibleWindingRuleException {
+        if (engine != null)
+            this.engine = engine;
+
         for(Shape shape : shapes) {
             add(shape);
         }
