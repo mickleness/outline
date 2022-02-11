@@ -39,8 +39,6 @@ public class PlainAreaEngine implements OutlineEngine {
                     break;
             }
         }
-        if (area.isEmpty())
-            return null;
         return area;
     }
 

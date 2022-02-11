@@ -216,9 +216,8 @@ public class EngineAccuracyTests extends OutlineTests {
         long lastOutput = System.currentTimeMillis();
 
         int max = 50_000;
-        boolean overnight = true;
-        if (overnight) {
-            max = 57_000_000;
+        if (OutlineTests.RUN_OVERNIGHT) {
+            max = 5_000_000;
         }
 
         int errorCtr = 0;

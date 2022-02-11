@@ -4,15 +4,11 @@ import com.pump.awt.geom.ShapeUtilsTest;
 import com.pump.awt.geom.outline.clipart.*;
 import org.junit.Test;
 
-import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.IOException;
 import java.io.Writer;
 import java.text.DecimalFormat;
 import java.util.*;
@@ -28,15 +24,6 @@ import java.util.List;
  * <p>
  */
 public class ClipArtTests extends OutlineTests {
-
-    static boolean PROFILE_MODE = false;
-
-    public static void main(String[] args) throws Exception {
-        ClipArtTests tests = new ClipArtTests();
-        PROFILE_MODE = true;
-        tests.testAdd();
-        tests.testClip();
-    }
 
     static class ScaledIcon implements Icon {
         Icon icon;
@@ -85,12 +72,20 @@ public class ClipArtTests extends OutlineTests {
          */
         int loops;
 
-        ClipArtImage(Icon icon, int loops) {
+        /**
+         * This indicates this object should only be considered when
+         * {@link OutlineTests#RUN_OVERNIGHT} is true (because either it
+         * is very expensive or there are similar tests).
+         */
+        boolean runOvernightOnly;
+
+        ClipArtImage(Icon icon, int loops, boolean runOvernightOnly) {
             this.icon = new ScaledIcon(icon, 600, 600);
             this.loops = loops;
             name = icon.getClass().getSimpleName();
             if (loops > 1)
                 name += " x "+loops;
+            this.runOvernightOnly = runOvernightOnly;
         }
 
         private List<Shape> shapes = null;
@@ -128,33 +123,33 @@ public class ClipArtTests extends OutlineTests {
     }
 
     public static final ClipArtImage[] IMAGES = new ClipArtImage[] {
-            new ClipArtImage(new Broccoli(), 1),
-            new ClipArtImage(new Cat5(), 1),
-            new ClipArtImage(new CelticKnot5(), 10),
-            new ClipArtImage(new EasterEgg(), 4),
-            new ClipArtImage(new ExitSign(), 1),
-            new ClipArtImage(new GardenSign(), 1),
-            new ClipArtImage(new GiftBox(), 1),
-            new ClipArtImage(new Globe3(), 5),
-            new ClipArtImage(new IceCream12(), 1),
-            new ClipArtImage(new JackOLantern(), 50),
-            new ClipArtImage(new JohnLemon(), 50),
-            new ClipArtImage(new MotherAndBaby(), 1),
-            new ClipArtImage(new MRIMachine(), 100),
-            new ClipArtImage(new MysteriousCube(), 1),
-            new ClipArtImage(new OrangeJuice(), 100),
-            new ClipArtImage(new PersonAtComputer(), 5),
-            new ClipArtImage(new RockingChair(), 5),
-            new ClipArtImage(new RunningDogRetro(), 5),
-            new ClipArtImage(new RussianBulldozer(), 10),
-            new ClipArtImage(new Salad(), 4),
-            new ClipArtImage(new ShareRoadSign(), 100),
-            new ClipArtImage(new SpaceTravel(), 50),
-            new ClipArtImage(new StackOfBooks4(), 10),
-            new ClipArtImage(new Stew(), 1),
-            new ClipArtImage(new Students(), 1),
-            new ClipArtImage(new TeleworkGuy(), 100),
-            new ClipArtImage(new WellDressedOwl(), 1)
+            new ClipArtImage(new Broccoli(), 1, false),
+            new ClipArtImage(new Cat5(), 1, false),
+            new ClipArtImage(new CelticKnot5(), 10, false),
+            new ClipArtImage(new EasterEgg(), 4, true),
+            new ClipArtImage(new ExitSign(), 1, true),
+            new ClipArtImage(new GardenSign(), 1, true),
+            new ClipArtImage(new GiftBox(), 1, true),
+            new ClipArtImage(new Globe3(), 5, false),
+            new ClipArtImage(new IceCream12(), 1, true),
+            new ClipArtImage(new JackOLantern(), 50, false),
+            new ClipArtImage(new JohnLemon(), 50, false),
+            new ClipArtImage(new MotherAndBaby(), 1, true),
+            new ClipArtImage(new MRIMachine(), 100, false),
+            new ClipArtImage(new MysteriousCube(), 1, true),
+            new ClipArtImage(new OrangeJuice(), 100, false),
+            new ClipArtImage(new PersonAtComputer(), 5, false),
+            new ClipArtImage(new RockingChair(), 5, true),
+            new ClipArtImage(new RunningDogRetro(), 5, true),
+            new ClipArtImage(new RussianBulldozer(), 10, true),
+            new ClipArtImage(new Salad(), 4, true),
+            new ClipArtImage(new ShareRoadSign(), 100, false),
+            new ClipArtImage(new SpaceTravel(), 50, false),
+            new ClipArtImage(new StackOfBooks4(), 10, true),
+            new ClipArtImage(new Stew(), 1, true),
+            new ClipArtImage(new Students(), 1, true),
+            new ClipArtImage(new TeleworkGuy(), 100, true),
+            new ClipArtImage(new WellDressedOwl(), 1, true)
     };
 
 
@@ -172,14 +167,14 @@ public class ClipArtTests extends OutlineTests {
                 List<Shape> shapes = clipArt.getShapes();
 
                 for(OutlineEngine engine : engines) {
-                    int sampleCount = PROFILE_MODE ? 20 : 1;
+                    int sampleCount = OutlineTests.RUN_OVERNIGHT ? 20 : 1;
 
                     long[] times = new long[sampleCount];
                     Outline lastSum = null;
 
                     for (int a = 0; a < times.length; a++) {
                         long totalTime = 0;
-                        int loopCount = PROFILE_MODE ? clipArt.loops : 1;
+                        int loopCount = OutlineTests.RUN_OVERNIGHT ? clipArt.loops : 1;
                         for(int loopIndex = 0; loopIndex < loopCount; loopIndex++) {
 
                             // try and get GC churn out of the way before our timer:
@@ -224,13 +219,25 @@ public class ClipArtTests extends OutlineTests {
                 script);
     }
 
+    private Collection<ClipArtImage> getImages() {
+        if (OutlineTests.RUN_OVERNIGHT) {
+            return Arrays.asList(IMAGES);
+        }
+        List<ClipArtImage> returnValue = new LinkedList<>();
+        for(ClipArtImage img : IMAGES) {
+            if (!img.runOvernightOnly)
+                returnValue.add(img);
+        }
+        return returnValue;
+    }
+
     private void testScript(String logName, String description, TestScript script) throws Exception {
         List<Result> results = new LinkedList<>();
-        try(Writer logWriter = createLog(logName, PROFILE_MODE)) {
+        try(Writer logWriter = createLog(logName, OutlineTests.RUN_OVERNIGHT)) {
 
             logWriter.write(description + "\n\n");
 
-            if (PROFILE_MODE) {
+            if (OutlineTests.RUN_OVERNIGHT) {
                 logWriter.write("The full profiler is running, which may take over an hour.\n\n");
             } else {
                 logWriter.write("Running as a unit test. The times shown in this table are approximate, but each engine is also being tested for accuracy.\n\n");
@@ -245,7 +252,7 @@ public class ClipArtTests extends OutlineTests {
             sb.append("Clip Art Name");
             logWriter.write(sb+"\n");
 
-            for(ClipArtImage clipArt : IMAGES) {
+            for(ClipArtImage clipArt : getImages()) {
                 Result result = script.run(engines, clipArt);
                 logWriter.write(result.toString(false)+"\n");
                 results.add(result);
@@ -391,14 +398,14 @@ public class ClipArtTests extends OutlineTests {
                         outlineBounds.getHeight() / 2.0 );
 
                 for(OutlineEngine engine : engines) {
-                    int sampleCount = PROFILE_MODE ? 20 : 1;
+                    int sampleCount = OutlineTests.RUN_OVERNIGHT ? 20 : 1;
 
                     long[] times = new long[sampleCount];
                     Outline lastOutline = null;
 
                     for (int a = 0; a < times.length; a++) {
                         long totalTime = 0;
-                        int loopCount = PROFILE_MODE ? clipArt.loops : 1;
+                        int loopCount = OutlineTests.RUN_OVERNIGHT ? clipArt.loops : 1;
                         for(int loopIndex = 0; loopIndex < loopCount; loopIndex++) {
 
                             // try and get GC churn out of the way before our timer:
@@ -409,7 +416,7 @@ public class ClipArtTests extends OutlineTests {
 
                             long startTime = System.currentTimeMillis();
 
-                            for(int b = 0; b < (PROFILE_MODE ? 10 : 1); b++) {
+                            for(int b = 0; b < (OutlineTests.RUN_OVERNIGHT ? 10 : 1); b++) {
                                 outline = new Outline(engine);
                                 outline.add(baseShape);
                                 outline.intersect(clipRect);

@@ -12,6 +12,12 @@ import java.util.Random;
 
 public abstract class OutlineTests extends TestCase {
 
+    /**
+     * Toggle this boolean on to run several hours of randomized tests. Toggle this off to have tests
+     * that should complete in under 5-10 minutes.
+     */
+    public static final boolean RUN_OVERNIGHT = false;
+
     public Writer createLog(String name, boolean writeFile) throws FileNotFoundException {if (name.contains("/") || name.contains("\\"))
         throw new IllegalArgumentException("illegal name = "+name);
         OutputStream out;

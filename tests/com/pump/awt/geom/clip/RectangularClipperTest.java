@@ -4,6 +4,7 @@ import com.pump.awt.geom.RectangularTransform;
 import com.pump.awt.geom.ShapeUtils;
 import com.pump.awt.geom.ShapeUtilsTest;
 import com.pump.awt.geom.mask.RectangleMask2D;
+import com.pump.awt.geom.outline.OutlineTests;
 import junit.framework.TestCase;
 
 import javax.imageio.ImageIO;
@@ -27,8 +28,9 @@ public class RectangularClipperTest extends TestCase {
         double r = 40;
         Rectangle rect = new Rectangle(0,0,100,100);
         int testCtr = 0;
-        for(int cy = -150; cy <= 150; cy++) {
-            for(int cx = -150; cx <= 150; cx++) {
+        int incr = OutlineTests.RUN_OVERNIGHT ? 1 : 13;
+        for(int cy = -150; cy <= 150; cy += incr) {
+            for(int cx = -150; cx <= 150; cx += incr) {
                 Ellipse2D.Double circle = new Ellipse2D.Double(cx - r, cy - r, 2.0 * r, 2.0 * r);
 
                 testCtr++;
@@ -42,8 +44,8 @@ public class RectangularClipperTest extends TestCase {
         // come up where the (t^3) coefficient is zero or nearly zero
 
         for (int angleMultiplier = 1; angleMultiplier<=8; angleMultiplier++) {
-            for (int cy = -150; cy <= 150; cy++) {
-                for (int cx = -150; cx <= 150; cx++) {
+            for (int cy = -150; cy <= 150; cy += incr) {
+                for (int cx = -150; cx <= 150; cx += incr) {
                     Ellipse2D.Double circle = new Ellipse2D.Double(cx - r, cy - r, 2.0 * r, 2.0 * r);
 
                     testCtr++;
@@ -59,8 +61,9 @@ public class RectangularClipperTest extends TestCase {
         // test lots of random variations:
 
         Random random = new Random(0);
-        for (double cy = -150; cy <= 150; cy += random.nextDouble() ) {
-            for (double cx = -150; cx <= 150; cx += random.nextDouble() ) {
+        double k = OutlineTests.RUN_OVERNIGHT ? 1 : 6;
+        for (double cy = -150; cy <= 150; cy += k * random.nextDouble() ) {
+            for (double cx = -150; cx <= 150; cx += k * random.nextDouble() ) {
                 double dx = random.nextDouble() * 2 - 1;
                 double dy = random.nextDouble() * 2 - 1;
                 double dr = random.nextDouble() * 2 - 1;
