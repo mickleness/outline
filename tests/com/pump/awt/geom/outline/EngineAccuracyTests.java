@@ -135,7 +135,7 @@ public class EngineAccuracyTests extends OutlineTests {
     @Override
     public OutlineEngine[] getEngines() {
         return new OutlineEngine[]{new PlainAreaEngine(),
-                new OptimizedEngine()};
+                new OptimizedEngine(), new CompoundShapeEngine()};
     }
 
     /**

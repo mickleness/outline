@@ -16,7 +16,7 @@ public abstract class OutlineTests extends TestCase {
      * Toggle this boolean on to run several hours of randomized tests. Toggle this off to have tests
      * that should complete in under 5-10 minutes.
      */
-    public static final boolean RUN_OVERNIGHT = false;
+    public static final boolean RUN_OVERNIGHT = true;
 
     public Writer createLog(String name, boolean writeFile) throws FileNotFoundException {if (name.contains("/") || name.contains("\\"))
         throw new IllegalArgumentException("illegal name = "+name);
@@ -43,6 +43,7 @@ public abstract class OutlineTests extends TestCase {
         List<OutlineEngine> engines = new ArrayList<>();
         engines.add(new PlainAreaEngine());
         engines.add(new OptimizedEngine());
+        engines.add(new CompoundShapeEngine());
         engines.add(new ScaledMaskOutlineEngine(3));
         return engines.toArray(new OutlineEngine[0]);
     }
