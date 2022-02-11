@@ -1,6 +1,6 @@
 package com.pump.awt.geom.outline;
 
-import com.pump.awt.geom.AddingShape;
+import com.pump.awt.geom.CompoundShape;
 import com.pump.awt.geom.ShapeUtils;
 import com.pump.awt.geom.clip.RectangularClipper;
 import com.pump.awt.geom.clip.RectangularClipperFactory;
@@ -248,15 +248,15 @@ public class OptimizedEngine implements OutlineEngine {
         return newQueue;
     }
 
-    private AddingShape add(Shape shape1, Shape shape2) {
-        AddingShape baseShape;
-        if (shape1 instanceof AddingShape) {
-            baseShape = (AddingShape) shape1;
+    private CompoundShape add(Shape shape1, Shape shape2) {
+        CompoundShape baseShape;
+        if (shape1 instanceof CompoundShape) {
+            baseShape = (CompoundShape) shape1;
         } else {
-            // TODO: should we pass our delegate engine into AddingShape's constructor?
-            // AddingShape currently creates Areas, which is really what the delegate engine should
+            // TODO: should we pass our delegate engine into CompoundShape's constructor?
+            // CompoundShape currently creates Areas, which is really what the delegate engine should
             // decide to do or not. (Someday an alt engine might use a different class.)
-            baseShape = new AddingShape(shape1);
+            baseShape = new CompoundShape(shape1);
         }
         baseShape.addSafely(shape2);
 
@@ -275,6 +275,17 @@ public class OptimizedEngine implements OutlineEngine {
 
         if (!r1.intersects(r2))
             return new Area();
+
+        // TODO:
+//        if (shape1 instanceof CompoundShape) {
+//            CompoundShape cs = (CompoundShape) shape1;
+//            cs.clip(shape2);
+//            return cs;
+//        } else if (shape2 instanceof CompoundShape) {
+//            CompoundShape cs = (CompoundShape) shape2;
+//            cs.clip(shape1);
+//            return cs;
+//        }
 
         Rectangle2D r1b = ShapeUtils.toRectangle2D(shape1);
         Rectangle2D r2b = ShapeUtils.toRectangle2D(shape2);

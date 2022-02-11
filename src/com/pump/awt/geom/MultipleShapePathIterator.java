@@ -22,7 +22,7 @@ public class MultipleShapePathIterator implements PathIterator {
         this.flatness = flatness;
 
         // When winding rule is UNKNOWN: we can pick either.
-        this.windingRule = windingRule == AddingShape.WIND_UNKNOWN ? PathIterator.WIND_NON_ZERO : windingRule;
+        this.windingRule = windingRule == CompoundShape.WIND_UNKNOWN ? PathIterator.WIND_NON_ZERO : windingRule;
 
         next();
     }

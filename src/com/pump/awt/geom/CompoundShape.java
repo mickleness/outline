@@ -21,12 +21,12 @@ import java.util.*;
  * <p>
  * This object is not thread-safe.
  */
-public class AddingShape implements Shape, Serializable {
+public class CompoundShape implements Shape, Serializable {
 
     /**
      * This is an alternative winding rule indicating that the winding rule isn't
-     * WIND_EVEN_ODD or WIND_NON_ZERO yet. AddingShapes stay in this undefined
-     * shape as long as possible. (If an AddingShape uses this winding rule then
+     * WIND_EVEN_ODD or WIND_NON_ZERO yet. CompoundShapes stay in this undefined
+     * shape as long as possible. (If an CompoundShape uses this winding rule then
      * its PathIterator picks a default rule.)
      */
     public static int WIND_UNKNOWN = -1;
@@ -67,11 +67,11 @@ public class AddingShape implements Shape, Serializable {
      */
     private int windingRule = WIND_UNKNOWN;
 
-    public AddingShape() {
+    public CompoundShape() {
         // intentionally empty
     }
 
-    public AddingShape(Shape shape) {
+    public CompoundShape(Shape shape) {
         try {
             add(shape);
         } catch (IncompatibleWindingRuleException e) {
@@ -81,16 +81,16 @@ public class AddingShape implements Shape, Serializable {
     }
 
     /**
-     * Create a new AddingShape that combines the argument shapes.
+     * Create a new CompoundShape that combines the argument shapes.
      */
-    public AddingShape(Shape... shapes) throws IncompatibleWindingRuleException {
+    public CompoundShape(Shape... shapes) throws IncompatibleWindingRuleException {
         for(Shape shape : shapes) {
             add(shape);
         }
     }
 
     /**
-     * Add an Area to this AddingShape.
+     * Add an Area to this CompoundShape.
      * <p>
      * Area objects are defined so that their winding rules don't
      * matter, so this method won't throw an IncompatibleWindingRuleException.
@@ -122,19 +122,19 @@ public class AddingShape implements Shape, Serializable {
     }
 
     /**
-     * Add a shape to this AddingShape.
+     * Add a shape to this CompoundShape.
      *
      * @return false if this call definitely did not modify this object. This method returns true if
      * this call may have modified this object.
      *
-     * @throws IncompatibleWindingRuleException if this AddingShape already has identified
+     * @throws IncompatibleWindingRuleException if this CompoundShape already has identified
      * a winding rule and the incoming shape is a different winding rule.
      */
     public boolean add(Shape shape) throws IncompatibleWindingRuleException {
         if (shape instanceof Area) {
             return add((Area) shape);
-        } else if (shape instanceof AddingShape) {
-            AddingShape s = (AddingShape) shape;
+        } else if (shape instanceof CompoundShape) {
+            CompoundShape s = (CompoundShape) shape;
             boolean returnValue = false;
             int incomingWindingRule = s.getWindingRule();
 
@@ -215,7 +215,7 @@ public class AddingShape implements Shape, Serializable {
     }
 
     /**
-     * Add a shape to this AddingShape.
+     * Add a shape to this CompoundShape.
      * <p>
      * If there is a winding rule problem: this method converts the incoming shape to an Area.
      * This may be very expensive, but it is guaranteed to not throw an exception.
@@ -236,7 +236,7 @@ public class AddingShape implements Shape, Serializable {
     }
 
     /**
-     * Return the shapes in this AddingShape.
+     * Return the shapes in this CompoundShape.
      * <p>
      * This may not return the same set of shapes that were added to this object. As shapes are added sometimes they
      * are flattened/converted into other member shapes.
@@ -247,14 +247,14 @@ public class AddingShape implements Shape, Serializable {
     }
 
     /**
-     * Return true if this AddingShape is empty.
+     * Return true if this CompoundShape is empty.
      */
     public boolean isEmpty() {
         return shapes.isEmpty();
     }
 
     /**
-     * Remove all shapes from this AddingShape.
+     * Remove all shapes from this CompoundShape.
      */
     public void clear() {
         shapes.clear();
