@@ -16,13 +16,15 @@ import java.util.List;
 /**
  * This shape is composed of several member shapes.
  * <p>
- * This object lazily converts member shapes into Areas as needed to execute
- * additions. But in many cases if shapes do not touch (or if one shape contains another): this
+ * This object lazily flattens member shapes as needed (using an OutlineEngine) to execute
+ * complex operations. But in some cases if shapes do not touch (or if one shape contains another): this
  * object just keeps a running list of member shapes.
  * </p>
  * <p>
- * This object assumes once a Shape object is added that it is not going to change. If this is
- * not a good assumption then the caller needs to clone the Shapes before they are added.
+ * This object assumes once a Shape object is added that it is not going to change, or that
+ * this object is free to change the member Shapes (for ex: by growing an Area
+ * or Rectangle2D). If this is not a good assumption then the caller needs to clone the
+ * member Shapes before they are passed to this object as operands.
  * </p>
  * <p>
  * This object is not thread-safe.
@@ -235,7 +237,7 @@ public class CompoundShape implements Shape, Serializable {
             return false;
         }
 
-        flatten(incoming);
+        flatten(new OutlineOperation(OutlineOperation.Type.ADD, incoming));
 
         return true;
     }
@@ -244,25 +246,30 @@ public class CompoundShape implements Shape, Serializable {
      * Collapse the {@link #shapes} map into one element. This one element should be a sum of all previous
      * elements plus the arguments provided here.
      */
-    private void flatten(Shape... additionalShapes) {
+    private void flatten(OutlineOperation additionalOp) {
         // see if we can avoid invoking our engine (which may create expensive Areas):
-        if(shapes.size() <= 1 && additionalShapes.length == 0) {
+        if(shapes.size() <= 1 && additionalOp == null) {
             return;
-        } else if (additionalShapes.length == 1 && isEmpty()) {
-            cachedBounds = ShapeUtils.getBounds2D(additionalShapes[0]);
-            shapes.put(additionalShapes[0], new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
-            windingRule = getWindingRule(additionalShapes[0]);
+        } else if (additionalOp != null &&
+                additionalOp.type == OutlineOperation.Type.ADD &&
+                isEmpty()) {
+            cachedBounds = ShapeUtils.getBounds2D(additionalOp.shape);
+            shapes.put(additionalOp.shape, new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
+            windingRule = getWindingRule(additionalOp.shape);
             return;
         }
 
-        List<OutlineOperation> ops = new ArrayList<>(shapes.size() + additionalShapes.length);
-        for (Shape shape : shapes.keySet()) {
-            ops.add(new OutlineOperation(OutlineOperation.Type.ADD, shape));
+        List<OutlineOperation> ops = new ArrayList<>(shapes.size() + 1);
+        ops.add(new OutlineOperation(OutlineOperation.Type.ADD, this));
+        if (additionalOp != null) {
+            ops.add(additionalOp);
+            if (additionalOp.type == OutlineOperation.Type.ADD || additionalOp.type == OutlineOperation.Type.XOR) {
+                cachedBounds.add(ShapeUtils.getBounds2D(additionalOp.shape));
+            } else if (additionalOp.type == OutlineOperation.Type.INTERSECT) {
+                cachedBounds = cachedBounds.createIntersection(ShapeUtils.getBounds2D(additionalOp.shape));
+            }
         }
-        for (Shape additionalShape : additionalShapes) {
-            cachedBounds.add(ShapeUtils.getBounds2D(additionalShape));
-            ops.add(new OutlineOperation(OutlineOperation.Type.ADD, additionalShape));
-        }
+
         Shape newFlattenedShape = engine.calculate(ops);
 
         shapes.clear();
