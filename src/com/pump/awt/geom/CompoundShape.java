@@ -1,10 +1,16 @@
 package com.pump.awt.geom;
 
+import com.pump.awt.geom.mask.AbstractRectangleMask;
+import com.pump.awt.geom.outline.OutlineEngine;
+import com.pump.awt.geom.outline.OutlineOperation;
+import com.pump.awt.geom.outline.PlainAreaEngine;
+
 import java.awt.*;
 import java.awt.geom.*;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
+import java.util.List;
 
 
 /**
@@ -66,6 +72,8 @@ public class CompoundShape implements Shape, Serializable {
      * WIND_UNKNOWN).
      */
     private int windingRule = WIND_UNKNOWN;
+
+    private OutlineEngine engine = new PlainAreaEngine();
 
     public CompoundShape() {
         // intentionally empty
@@ -197,21 +205,61 @@ public class CompoundShape implements Shape, Serializable {
             return false;
         }
 
-        Area sum;
-        if (shapes.size() == 1) {
-            // if our only member happens to be an Area then this Area constructor is more efficient:
-            sum = new Area(shapes.keySet().iterator().next());
-        } else {
-            sum = new Area(this);
-        }
-        sum.add(new Area(incoming));
-
-        shapes.clear();
-        cachedBounds.add(incomingBounds);
-        shapes.put(sum, new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
-        windingRule = WIND_UNKNOWN;
+        flatten(incoming);
 
         return true;
+    }
+
+    /**
+     * Collapse the {@link #shapes} map into one element. This one element should be a sum of all previous
+     * elements plus the arguments provided here.
+     */
+    private void flatten(Shape... additionalShapes) {
+        // see if we can avoid invoking our engine (which may create expensive Areas):
+        if(shapes.size() <= 1 && additionalShapes.length == 0) {
+            return;
+        } else if (additionalShapes.length == 1 && isEmpty()) {
+            cachedBounds = ShapeUtils.getBounds2D(additionalShapes[0]);
+            shapes.put(additionalShapes[0], new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
+            windingRule = getWindingRule(additionalShapes[0]);
+            return;
+        }
+
+        List<OutlineOperation> ops = new ArrayList<>(shapes.size() + additionalShapes.length);
+        for (Shape shape : shapes.keySet()) {
+            ops.add(new OutlineOperation(OutlineOperation.Type.ADD, shape));
+        }
+        for (Shape additionalShape : additionalShapes) {
+            cachedBounds.add(ShapeUtils.getBounds2D(additionalShape));
+            ops.add(new OutlineOperation(OutlineOperation.Type.ADD, additionalShape));
+        }
+        Shape newFlattenedShape = engine.calculate(ops);
+
+        shapes.clear();
+        shapes.put(newFlattenedShape, new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
+        windingRule = getWindingRule(newFlattenedShape);
+    }
+
+    private int getWindingRule(Shape shape) {
+        if (shape instanceof CompoundShape) {
+            for(Shape s : ((CompoundShape)shape).shapes.keySet() ) {
+                if (s instanceof Area ||
+                        s instanceof AbstractRectangleMask ||
+                        s instanceof Rectangle2D ||
+                        s instanceof RoundRectangle2D ||
+                        s instanceof Ellipse2D)
+                    continue;
+                return s.getPathIterator(null).getWindingRule();
+            }
+            return WIND_UNKNOWN;
+        }
+        if (shape instanceof Area ||
+                shape instanceof AbstractRectangleMask ||
+                shape instanceof Rectangle2D ||
+                shape instanceof RoundRectangle2D ||
+                shape instanceof Ellipse2D)
+            return WIND_UNKNOWN;
+        return shape.getPathIterator(null).getWindingRule();
     }
 
     /**
