@@ -190,6 +190,7 @@ public class PolynomialFunction {
 			double y1 = interestYs[a];
 			double y2 = interestYs[a + 1];
 			if ((y1 > 0 && y2 < 0) || (y1 < 0 && y2 > 0)) {
+				// TODO: combine newtons search w/ binary search when possible
 				Double solution = refineNewtonsMethod(this, derivative, interest[a], interest[a + 1]);
 				if (solution != null) {
 					solutions.add(solution);
