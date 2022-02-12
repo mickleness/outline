@@ -2,7 +2,6 @@ package com.pump.awt.geom.outline;
 
 import com.pump.awt.geom.CompoundShape;
 import com.pump.awt.geom.ShapeUtils;
-import com.pump.awt.geom.clip.RectangularClipper;
 import com.pump.awt.geom.clip.RectangularClipperFactory;
 import com.pump.util.ListUtils;
 
@@ -22,7 +21,7 @@ public class OptimizedEngine implements OutlineEngine {
     OutlineEngine delegateEngine;
 
     public OptimizedEngine() {
-        this(new PlainAreaEngine());
+        this(new AreaOutlineEngine());
     }
 
     public OptimizedEngine(OutlineEngine delegateEngine) {

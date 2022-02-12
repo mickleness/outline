@@ -16,7 +16,7 @@ import java.util.List;
  * operand.)
  * </p>
  */
-public class PlainAreaEngine implements OutlineEngine {
+public class AreaOutlineEngine implements OutlineEngine {
 
     @Override
     public Area calculate(List<OutlineOperation> operationQueue) {

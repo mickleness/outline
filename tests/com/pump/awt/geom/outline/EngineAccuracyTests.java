@@ -14,12 +14,10 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This confirms that other OutlineEngines produce visual results that
- * resemble the PlainAreaEngine.
+ * resemble the AreaOutlineEngine.
  */
 public class EngineAccuracyTests extends OutlineTests {
 
@@ -135,7 +133,7 @@ public class EngineAccuracyTests extends OutlineTests {
 
     @Override
     public OutlineEngine[] getEngines() {
-        return new OutlineEngine[]{new PlainAreaEngine(),
+        return new OutlineEngine[]{new AreaOutlineEngine(),
                 new OptimizedEngine(), new CompoundShapeEngine()};
     }
 
@@ -271,7 +269,7 @@ public class EngineAccuracyTests extends OutlineTests {
             outline.add(createEllipse(2, 0, .9, .9));
             outline.subtract(createEllipse(1, 0, .9, .9));
 
-            boolean expectFailure = engine instanceof PlainAreaEngine;
+            boolean expectFailure = engine instanceof AreaOutlineEngine;
             try {
                 outline.flush();
                 if (expectFailure) {

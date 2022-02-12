@@ -188,7 +188,7 @@ public class ShapeUtilsTest extends TestCase {
         BufferedImage actualImage = createImage(actualShape, r);
 
         if (!highPrecision) {
-            // the ScaledMaskOutlineEngine is a little chunkier than the PlainAreaEngine. Instead of fixing
+            // the ScaledMaskOutlineEngine is a little chunkier than the AreaOutlineEngine. Instead of fixing
             // this: I'll just make the image comparison fuzzier.
             expectedImage = blur(expectedImage);
             actualImage = blur(actualImage);

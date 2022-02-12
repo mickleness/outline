@@ -42,7 +42,7 @@ public abstract class OutlineTests extends TestCase {
 
     public OutlineEngine[] getEngines() {
         List<OutlineEngine> engines = new ArrayList<>();
-        engines.add(new PlainAreaEngine());
+        engines.add(new AreaOutlineEngine());
         engines.add(new OptimizedEngine());
         engines.add(new ScaledMaskOutlineEngine(3));
         return engines.toArray(new OutlineEngine[0]);

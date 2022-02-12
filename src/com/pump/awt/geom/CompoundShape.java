@@ -4,7 +4,7 @@ import com.pump.awt.geom.clip.RectangularClipperFactory;
 import com.pump.awt.geom.mask.AbstractRectangleMask;
 import com.pump.awt.geom.outline.OutlineEngine;
 import com.pump.awt.geom.outline.OutlineOperation;
-import com.pump.awt.geom.outline.PlainAreaEngine;
+import com.pump.awt.geom.outline.AreaOutlineEngine;
 
 import java.awt.*;
 import java.awt.geom.*;
@@ -86,7 +86,7 @@ public class CompoundShape implements Shape, Serializable {
      */
     private int windingRule = WIND_UNKNOWN;
 
-    private OutlineEngine engine = new PlainAreaEngine();
+    private OutlineEngine engine = new AreaOutlineEngine();
 
     public CompoundShape() {
         this( (OutlineEngine) null);

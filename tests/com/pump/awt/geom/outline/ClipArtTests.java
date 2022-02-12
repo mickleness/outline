@@ -383,7 +383,7 @@ public class ClipArtTests extends OutlineTests {
                 Result result = new Result(clipArt.name);
                 List<Shape> shapes = clipArt.getShapes();
 
-                Outline outline = new Outline(new PlainAreaEngine());
+                Outline outline = new Outline(new AreaOutlineEngine());
                 for (Shape shape : shapes) {
                     outline.add(shape);
                 }
