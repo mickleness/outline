@@ -64,17 +64,21 @@ public class PolynomialFunction {
 	@Override
 	public String toString() {
 		StringBuffer sb = new StringBuffer("y = ");
-		for (int a = 0; a < coeffs.length; a++) {
-			int degree = coeffs.length - a - 1;
-			if (degree == 0) {
-				sb.append(coeffs[a]);
-			} else if (degree == 1) {
-				sb.append(coeffs[a] + "*x");
-			} else {
-				sb.append(coeffs[a] + "*(x^" + (degree) + ")");
+		if (coeffs.length == 0) {
+			sb.append("0");
+		} else {
+			for (int a = 0; a < coeffs.length; a++) {
+				int degree = coeffs.length - a - 1;
+				if (degree == 0) {
+					sb.append(coeffs[a]);
+				} else if (degree == 1) {
+					sb.append(coeffs[a] + "*x");
+				} else {
+					sb.append(coeffs[a] + "*(x^" + (degree) + ")");
+				}
+				if (a != coeffs.length - 1)
+					sb.append("+");
 			}
-			if (a != coeffs.length - 1)
-				sb.append("+");
 		}
 		return sb.toString();
 	}
@@ -285,5 +289,9 @@ public class PolynomialFunction {
 	 */
 	public double[] solve() {
 		return evaluateInverse(0);
+	}
+
+	public int getDegree() {
+		return coeffs.length;
 	}
 }
