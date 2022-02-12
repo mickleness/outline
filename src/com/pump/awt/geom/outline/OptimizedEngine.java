@@ -37,7 +37,6 @@ public class OptimizedEngine implements OutlineEngine {
         removeSubtractionsAndReplaceXors(operationQueue);
 
         removeRectangularClipping(operationQueue);
-        // removeNonRectangularClipping(operationQueue);
 
         operationQueue = consolidateOperationsWithSameType(operationQueue);
 
@@ -46,7 +45,30 @@ public class OptimizedEngine implements OutlineEngine {
             return op.shape;
         }
 
-        return delegateEngine.calculate(operationQueue);
+        CompoundShape result = new CompoundShape(delegateEngine);
+        for (OutlineOperation op : operationQueue) {
+            switch (op.type) {
+                case ADD:
+                    result.addSafely(op.shape);
+                    break;
+                case SUBTRACT:
+                    result.subtract(op.shape);
+                    break;
+                case INTERSECT:
+                    result.clip(op.shape);
+                    break;
+                case XOR:
+                    result.xor(op.shape);
+                    break;
+            }
+        }
+
+        // some external libraries may have their own optimizations that
+        // benefit from knowing if a shape is an instanceof an Area:
+        if (result.getShapeCount() == 1)
+            return result.getShapes()[0];
+
+        return result;
     }
 
     private void removeRectangularClipping(List<OutlineOperation> operationQueue) {
@@ -275,16 +297,15 @@ public class OptimizedEngine implements OutlineEngine {
         if (!r1.intersects(r2))
             return new Area();
 
-        // TODO: use CompoundShape#clip
-//        if (shape1 instanceof CompoundShape) {
-//            CompoundShape cs = (CompoundShape) shape1;
-//            cs.clip(shape2);
-//            return cs;
-//        } else if (shape2 instanceof CompoundShape) {
-//            CompoundShape cs = (CompoundShape) shape2;
-//            cs.clip(shape1);
-//            return cs;
-//        }
+        if (shape1 instanceof CompoundShape) {
+            CompoundShape cs = (CompoundShape) shape1;
+            cs.clip(shape2);
+            return cs;
+        } else if (shape2 instanceof CompoundShape) {
+            CompoundShape cs = (CompoundShape) shape2;
+            cs.clip(shape1);
+            return cs;
+        }
 
         Rectangle2D r1b = ShapeUtils.toRectangle2D(shape1);
         Rectangle2D r2b = ShapeUtils.toRectangle2D(shape2);
@@ -310,13 +331,10 @@ public class OptimizedEngine implements OutlineEngine {
         if (empty2)
             return shape1;
 
-        // TODO: use CompoundShape#xor
+        CompoundShape returnValue = new CompoundShape(delegateEngine, shape1);
+        returnValue.xor(shape2);
 
-        List<OutlineOperation> queue = new ArrayList<>(2);
-        queue.add(new OutlineOperation(OutlineOperation.Type.ADD, shape1));
-        queue.add(new OutlineOperation(OutlineOperation.Type.XOR, shape2));
-
-        return delegateEngine.calculate(queue);
+        return returnValue;
     }
 
     @Override

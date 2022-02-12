@@ -472,6 +472,9 @@ public class ShapeUtils {
     public static boolean isEmpty(Shape shape) {
         if (shape instanceof Area)
             return ((Area)shape).isEmpty();
+        if (shape instanceof CompoundShape)
+            return ((CompoundShape)shape).isEmpty();
+
         PathIterator pi = shape.getPathIterator(null);
         return pi.isDone();
     }

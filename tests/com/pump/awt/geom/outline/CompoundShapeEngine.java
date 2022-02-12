@@ -17,57 +17,25 @@ class CompoundShapeEngine implements OutlineEngine {
 
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
-        Shape returnValue = null;
+        CompoundShape returnValue = new CompoundShape();
         for(OutlineOperation op : operationQueue) {
             switch(op.type) {
                 case ADD:
-                    if (returnValue == null) {
-                        returnValue = op.shape;
-                    } else {
-                        CompoundShape cs = new CompoundShape(returnValue);
-                        cs.addSafely(op.shape);
-                        returnValue = cs;
-                    }
+                    returnValue.addSafely(op.shape);
                     break;
                 case SUBTRACT:
-                    if (returnValue == null) {
-                        // intentionally empty
-                    } else {
-                        // TODO: use CompoundShape
-                        Area area = returnValue instanceof Area ? (Area) returnValue : new Area(returnValue);
-                        area.subtract(new Area(op.shape));
-                        returnValue = area;
-                    }
+                    returnValue.subtract(op.shape);
                     break;
                 case XOR:
-                    if (returnValue == null) {
-                        // it's effectively an add op:
-                        returnValue = new CompoundShape(op.shape);
-                    } else {
-                        // TODO: use CompoundShape
-                        Area area = returnValue instanceof Area ? (Area) returnValue : new Area(returnValue);
-                        area.exclusiveOr(new Area(op.shape));
-                        returnValue = area;
-                    }
+                    returnValue.xor(op.shape);
                     break;
                 case INTERSECT:
-                    // TODO: why does the ClipArtTests#testClip show a significant performance difference
-                    // between this engine and the PlainAreaEngine? Shouldn't they be nearly the same?
-                    // Sometimes it was much better, sometimes it was much worse.
-
-                    if (returnValue == null) {
-                        // intentionally empty
-                    } else {
-                        // TODO: use CompoundShape
-                        Area area = returnValue instanceof Area ? (Area) returnValue : new Area(returnValue);
-                        area.intersect(new Area(op.shape));
-                        returnValue = area;
-                    }
+                    returnValue.clip(op.shape);
                     break;
                 case TRANSFORM:
                     // TODO: will the CompoundShape include an optimized transform(tx) method?
                     if (returnValue != null)
-                        returnValue = op.transform.createTransformedShape(returnValue);
+                        returnValue = new CompoundShape(op.transform.createTransformedShape(returnValue));
                     break;
             }
         }
