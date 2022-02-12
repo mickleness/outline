@@ -73,4 +73,9 @@ class CompoundShapeEngine implements OutlineEngine {
         }
         return returnValue;
     }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName();
+    }
 }

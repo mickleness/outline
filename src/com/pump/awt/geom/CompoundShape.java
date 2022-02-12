@@ -259,20 +259,34 @@ public class CompoundShape implements Shape, Serializable {
             return;
         }
 
-        List<OutlineOperation> ops = new ArrayList<>(shapes.size() + 1);
-        ops.add(new OutlineOperation(OutlineOperation.Type.ADD, this));
+        List<OutlineOperation> ops = new ArrayList<>(2);
+        if (shapes.size() == 1) {
+            ops.add(new OutlineOperation(OutlineOperation.Type.ADD, shapes.keySet().iterator().next()));
+        } else {
+            ops.add(new OutlineOperation(OutlineOperation.Type.ADD, this));
+        }
         if (additionalOp != null) {
             ops.add(additionalOp);
-            if (additionalOp.type == OutlineOperation.Type.ADD || additionalOp.type == OutlineOperation.Type.XOR) {
+
+            // update cached bounds:
+            // leave `cachedBounds` null if we need to recalculate it
+            if (additionalOp.type == OutlineOperation.Type.ADD ||
+                    additionalOp.type == OutlineOperation.Type.XOR) {
                 cachedBounds.add(ShapeUtils.getBounds2D(additionalOp.shape));
             } else if (additionalOp.type == OutlineOperation.Type.INTERSECT) {
                 cachedBounds = cachedBounds.createIntersection(ShapeUtils.getBounds2D(additionalOp.shape));
+            } else {
+                cachedBounds = null;
             }
         }
 
         Shape newFlattenedShape = engine.calculate(ops);
 
         shapes.clear();
+
+        if (cachedBounds == null)
+            cachedBounds = ShapeUtils.getBounds2D(newFlattenedShape);
+
         shapes.put(newFlattenedShape, new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
         windingRule = getWindingRule(newFlattenedShape);
     }
