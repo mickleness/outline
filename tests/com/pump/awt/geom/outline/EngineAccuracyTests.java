@@ -10,6 +10,7 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.text.NumberFormat;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -219,6 +220,8 @@ public class EngineAccuracyTests extends OutlineTests {
         if (OutlineTests.RUN_OVERNIGHT) {
             max = 5_000_000;
         }
+
+        System.out.println("Testing accuracy of "+ Arrays.toString(getEngines())+"...");
 
         int errorCtr = 0;
         for (int ctr = 0; ctr <= max; ctr++) {
