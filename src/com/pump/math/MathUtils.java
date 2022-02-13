@@ -41,13 +41,14 @@ public class MathUtils {
 //        }
 
         double[] eqn2 = new double[] { eqn[3], eqn[2], eqn[1], eqn[0]};
-        PolynomialFunction p = new PolynomialFunction(eqn2);
+        PolynomialFunction p = new PolynomialFunction(eqn2, false);
         if (p.getDegree() <= 1)
             return -1;
 
-        double[] results = p.solve();
+        int resultCount = p.solve(eqn);
 
-        for(double result : results) {
+        for(int i = 0; i < resultCount; i++) {
+            double result = eqn[i];
             if (result >= minX && result <= maxX) {
                 res[returnValue++] = result;
             }

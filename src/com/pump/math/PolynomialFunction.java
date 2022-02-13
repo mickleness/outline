@@ -30,9 +30,17 @@ public class PolynomialFunction {
 	 *            4] then this function will evaluate as (2*t*t+3*t+4).
 	 */
 	public PolynomialFunction(double[] coeffs) {
-		coeffs = trimLeadingZeroes(coeffs);
-		this.coeffs = new double[coeffs.length];
-		System.arraycopy(coeffs, 0, this.coeffs, 0, coeffs.length);
+		this(coeffs, true);
+	}
+
+	PolynomialFunction(double[] coeffs, boolean cloneArgument) {
+		double[] trimmedCoeffs = trimLeadingZeroes(coeffs);
+		if (trimmedCoeffs == coeffs && cloneArgument) {
+			this.coeffs = new double[coeffs.length];
+			System.arraycopy(coeffs, 0, this.coeffs, 0, coeffs.length);
+		} else {
+			this.coeffs = trimmedCoeffs;
+		}
 	}
 
 	/**
@@ -86,11 +94,10 @@ public class PolynomialFunction {
 
 	public PolynomialFunction getDerivative() {
 		double[] newCoeffs = new double[coeffs.length - 1];
-		System.arraycopy(coeffs, 0, newCoeffs, 0, newCoeffs.length);
 		for (int a = 0; a < newCoeffs.length; a++) {
-			newCoeffs[a] *= (coeffs.length - a - 1);
+			newCoeffs[a] = coeffs[a] * (coeffs.length - a - 1);
 		}
-		return new PolynomialFunction(newCoeffs);
+		return new PolynomialFunction(newCoeffs, false);
 	}
 
 	/**
@@ -98,31 +105,33 @@ public class PolynomialFunction {
 	 * and strategically applying Newton's Method. This is imperfect, but a
 	 * decent analytical guess.
 	 */
-	public double[] evaluateInverse(double y) {
+	public int evaluateInverse(double y, double[] results) {
 		if (coeffs.length == 2) {
 			double x = (y - coeffs[1]) / coeffs[0];
-			return new double[] { x };
+			results[0] = x;
+			return 1;
 		}
 		if (y != 0) {
 			double[] newCoeffs = new double[coeffs.length];
 			System.arraycopy(coeffs, 0, newCoeffs, 0, coeffs.length);
 			newCoeffs[newCoeffs.length - 1] -= y;
-			PolynomialFunction f = new PolynomialFunction(newCoeffs);
-			return f.evaluateInverse(0);
+			PolynomialFunction f = new PolynomialFunction(newCoeffs, false);
+			return f.evaluateInverse(0, results);
 		}
 
 		PolynomialFunction derivative = getDerivative();
 
-		double[] extrema = derivative.solve();
-		double[] extremaYs = new double[extrema.length];
-		for (int a = 0; a < extrema.length; a++) {
+		double[] extrema = new double[derivative.getDegree()];
+		int extremaCount = derivative.solve(extrema);
+		double[] extremaYs = new double[extremaCount];
+		for (int a = 0; a < extremaCount; a++) {
 			extremaYs[a] = evaluate(extrema[a]);
 		}
 
-		double[] interest = new double[extrema.length + 2];
-		double[] interestYs = new double[extrema.length + 2];
+		double[] interest = new double[extremaCount + 2];
+		double[] interestYs = new double[extremaCount + 2];
 
-		System.arraycopy(extrema, 0, interest, 1, extrema.length);
+		System.arraycopy(extrema, 0, interest, 1, extremaCount);
 		System.arraycopy(extremaYs, 0, interestYs, 1, extremaYs.length);
 
 		// seek the first interesting time:
@@ -146,7 +155,7 @@ public class PolynomialFunction {
 			}
 		}
 
-		double initialValue = extrema.length == 0 ? 0 : extrema[0];
+		double initialValue = extremaCount == 0 ? 0 : extrema[0];
 		identifyBoundary: for (int power = 1; power < 30; power++) {
 			double x = initialValue - Math.pow(10, power);
 			double v = evaluate(x);
@@ -170,7 +179,7 @@ public class PolynomialFunction {
 			// leave seekPositive as-is
 		}
 
-		initialValue = extrema.length == 0 ? 0 : extrema[extrema.length - 1];
+		initialValue = extremaCount == 0 ? 0 : extrema[extremaCount - 1];
 		identifyBoundary: for (int power = 1; power < 30; power++) {
 			double x = initialValue + Math.pow(10, power);
 			double v = evaluate(x);
@@ -185,25 +194,20 @@ public class PolynomialFunction {
 			}
 		}
 
-		List<Double> solutions = new ArrayList<Double>();
-
+		int returnValue = 0;
 		for (int a = 0; a < interest.length - 1; a++) {
 			double y1 = interestYs[a];
 			double y2 = interestYs[a + 1];
 			if (y1 == 0) {
-				solutions.add(interest[a]);
+				results[returnValue++] = interest[a];
 			} else if (y1 < 0 && y2 > 0) {
-				solutions.add(refineNewtonsMethod_yIncreasing(this, derivative, interest[a], y1, interest[a + 1], y2));
+				results[returnValue++] = refineNewtonsMethod_yIncreasing(this, derivative, interest[a], y1, interest[a + 1], y2);
 			} else if (y1 > 0 && y2 < 0) {
-				solutions.add(refineNewtonsMethod_yDecreasing(this, derivative, interest[a], y1, interest[a + 1], y2));
+				results[returnValue++] = refineNewtonsMethod_yDecreasing(this, derivative, interest[a], y1, interest[a + 1], y2);
 			}
 		}
 
-		double[] returnArray = new double[solutions.size()];
-		for (int a = 0; a < solutions.size(); a++) {
-			returnArray[a] = solutions.get(a);
-		}
-		return returnArray;
+		return returnValue;
 	}
 
 	private static double refineNewtonsMethod_yIncreasing(PolynomialFunction function,
@@ -347,8 +351,8 @@ public class PolynomialFunction {
 	 *
 	 * @return calls <code>evaluateInverse(0)</code>
 	 */
-	public double[] solve() {
-		return evaluateInverse(0);
+	public int solve(double[] results) {
+		return evaluateInverse(0, results);
 	}
 
 	public int getDegree() {
