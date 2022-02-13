@@ -7,6 +7,18 @@ import java.util.Arrays;
 public class PolynomialFunctionTest extends TestCase {
 
     /**
+     * Make sure we return the correct number of roots (including no roots) for an even polynomial.
+     */
+    public void testNoSolutionsQuadratic() {
+        double[] eqn = {1, 0, 0};
+        PolynomialFunction f = new PolynomialFunction(eqn);
+
+        assertEquals(0, f.evaluateInverse(-1).length);
+        assertEquals(1, f.evaluateInverse(0).length);
+        assertEquals(2, f.evaluateInverse(1).length);
+    }
+
+    /**
      * This tests a cubic polynomial with a leading coefficient of zero.
      * (So it is effectively a quadratic polynomial.)
      */

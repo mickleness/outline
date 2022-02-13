@@ -1,16 +1,17 @@
 /**
  * This software is released as part of the Pumpernickel project.
- * 
+ *
  * All com.pump resources in the Pumpernickel project are distributed under the
  * MIT License:
  * https://raw.githubusercontent.com/mickleness/pumpernickel/master/License.txt
- * 
+ *
  * More information about the Pumpernickel project is available here:
  * https://mickleness.github.io/pumpernickel/
  */
 package com.pump.math;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -22,7 +23,7 @@ public class PolynomialFunction {
 
 	/**
 	 * Create a new <code>PolynomialFunction</code>.
-	 * 
+	 *
 	 * @param coeffs
 	 *            the coefficients of this polynomial. The first coefficient
 	 *            corresponds to the highest power of x. So if coeffs is [2, 3,
@@ -166,7 +167,7 @@ public class PolynomialFunction {
 			// an odd-degree polynomial
 			seekPositive = !seekPositive;
 		} else {
-			// leave seekPos as-is
+			// leave seekPositive as-is
 		}
 
 		initialValue = extrema.length == 0 ? 0 : extrema[extrema.length - 1];
@@ -189,17 +190,12 @@ public class PolynomialFunction {
 		for (int a = 0; a < interest.length - 1; a++) {
 			double y1 = interestYs[a];
 			double y2 = interestYs[a + 1];
-			if ((y1 > 0 && y2 < 0) || (y1 < 0 && y2 > 0)) {
-				// TODO: combine newtons search w/ binary search when possible
-				Double solution = refineNewtonsMethod(this, derivative, interest[a], interest[a + 1]);
-				if (solution != null) {
-					solutions.add(solution);
-				} else {
-					double solution2 = refineBinarySearch(this, interest[a], y1, interest[a + 1], y2);
-					solutions.add(solution2);
-				}
-			} else if (y1 == 0) {
+			if (y1 == 0) {
 				solutions.add(interest[a]);
+			} else if (y1 < 0 && y2 > 0) {
+				solutions.add(refineNewtonsMethod_yIncreasing(this, derivative, interest[a], y1, interest[a + 1], y2));
+			} else if (y1 > 0 && y2 < 0) {
+				solutions.add(refineNewtonsMethod_yDecreasing(this, derivative, interest[a], y1, interest[a + 1], y2));
 			}
 		}
 
@@ -210,82 +206,145 @@ public class PolynomialFunction {
 		return returnArray;
 	}
 
-	private static Double refineNewtonsMethod(PolynomialFunction function,
-			PolynomialFunction derivative, double minX, double maxX) {
+	private static double refineNewtonsMethod_yIncreasing(PolynomialFunction function,
+											  PolynomialFunction derivative, double x1, double y1, double x2, double y2) {
 
 		double dx;
-		double x = (maxX + minX) / 2;
+		double x = (x1 + x2) / 2;
 
-		int k = 0;
+		// hopefully we'll return in less than 20 iterations, but let's set a max (300) just to
+		// avoid a loop:
 
-		while (k < 300) { // sometimes .00000000001 is too strict; 300
-							// iterations may be our best shot
+		for (int loopCtr = 0; loopCtr < 300; loopCtr++) {
+			double y = function.evaluate(x);
+			if (y == 0)
+				return x;
+
 			dx = derivative.evaluate(x);
 			if (dx == 0) {
-				k = 300; // abort!
-			} else {
-				double newX = x - function.evaluate(x) / dx;
-
-				double delta = x - newX;
-				if (delta < 0)
-					delta = -delta;
-				if (delta <= .00000000001) {
-					return Double.valueOf(x);
-				}
-
-				x = newX;
+				return refineBinarySearch_yIncreasing(function, x1, y1, x2, y2);
 			}
-			k++;
+
+			if (y > 0) {
+				x2 = x;
+				y2 = y;
+			} else if (y < 0) {
+				x1 =  x;
+				y1 = y;
+			}
+
+			double newX = x - y / dx;
+
+			if (newX >= x2 || newX <= x1) {
+				// This is probably machine error. Switching to a binary search won't eliminate
+				// machine error, but it avoids dividing by dx:
+				return refineBinarySearch_yIncreasing(function, x1, y1, x2, y2);
+			}
+
+			if (x == newX) {
+				return x;
+			}
+
+			x = newX;
+			loopCtr++;
 		}
-		return null;
+
+		// erg, I don't think we should reach this point:
+		return refineBinarySearch_yIncreasing(function, x1, y1, x2, y2);
 	}
 
-	private static double refineBinarySearch(PolynomialFunction function, double x1, double y1, double x2, double y2) {
+	private static double refineNewtonsMethod_yDecreasing(PolynomialFunction function,
+														  PolynomialFunction derivative, double x1, double y1, double x2, double y2) {
+
+		double dx;
+		double x = (x1 + x2) / 2;
+
+		// hopefully we'll return in less than 20 iterations, but let's set a max (300) just to
+		// avoid a loop:
+
+		for (int loopCtr = 0; loopCtr < 300; loopCtr++) {
+			double y = function.evaluate(x);
+			if (y == 0)
+				return x;
+
+			dx = derivative.evaluate(x);
+			if (dx == 0) {
+				return refineBinarySearch_yDecreasing(function, x1, y1, x2, y2);
+			}
+
+			if (y > 0) {
+				x1 = x;
+				y1 = y;
+			} else if (y < 0) {
+				x2 =  x;
+				y2 = y;
+			}
+
+			double newX = x - y / dx;
+
+			if (newX >= x2 || newX <= x1) {
+				// This is probably machine error. Switching to a binary search won't eliminate
+				// machine error, but it avoids dividing by dx:
+				return refineBinarySearch_yDecreasing(function, x1, y1, x2, y2);
+			}
+
+			if (x == newX) {
+				return x;
+			}
+
+			x = newX;
+			loopCtr++;
+		}
+
+		// erg, I don't think we should reach this point:
+		return refineBinarySearch_yDecreasing(function, x1, y1, x2, y2);
+	}
+
+	private static double refineBinarySearch_yIncreasing(PolynomialFunction function, double x1, double y1, double x2, double y2) {
 		int ctr = 0;
-		if (y1 < 0 && y2 > 0) {
-			// our left Y is negative, our right Y is positive
-			while (true) {
-				if (x1 == x2)
-					return x1;
-				double midX = (x1 + x2) / 2.0;
-				double midY = function.evaluate(midX);
-				if (midY == 0 || ctr > 300) {
-					return midX;
-				} else if (midY > 0) {
-					x2 = midX;
-				} else {
-					x1 = midX;
-				}
-				ctr++;
+		while (true) {
+			if (x1 == x2)
+				return x1;
+			double midX = (x1 + x2) / 2.0;
+			if (x2 == midX || x1 == midX) {
+				return midX;
 			}
-		} else if (y1 > 0 && y2 < 0) {
-			// our left Y is positive, our right Y is negative
-			while (true) {
-				if (x1 == x2)
-					return x1;
-				double midX = (x1 + x2) / 2.0;
-				double midY = function.evaluate(midX);
-				if (midY == 0 || ctr > 300) {
-					return midX;
-				} else if (midY > 0) {
-					x1 = midX;
-				} else {
-					x2 = midX;
-				}
-				ctr++;
+			double midY = function.evaluate(midX);
+			if (midY == 0 || ctr > 300) {
+				return midX;
+			} else if (midY > 0) {
+				x2 = midX;
+			} else {
+				x1 = midX;
 			}
-		} else if( y1 == 0 ) {
-			return x1;
-		} else if( y2 == 0 ) {
-			return x2;
-		} else {
-			throw new IllegalStateException("("+x1+", "+y1+") and ("+x2+", "+y2+") are on the same side of y = 0");
+			ctr++;
+		}
+	}
+
+	private static double refineBinarySearch_yDecreasing(PolynomialFunction function, double x1, double y1, double x2, double y2) {
+		int ctr = 0;
+		while (true) {
+			if (x1 == x2)
+				return x1;
+			double midX = (x1 + x2) / 2.0;
+			if (x2 == midX || x1 == midX) {
+				return midX;
+			}
+			double midY = function.evaluate(midX);
+			if (midY == 0 || ctr > 300) {
+				return midX;
+			} else if (midY > 0) {
+				x1 = midX;
+			} else {
+				x2 = midX;
+			}
+			ctr++;
 		}
 	}
 
 	/**
 	 * Calls <code>evaluateInverse(0)</code>
-	 * 
+	 *
 	 * @return calls <code>evaluateInverse(0)</code>
 	 */
 	public double[] solve() {
