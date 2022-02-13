@@ -18,7 +18,7 @@ public class Outline implements Shape, Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private static OutlineEngine DEFAULT_ENGINE = new PlainAreaEngine();
+    private static OutlineEngine DEFAULT_ENGINE = new AreaOutlineEngine();
 
     public static void setDefaultEngine(OutlineEngine newEngine) {
         Objects.requireNonNull(newEngine);

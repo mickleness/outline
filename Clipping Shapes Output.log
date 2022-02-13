@@ -1,0 +1,71 @@
+This table shows how long it takes to clip outlines of clip art using different models.
+
+The full profiler is running, which may take over an hour.
+
+AreaOutlineEngine	OptimizedEngine	ScaledMaskOutlineEngine[ resolution = 3.0]	Clip Art Name
+14	14	84	Broccoli
+211	40	199	Cat5
+407	231	1553	CelticKnot5 x 10
+1210	36	598	EasterEgg x 4
+46	17	115	ExitSign
+2064	63	383	GardenSign
+782	41	153	GiftBox
+6	11	362	Globe3 x 5
+329	105	163	IceCream12
+204	224	3473	JackOLantern x 50
+880	402	3880	JohnLemon x 50
+17	4	84	MotherAndBaby
+99	134	3257	MRIMachine x 100
+13	9	149	MysteriousCube
+277	364	6898	OrangeJuice x 100
+36	26	743	PersonAtComputer x 5
+2003	388	3768	RockingChair x 5
+2521	561	3738	RunningDogRetro x 5
+7	12	728	RussianBulldozer x 10
+25	25	387	Salad x 4
+64	42	6978	ShareRoadSign x 100
+65	81	3782	SpaceTravel x 50
+20	42	728	StackOfBooks4 x 10
+6	3	88	Stew
+26	20	215	Students
+454	622	7575	TeleworkGuy x 100
+345	19	153	WellDressedOwl
+
+Summary execution times:
+12131	3536	50234	
+
+... and here is the same info expressed as percents:
+100%	100%	600%	Broccoli
+100%	18.957%	94.313%	Cat5
+100%	56.757%	381.572%	CelticKnot5 x 10
+100%	2.975%	49.421%	EasterEgg x 4
+100%	36.957%	250%	ExitSign
+100%	3.052%	18.556%	GardenSign
+100%	5.243%	19.565%	GiftBox
+100%	183.333%	6,033.333%	Globe3 x 5
+100%	31.915%	49.544%	IceCream12
+100%	109.804%	1,702.451%	JackOLantern x 50
+100%	45.682%	440.909%	JohnLemon x 50
+100%	23.529%	494.118%	MotherAndBaby
+100%	135.354%	3,289.899%	MRIMachine x 100
+100%	69.231%	1,146.154%	MysteriousCube
+100%	131.408%	2,490.253%	OrangeJuice x 100
+100%	72.222%	2,063.889%	PersonAtComputer x 5
+100%	19.371%	188.118%	RockingChair x 5
+100%	22.253%	148.274%	RunningDogRetro x 5
+100%	171.429%	10,400%	RussianBulldozer x 10
+100%	100%	1,548%	Salad x 4
+100%	65.625%	10,903.125%	ShareRoadSign x 100
+100%	124.615%	5,818.462%	SpaceTravel x 50
+100%	210%	3,640%	StackOfBooks4 x 10
+100%	50%	1,466.667%	Stew
+100%	76.923%	826.923%	Students
+100%	137.004%	1,668.502%	TeleworkGuy x 100
+100%	5.507%	44.348%	WellDressedOwl
+
+Summary execution times:
+100%	29.148%	414.096%	
+
+Average execution percent:
+100%	74.413%	2,065.792%	
+

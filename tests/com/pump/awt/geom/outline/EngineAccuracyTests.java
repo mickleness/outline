@@ -10,15 +10,14 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.text.NumberFormat;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This confirms that other OutlineEngines produce visual results that
- * resemble the PlainAreaEngine.
+ * resemble the AreaOutlineEngine.
  */
 public class EngineAccuracyTests extends OutlineTests {
 
@@ -134,8 +133,8 @@ public class EngineAccuracyTests extends OutlineTests {
 
     @Override
     public OutlineEngine[] getEngines() {
-        return new OutlineEngine[]{new PlainAreaEngine(),
-                new OptimizedEngine()};
+        return new OutlineEngine[]{new AreaOutlineEngine(),
+                new OptimizedEngine(), new CompoundShapeEngine()};
     }
 
     /**
@@ -216,11 +215,13 @@ public class EngineAccuracyTests extends OutlineTests {
         long lastOutput = System.currentTimeMillis();
 
         int max = 50_000;
-        boolean overnight = false;
-        if (overnight) {
-            max = 57_000_000;
+        if (OutlineTests.RUN_OVERNIGHT) {
+            max = 5_000_000;
         }
 
+        System.out.println("Testing accuracy of "+ Arrays.toString(getEngines())+"...");
+
+        int errorCtr = 0;
         for (int ctr = 0; ctr <= max; ctr++) {
             long time = System.currentTimeMillis();
             long elapsedTime = time - lastOutput;
@@ -236,6 +237,11 @@ public class EngineAccuracyTests extends OutlineTests {
                 System.err.println("sample = "+ctr);
                 e.printStackTrace();
                 fail = true;
+
+                // it's nice to know if a few tests fail together, but if we keep running
+                // once we have hundreds of errors: that's more wasted time than useful feedback
+                if (errorCtr++ > 100)
+                    break;
             }
         }
 
@@ -263,7 +269,7 @@ public class EngineAccuracyTests extends OutlineTests {
             outline.add(createEllipse(2, 0, .9, .9));
             outline.subtract(createEllipse(1, 0, .9, .9));
 
-            boolean expectFailure = engine instanceof PlainAreaEngine;
+            boolean expectFailure = engine instanceof AreaOutlineEngine;
             try {
                 outline.flush();
                 if (expectFailure) {

@@ -6,9 +6,9 @@ import org.junit.Test;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.geom.Path2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.BufferedWriter;
-import java.io.IOException;
 import java.io.Writer;
 import java.text.DecimalFormat;
 import java.util.*;
@@ -24,14 +24,6 @@ import java.util.List;
  * <p>
  */
 public class ClipArtTests extends OutlineTests {
-
-    static boolean PROFILE_MODE = false;
-
-    public static void main(String[] args) throws Exception {
-        ClipArtTests tests = new ClipArtTests();
-        PROFILE_MODE = true;
-        tests.testAdd();
-    }
 
     static class ScaledIcon implements Icon {
         Icon icon;
@@ -64,7 +56,7 @@ public class ClipArtTests extends OutlineTests {
         }
     }
 
-    static class ClipArtTest {
+    static class ClipArtImage {
         Icon icon;
         String name;
 
@@ -80,70 +72,26 @@ public class ClipArtTests extends OutlineTests {
          */
         int loops;
 
-        ClipArtTest(Icon icon, int loops) {
+        /**
+         * This indicates this object should only be considered when
+         * {@link OutlineTests#RUN_OVERNIGHT} is true (because either it
+         * is very expensive or there are similar tests).
+         */
+        boolean runOvernightOnly;
+
+        ClipArtImage(Icon icon, int loops, boolean runOvernightOnly) {
             this.icon = new ScaledIcon(icon, 600, 600);
             this.loops = loops;
             name = icon.getClass().getSimpleName();
             if (loops > 1)
                 name += " x "+loops;
+            this.runOvernightOnly = runOvernightOnly;
         }
-    }
 
-    public static final ClipArtTest[] IMAGES = new ClipArtTest[] {
-            new ClipArtTest(new Broccoli(), 1),
-            new ClipArtTest(new Cat5(), 1),
-            new ClipArtTest(new CelticKnot5(), 10),
-            new ClipArtTest(new EasterEgg(), 4),
-            new ClipArtTest(new ExitSign(), 1),
-            new ClipArtTest(new GardenSign(), 1),
-            new ClipArtTest(new GiftBox(), 1),
-            new ClipArtTest(new Globe3(), 5),
-            new ClipArtTest(new IceCream12(), 1),
-            new ClipArtTest(new JackOLantern(), 50),
-            new ClipArtTest(new JohnLemon(), 50),
-            new ClipArtTest(new MotherAndBaby(), 1),
-            new ClipArtTest(new MRIMachine(), 100),
-            new ClipArtTest(new MysteriousCube(), 1),
-            new ClipArtTest(new OrangeJuice(), 100),
-            new ClipArtTest(new PersonAtComputer(), 5),
-            new ClipArtTest(new RockingChair(), 5),
-            new ClipArtTest(new RunningDogRetro(), 5),
-            new ClipArtTest(new RussianBulldozer(), 10),
-            new ClipArtTest(new Salad(), 4),
-            new ClipArtTest(new ShareRoadSign(), 100),
-            new ClipArtTest(new SpaceTravel(), 50),
-            new ClipArtTest(new StackOfBooks4(), 10),
-            new ClipArtTest(new Stew(), 1),
-            new ClipArtTest(new Students(), 1),
-            new ClipArtTest(new TeleworkGuy(), 100),
-            new ClipArtTest(new WellDressedOwl(), 1)
-    };
-
-    @Test
-    public void testAdd() throws Exception {
-        List<AddResult> results = new LinkedList<>();
-        try(Writer logWriter = createLog("Clip Art Outlines", PROFILE_MODE)) {
-
-            logWriter.write("This table shows how long it takes to create an outline of clip art using different models.\n\n");
-
-            if (PROFILE_MODE) {
-                logWriter.write("The full profiler is running, which may take over an hour.\n\n");
-            } else {
-                logWriter.write("Running as a unit test. The times shown in this table are approximate, but each engine is also being tested for accuracy.\n\n");
-            }
-
-            StringBuilder sb = new StringBuilder();
-            OutlineEngine[] engines = getEngines();
-            for(OutlineEngine engine : engines) {
-                sb.append(engine.toString());
-                sb.append("\t");
-            }
-            sb.append("Clip Art Name");
-            logWriter.write(sb+"\n");
-
-            for(ClipArtTest clipArt : IMAGES) {
-                List<Shape> shapes = new LinkedList<>();
-                Icon icon = clipArt.icon;
+        private List<Shape> shapes = null;
+        public List<Shape> getShapes() {
+            if (shapes == null) {
+                shapes = new LinkedList<>();
                 BufferedImage bi = new BufferedImage(icon.getIconWidth(), icon.getIconHeight(), BufferedImage.TYPE_INT_ARGB);
                 Graphics2D g = bi.createGraphics();
                 g = new ShapeHarvesterGraphics2D(g, shapes);
@@ -161,19 +109,160 @@ public class ClipArtTests extends OutlineTests {
                 }
                 g.dispose();
 
-                AddResult result = testAdd(engines, clipArt, shapes);
+                //to visually inspect the clip art:
+//                try {
+//                    String name = (icon instanceof ScaledIcon) ? ((ScaledIcon)icon).icon.getClass().getSimpleName() : icon.getClass().getSimpleName();
+//                    ImageIO.write(bi, "png", new File("clipart-" + name + ".png"));
+//                } catch(IOException e) {
+//                    e.printStackTrace();
+//                }
+            }
+
+            return shapes;
+        }
+    }
+
+    public static final ClipArtImage[] IMAGES = new ClipArtImage[] {
+            new ClipArtImage(new Broccoli(), 1, false),
+            new ClipArtImage(new Cat5(), 1, false),
+            new ClipArtImage(new CelticKnot5(), 10, false),
+            new ClipArtImage(new EasterEgg(), 4, true),
+            new ClipArtImage(new ExitSign(), 1, true),
+            new ClipArtImage(new GardenSign(), 1, true),
+            new ClipArtImage(new GiftBox(), 1, true),
+            new ClipArtImage(new Globe3(), 5, false),
+            new ClipArtImage(new IceCream12(), 1, true),
+            new ClipArtImage(new JackOLantern(), 50, false),
+            new ClipArtImage(new JohnLemon(), 50, false),
+            new ClipArtImage(new MotherAndBaby(), 1, true),
+            new ClipArtImage(new MRIMachine(), 100, false),
+            new ClipArtImage(new MysteriousCube(), 1, true),
+            new ClipArtImage(new OrangeJuice(), 100, false),
+            new ClipArtImage(new PersonAtComputer(), 5, false),
+            new ClipArtImage(new RockingChair(), 5, true),
+            new ClipArtImage(new RunningDogRetro(), 5, true),
+            new ClipArtImage(new RussianBulldozer(), 10, true),
+            new ClipArtImage(new Salad(), 4, true),
+            new ClipArtImage(new ShareRoadSign(), 100, false),
+            new ClipArtImage(new SpaceTravel(), 50, false),
+            new ClipArtImage(new StackOfBooks4(), 10, true),
+            new ClipArtImage(new Stew(), 1, true),
+            new ClipArtImage(new Students(), 1, true),
+            new ClipArtImage(new TeleworkGuy(), 100, true),
+            new ClipArtImage(new WellDressedOwl(), 1, true)
+    };
+
+
+
+    interface TestScript {
+        Result run(OutlineEngine[] engines,ClipArtImage clipArt);
+    }
+
+    @Test
+    public void testAdd() throws Exception {
+        TestScript script = new TestScript() {
+            @Override
+            public Result run(OutlineEngine[] engines, ClipArtImage clipArt) {
+                Result result = new Result(clipArt.name);
+                List<Shape> shapes = clipArt.getShapes();
+
+                for(OutlineEngine engine : engines) {
+                    int sampleCount = OutlineTests.RUN_OVERNIGHT ? 20 : 1;
+
+                    long[] times = new long[sampleCount];
+                    Outline lastSum = null;
+
+                    for (int a = 0; a < times.length; a++) {
+                        long totalTime = 0;
+                        int loopCount = OutlineTests.RUN_OVERNIGHT ? clipArt.loops : 1;
+                        for(int loopIndex = 0; loopIndex < loopCount; loopIndex++) {
+
+                            // try and get GC churn out of the way before our timer:
+                            System.gc();
+                            System.runFinalization();
+                            System.gc();
+                            System.runFinalization();
+
+                            long startTime = System.currentTimeMillis();
+                            Outline sum = new Outline(engine);
+                            for (Shape shape : shapes) {
+                                sum.add(shape);
+                            }
+                            sum.flush();
+                            long elapsedTime = System.currentTimeMillis() - startTime;
+
+                            lastSum = sum;
+                            totalTime += elapsedTime;
+                        }
+                        times[a] = totalTime;
+                    }
+                    Arrays.sort(times);
+                    long medianTime = times[times.length/2];
+
+                    if (!result.isBaselineDefined()) {
+                        result.setBaseline(engine, lastSum, medianTime);
+                    } else {
+                        result.addEngineTime(engine, medianTime);
+                        String expectedName = clipArt.name;
+                        String actualName = clipArt.name+"-"+engine.toString();
+                        boolean highPrecision = true;
+                        if (engine instanceof ScaledMaskOutlineEngine)
+                            highPrecision = false;
+
+                        ShapeUtilsTest.testEquals(expectedName, actualName, result.baselineShape, lastSum, highPrecision);
+                    }
+                }
+                return result;
+            }
+        };
+        testScript("Adding Shapes For Outline", "This table shows how long it takes to create an outline of clip art using different models.",
+                script);
+    }
+
+    private Collection<ClipArtImage> getImages() {
+        if (OutlineTests.RUN_OVERNIGHT) {
+            return Arrays.asList(IMAGES);
+        }
+        List<ClipArtImage> returnValue = new LinkedList<>();
+        for(ClipArtImage img : IMAGES) {
+            if (!img.runOvernightOnly)
+                returnValue.add(img);
+        }
+        return returnValue;
+    }
+
+    private void testScript(String logName, String description, TestScript script) throws Exception {
+        List<Result> results = new LinkedList<>();
+        try(Writer logWriter = createLog(logName, OutlineTests.RUN_OVERNIGHT)) {
+
+            logWriter.write(description + "\n\n");
+
+            if (OutlineTests.RUN_OVERNIGHT) {
+                logWriter.write("The full profiler is running, which may take over an hour.\n\n");
+            } else {
+                logWriter.write("Running as a unit test. The times shown in this table are approximate, but each engine is also being tested for accuracy.\n\n");
+            }
+
+            StringBuilder sb = new StringBuilder();
+            OutlineEngine[] engines = getEngines();
+            for(OutlineEngine engine : engines) {
+                sb.append(engine.toString());
+                sb.append("\t");
+            }
+            sb.append("Clip Art Name");
+            logWriter.write(sb+"\n");
+
+            for(ClipArtImage clipArt : getImages()) {
+                Result result = script.run(engines, clipArt);
                 logWriter.write(result.toString(false)+"\n");
                 results.add(result);
-
-                // to visually inspect the clip art:
-                // ImageIO.write(bi, "png", new File("clipart-"+icon.getClass().getSimpleName()+".png"));
             }
 
             logWriter.write("\nSummary execution times:\n");
             logWriter.write(getTotalSummary(engines, results, false)+"\n\n");
 
             logWriter.write("... and here is the same info expressed as percents:\n");
-            for(AddResult result : results) {
+            for(Result result : results) {
                 logWriter.write(result.toString(true) + "\n");
             }
 
@@ -192,13 +281,13 @@ public class ClipArtTests extends OutlineTests {
      * @param asPercent
      * @return
      */
-    private String getTotalSummary(OutlineEngine[] engines, List<AddResult> results, boolean asPercent) {
+    private String getTotalSummary(OutlineEngine[] engines, List<Result> results, boolean asPercent) {
         Map<OutlineEngine, Double> totalEngineTimes = new HashMap<>();
         long baselineTotalTime = -1;
         StringBuilder sb = new StringBuilder();
         for(OutlineEngine engine : engines) {
             long totalTime = 0;
-            for(AddResult addResult : results) {
+            for(Result addResult : results) {
                 totalTime += addResult.engineTimes.get(engine);
             }
 
@@ -223,12 +312,12 @@ public class ClipArtTests extends OutlineTests {
      * @param results
      * @return
      */
-    private String getAverageSummary(OutlineEngine[] engines, List<AddResult> results) {
+    private String getAverageSummary(OutlineEngine[] engines, List<Result> results) {
         long baselineTotalTime = -1;
         StringBuilder sb = new StringBuilder();
         for(OutlineEngine engine : engines) {
             double avg = 0;
-            for(AddResult addResult : results) {
+            for(Result addResult : results) {
                 avg += addResult.engineTimes.get(engine) * 100.0 / addResult.baselineTime;
             }
             avg = avg / results.size();
@@ -239,13 +328,13 @@ public class ClipArtTests extends OutlineTests {
         return sb.toString();
     }
 
-    class AddResult {
+    class Result {
         Outline baselineShape;
         long baselineTime;
         LinkedHashMap<OutlineEngine, Long> engineTimes = new LinkedHashMap<>();
         String testName;
 
-        public AddResult(String testName) {
+        public Result(String testName) {
             this.testName = testName;
         }
 
@@ -286,53 +375,81 @@ public class ClipArtTests extends OutlineTests {
         }
     }
 
-    private AddResult testAdd(OutlineEngine[] engines, ClipArtTest clipArt, List<Shape> shapes) throws IOException {
-        AddResult result = new AddResult(clipArt.name);
+    @Test
+    public void testClip() throws Exception {
+        TestScript script = new TestScript() {
+            @Override
+            public Result run(OutlineEngine[] engines, ClipArtImage clipArt) {
+                Result result = new Result(clipArt.name);
+                List<Shape> shapes = clipArt.getShapes();
 
-        for(OutlineEngine engine : engines) {
-            int sampleCount = PROFILE_MODE ? 20 : 1;
-
-            long[] times = new long[sampleCount];
-            Outline lastSum = null;
-            for (int a = 0; a < times.length; a++) {
-                long totalTime = 0;
-                int loopCount = PROFILE_MODE ? clipArt.loops : 1;
-                for(int loopIndex = 0; loopIndex < loopCount; loopIndex++) {
-                    // try and get GC churn out of the way before our timer:
-                    System.gc();
-                    System.runFinalization();
-                    System.gc();
-                    System.runFinalization();
-
-                    long startTime = System.currentTimeMillis();
-                    Outline sum = new Outline(engine);
-                    for (Shape shape : shapes) {
-                        sum.add(shape);
-                    }
-                    sum.flush();
-                    long elapsedTime = System.currentTimeMillis() - startTime;
-
-                    lastSum = sum;
-                    totalTime += elapsedTime;
+                Outline outline = new Outline(new AreaOutlineEngine());
+                for (Shape shape : shapes) {
+                    outline.add(shape);
                 }
-                times[a] = totalTime;
-            }
-            Arrays.sort(times);
-            long medianTime = times[times.length/2];
+                Path2D baseShape = new Path2D.Double(outline);
 
-            if (!result.isBaselineDefined()) {
-                result.setBaseline(engine, lastSum, medianTime);
-            } else {
-                result.addEngineTime(engine, medianTime);
-                String expectedName = clipArt.name;
-                String actualName = clipArt.name+"-"+engine.toString();
-                boolean highPrecision = true;
-                if (engine instanceof ScaledMaskOutlineEngine)
-                    highPrecision = false;
+                Rectangle2D outlineBounds = outline.getBounds2D();
+                Random random = new Random(clipArt.name.hashCode());
 
-                ShapeUtilsTest.testEquals(expectedName, actualName, result.baselineShape, lastSum, highPrecision);
+                Rectangle2D clipRect = new Rectangle2D.Double(outlineBounds.getMinX() + outlineBounds.getWidth() / 2.0,
+                        outlineBounds.getMinY() + outlineBounds.getHeight() / 2.0,
+                        outlineBounds.getWidth() / 2.0,
+                        outlineBounds.getHeight() / 2.0 );
+
+                for(OutlineEngine engine : engines) {
+                    int sampleCount = OutlineTests.RUN_OVERNIGHT ? 20 : 1;
+
+                    long[] times = new long[sampleCount];
+                    Outline lastOutline = null;
+
+                    for (int a = 0; a < times.length; a++) {
+                        long totalTime = 0;
+                        int loopCount = OutlineTests.RUN_OVERNIGHT ? clipArt.loops : 1;
+                        for(int loopIndex = 0; loopIndex < loopCount; loopIndex++) {
+
+                            // try and get GC churn out of the way before our timer:
+                            System.gc();
+                            System.runFinalization();
+                            System.gc();
+                            System.runFinalization();
+
+                            long startTime = System.currentTimeMillis();
+
+                            for(int b = 0; b < (OutlineTests.RUN_OVERNIGHT ? 10 : 1); b++) {
+                                outline = new Outline(engine);
+                                outline.add(baseShape);
+                                outline.intersect(clipRect);
+                                outline.flush();
+                            }
+
+                            long elapsedTime = System.currentTimeMillis() - startTime;
+
+                            lastOutline = outline;
+                            totalTime += elapsedTime;
+                        }
+                        times[a] = totalTime;
+                    }
+                    Arrays.sort(times);
+                    long medianTime = times[times.length/2];
+
+                    if (!result.isBaselineDefined()) {
+                        result.setBaseline(engine, lastOutline, medianTime);
+                    } else {
+                        result.addEngineTime(engine, medianTime);
+                        String expectedName = clipArt.name;
+                        String actualName = clipArt.name+"-"+engine.toString();
+                        boolean highPrecision = true;
+                        if (engine instanceof ScaledMaskOutlineEngine)
+                            highPrecision = false;
+
+                        ShapeUtilsTest.testEquals(expectedName, actualName, result.baselineShape, lastOutline, highPrecision);
+                    }
+                }
+                return result;
             }
-        }
-        return result;
+        };
+        testScript("Clipping Shapes", "This table shows how long it takes to clip outlines of clip art using different models.",
+                script);
     }
 }

@@ -1,7 +1,9 @@
 package com.pump.awt.geom.outline;
 
-import com.pump.awt.geom.AddingShape;
+import com.pump.awt.geom.CompoundShape;
 import com.pump.awt.geom.ShapeUtils;
+import com.pump.awt.geom.clip.RectangularClipperFactory;
+import com.pump.util.ListUtils;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -19,7 +21,7 @@ public class OptimizedEngine implements OutlineEngine {
     OutlineEngine delegateEngine;
 
     public OptimizedEngine() {
-        this(new PlainAreaEngine());
+        this(new AreaOutlineEngine());
     }
 
     public OptimizedEngine(OutlineEngine delegateEngine) {
@@ -28,67 +30,161 @@ public class OptimizedEngine implements OutlineEngine {
 
     @Override
     public Shape calculate(List<OutlineOperation> operationQueue) {
+        // remove transforms by propagating them across all the ops they affected
         removeTransforms(operationQueue);
-        removeLeadingHiddenOperations(operationQueue);
-        operationQueue = consolidateOperationsWithSameType(operationQueue);
-
         removeOperationsOutsideOfClipping(operationQueue);
-        // call again after removeOperationsOutsideOfClipping
-        removeLeadingHiddenOperations(operationQueue);
+        removeSubtractionsAndReplaceXors(operationQueue);
+
+        removeRectangularClipping(operationQueue);
+
+        operationQueue = consolidateOperationsWithSameType(operationQueue);
 
         if (operationQueue.size() == 1) {
             OutlineOperation op = operationQueue.get(0);
-           return op.shape;
+            return op.shape;
         }
 
-        return delegateEngine.calculate(operationQueue);
+        CompoundShape result = new CompoundShape(delegateEngine);
+        for (OutlineOperation op : operationQueue) {
+            switch (op.type) {
+                case ADD:
+                    result.addSafely(op.shape);
+                    break;
+                case SUBTRACT:
+                    result.subtract(op.shape);
+                    break;
+                case INTERSECT:
+                    result.clip(op.shape);
+                    break;
+                case XOR:
+                    result.xor(op.shape);
+                    break;
+            }
+        }
+
+        // some external libraries may have their own optimizations that
+        // benefit from knowing if a shape is an instanceof an Area:
+        if (result.getShapeCount() == 1)
+            return result.getShapes()[0];
+
+        return result;
+    }
+
+    private void removeRectangularClipping(List<OutlineOperation> operationQueue) {
+        ListIterator<OutlineOperation> iter = operationQueue.listIterator(operationQueue.size());
+        Rectangle2D clipBounds = null;
+        while (iter.hasPrevious()) {
+            OutlineOperation op = iter.previous();
+            if (op.type == OutlineOperation.Type.INTERSECT) {
+                Rectangle2D opBounds = ShapeUtils.getBounds2D(op.shape);
+                Rectangle2D opAsRect = ShapeUtils.toRectangle2D(op.shape.getPathIterator(null));
+                if (opAsRect != null) {
+                    iter.remove();
+                }
+
+                if (clipBounds == null) {
+                    clipBounds = opBounds;
+                } else {
+                    Rectangle2D.intersect(clipBounds, opBounds, clipBounds);
+                }
+
+                if (clipBounds.isEmpty()) {
+                    // we should have previously identified this condition in another method, but just in case
+                    // it's trivial to address here too:
+                    while (iter.hasPrevious()) {
+                        iter.previous();
+                        iter.remove();
+                    }
+                    return;
+                }
+            } else {
+                if (clipBounds != null) {
+                    Shape clippedShape = RectangularClipperFactory.get().createClipper().clip(op.shape, null, clipBounds);
+                    OutlineOperation newOp = new OutlineOperation(op.type, clippedShape);
+                    iter.set(newOp);
+                }
+            }
+        }
     }
 
     /**
-     * Remove all operations at the head of the queue that are hidden. For ex: if a queue
-     * contains operations that resemble: SUBTRACT, TRANSFORM, ADD (in that order), then the
-     * first two operations are null-ops because there is nothing visual to subtract or transform
-     * until the ADD comes along.
+     * This iterates forward through the queue and does two things:
+     * 1. If a subtraction op doesn't intersect the existing bounds, then that op is removed.
+     * 2. If an xor op doesn't intersect the existing bounds, then it is converted to an add op.
+     *
+     * This uses rectangles to approximate intersection, so it's possible this scan will mess
+     * some subtraction/xor ops that should (to a human eye) be removed or converted.
      */
-    private void removeLeadingHiddenOperations(List<OutlineOperation> operationQueue) {
-        Iterator<OutlineOperation> iter = operationQueue.iterator();
-        int firstVisibleOp = 0;
+    private void removeSubtractionsAndReplaceXors(List<OutlineOperation> operationQueue) {
+        ListIterator<OutlineOperation> iter = operationQueue.listIterator();
+        Rectangle2D totalBounds = null;
         while (iter.hasNext()) {
             OutlineOperation op = iter.next();
-            if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.XOR) {
-                return;
+            Rectangle2D opBounds = ShapeUtils.getBounds2D(op.shape);
+
+            if (op.type == OutlineOperation.Type.XOR) {
+                if (totalBounds == null || !totalBounds.intersects(opBounds)) {
+                    op = new OutlineOperation(OutlineOperation.Type.ADD, op.shape);
+                    iter.set(op);
+                }
             }
-            iter.remove();
+
+            switch (op.type) {
+                case SUBTRACT:
+                    if (totalBounds == null || !totalBounds.intersects(opBounds))
+                        iter.remove();
+                    break;
+                case INTERSECT:
+                    if (totalBounds == null) {
+                        iter.remove();
+                    } else {
+                        Rectangle2D.intersect(totalBounds, opBounds, totalBounds);
+                        if (totalBounds.isEmpty())
+                            totalBounds = null;
+                    }
+                    break;
+                default:
+                    if (totalBounds == null) {
+                        totalBounds = opBounds;
+                    } else {
+                        totalBounds.add(opBounds);
+                    }
+                    break;
+            }
         }
     }
 
     /**
      * This removes operations if their bounds fall completely outside of a future clipping operation.
-     *
-     * This should be called after we consolidate operations of the same type, and remove transforms.
-     *
-     * @param operationQueue
+     * This should be called after we remove transforms.
      */
     private void removeOperationsOutsideOfClipping(List<OutlineOperation> operationQueue) {
-        ListIterator<OutlineOperation> iter = operationQueue.listIterator();
-        while (iter.hasNext()) {
-            OutlineOperation op = iter.next();
+        Iterator<OutlineOperation> listIter = ListUtils.descendingIterator(operationQueue);
+        Rectangle2D clippingBounds = null;
+        while (listIter.hasNext()) {
+            OutlineOperation op = listIter.next();
+            Rectangle2D bounds = ShapeUtils.getBounds2D(op.shape);
+
             if (op.type == OutlineOperation.Type.INTERSECT) {
-                int expectedCursor = iter.nextIndex();
-                Rectangle2D clipBounds = ShapeUtils.getBounds2D(op.shape);
-                iter.previous();
-                while (iter.hasPrevious()) {
-                    OutlineOperation op2 = iter.previous();
-                    if (op2.type != OutlineOperation.Type.INTERSECT) {
-                        Rectangle2D opBounds2 = ShapeUtils.getBounds2D(op2.shape);
-                        if (!clipBounds.intersects(opBounds2))
-                            iter.remove();
-                    }
+                if (clippingBounds == null) {
+                    clippingBounds = bounds;
+                } else {
+                    Rectangle2D.intersect(clippingBounds, bounds, clippingBounds);
                 }
 
-                // return to our starting point
-                while (iter.nextIndex() != expectedCursor && iter.hasNext())
-                    iter.next();
+                if (clippingBounds.isEmpty()) {
+                    // nothing else is showing:
+                    listIter.remove();
+                    while (listIter.hasNext()) {
+                        listIter.next();
+                        listIter.remove();
+                    }
+                    return;
+                }
+            } else {
+                if (clippingBounds != null && !bounds.intersects(clippingBounds)) {
+                    listIter.remove();
+                }
             }
         }
     }
@@ -130,7 +226,6 @@ public class OptimizedEngine implements OutlineEngine {
                     iter.set(new OutlineOperation(op2.type, currentTx.createTransformedShape(op2.shape)));
                 }
             }
-            currentTx = null;
         }
     }
 
@@ -174,24 +269,26 @@ public class OptimizedEngine implements OutlineEngine {
         return newQueue;
     }
 
-    private AddingShape add(Shape shape1, Shape shape2) {
-        AddingShape baseShape;
-        if (shape1 instanceof AddingShape) {
-            baseShape = (AddingShape) shape1;
+    private CompoundShape add(Shape shape1, Shape shape2) {
+        CompoundShape baseShape;
+        if (shape1 instanceof CompoundShape) {
+            baseShape = (CompoundShape) shape1;
         } else {
-            baseShape = new AddingShape(shape1);
+            baseShape = new CompoundShape(delegateEngine, shape1);
         }
         baseShape.addSafely(shape2);
 
         return baseShape;
     }
 
-    private Area intersect(Shape shape1, Shape shape2) {
+    private Shape intersect(Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
-        boolean empty2 = ShapeUtils.isEmpty(shape2);
+        if (empty1)
+            return shape1;
 
-        if (empty1 || empty2)
-            return new Area();
+        boolean empty2 = ShapeUtils.isEmpty(shape2);
+        if (empty2)
+            return shape2;
 
         Rectangle2D r1 = ShapeUtils.getBounds2D(shape1);
         Rectangle2D r2 = ShapeUtils.getBounds2D(shape2);
@@ -199,27 +296,44 @@ public class OptimizedEngine implements OutlineEngine {
         if (!r1.intersects(r2))
             return new Area();
 
-        Area area1 = new Area(shape1);
-        Area area2 = new Area(shape2);
-        area1.intersect(area2);
-        return area1;
+        if (shape1 instanceof CompoundShape) {
+            CompoundShape cs = (CompoundShape) shape1;
+            cs.clip(shape2);
+            return cs;
+        } else if (shape2 instanceof CompoundShape) {
+            CompoundShape cs = (CompoundShape) shape2;
+            cs.clip(shape1);
+            return cs;
+        }
+
+        Rectangle2D r1b = ShapeUtils.toRectangle2D(shape1);
+        Rectangle2D r2b = ShapeUtils.toRectangle2D(shape2);
+
+        if (r1b != null) {
+            return RectangularClipperFactory.get().createClipper().clip(shape2, null, r1b);
+        } else if(r2b != null) {
+            return RectangularClipperFactory.get().createClipper().clip(shape1, null, r2b);
+        }
+
+        List<OutlineOperation> newQueue = new LinkedList<>();
+        newQueue.add(new OutlineOperation(OutlineOperation.Type.ADD, shape1));
+        newQueue.add(new OutlineOperation(OutlineOperation.Type.INTERSECT, shape2));
+        return delegateEngine.calculate(newQueue);
     }
 
-    private Area xor(Shape shape1, Shape shape2) {
+    private Shape xor(Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
-        boolean empty2 = ShapeUtils.isEmpty(shape2);
-
-        if (empty1 && empty2)
-            return new Area();
         if (empty1)
-            return new Area(shape2);
-        if (empty2)
-            return new Area(shape1);
+            return shape2;
 
-        Area area1 = new Area(shape1);
-        Area area2 = new Area(shape2);
-        area1.exclusiveOr(area2);
-        return area1;
+        boolean empty2 = ShapeUtils.isEmpty(shape2);
+        if (empty2)
+            return shape1;
+
+        CompoundShape returnValue = new CompoundShape(delegateEngine, shape1);
+        returnValue.xor(shape2);
+
+        return returnValue;
     }
 
     @Override

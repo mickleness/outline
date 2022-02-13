@@ -12,8 +12,15 @@ import java.util.Random;
 
 public abstract class OutlineTests extends TestCase {
 
-    public Writer createLog(String name, boolean writeFile) throws FileNotFoundException {if (name.contains("/") || name.contains("\\"))
-        throw new IllegalArgumentException("illegal name = "+name);
+    /**
+     * Toggle this boolean on to run several hours of randomized tests. Toggle this off to have tests
+     * that should complete in under 5-10 minutes.
+     */
+    public static final boolean RUN_OVERNIGHT = false;
+
+    public Writer createLog(String name, boolean writeFile) throws FileNotFoundException {
+        if (name.contains("/") || name.contains("\\"))
+            throw new IllegalArgumentException("illegal name = "+name);
         OutputStream out;
         if (writeFile) {
             File file = new File(name + " Output.log");
@@ -35,7 +42,7 @@ public abstract class OutlineTests extends TestCase {
 
     public OutlineEngine[] getEngines() {
         List<OutlineEngine> engines = new ArrayList<>();
-        engines.add(new PlainAreaEngine());
+        engines.add(new AreaOutlineEngine());
         engines.add(new OptimizedEngine());
         engines.add(new ScaledMaskOutlineEngine(3));
         return engines.toArray(new OutlineEngine[0]);

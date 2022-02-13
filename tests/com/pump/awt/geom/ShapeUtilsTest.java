@@ -104,6 +104,21 @@ public class ShapeUtilsTest extends TestCase {
         assertEquals(new Rectangle(0,0,10,10), ShapeUtils.toRectangle2D(new Rectangle(0,0,10,10).getPathIterator(null)));
     }
 
+    /**
+     * This confirms that the return value for toRectangle2D is an
+     * int-based rectangle when possible
+     */
+    public void testToRectangle_intRectangle2() {
+        Rectangle2D r2D = new Rectangle2D.Double(0,0,10,10);
+        Rectangle2D t = ShapeUtils.toRectangle2D(r2D);
+        assertEquals(new Rectangle(0,0,10,10), t);
+        assertEquals(Rectangle.class, t.getClass());
+
+        t = ShapeUtils.toRectangle2D(new Path2D.Double(r2D));
+        assertEquals(new Rectangle(0,0,10,10), t);
+        assertEquals(Rectangle.class, t.getClass());
+    }
+
     // TODO: make rectangle-detection smarter so this unit test passes:
 //    public void testToRectangle2D_midpoint() {
 //        Path2D p = new Path2D.Double();
@@ -173,7 +188,7 @@ public class ShapeUtilsTest extends TestCase {
         BufferedImage actualImage = createImage(actualShape, r);
 
         if (!highPrecision) {
-            // the ScaledMaskOutlineEngine is a little chunkier than the PlainAreaEngine. Instead of fixing
+            // the ScaledMaskOutlineEngine is a little chunkier than the AreaOutlineEngine. Instead of fixing
             // this: I'll just make the image comparison fuzzier.
             expectedImage = blur(expectedImage);
             actualImage = blur(actualImage);

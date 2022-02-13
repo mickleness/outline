@@ -2,6 +2,7 @@ package com.pump.awt.geom.mask;
 
 import com.pump.awt.geom.ShapeUtilsTest;
 import com.pump.awt.geom.mask.RectangleMask;
+import com.pump.awt.geom.outline.OutlineTests;
 import junit.framework.TestCase;
 
 import java.awt.*;
@@ -453,7 +454,11 @@ public class RectangleMaskTests extends TestCase {
      * that the mask's PathIterator shape fills the appropriate pixels.
      */
     public void testPathIterator() {
+        Random random = new Random(0);
         for(int a = 0; a < 65536; a++) {
+            if (!OutlineTests.RUN_OVERNIGHT && random.nextDouble() > .95)
+                continue;
+
             String str = Integer.toString(a, 2);
             while (str.length()<16)
                 str = "0"+str;
