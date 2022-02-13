@@ -105,10 +105,10 @@ public class PolynomialFunction {
 	 * and strategically applying Newton's Method. This is imperfect, but a
 	 * decent analytical guess.
 	 */
-	public int evaluateInverse(double y, double[] results) {
+	public int evaluateInverse(double y, double[] results, int resultOffset) {
 		if (coeffs.length == 2) {
 			double x = (y - coeffs[1]) / coeffs[0];
-			results[0] = x;
+			results[resultOffset] = x;
 			return 1;
 		}
 		if (y != 0) {
@@ -116,13 +116,13 @@ public class PolynomialFunction {
 			System.arraycopy(coeffs, 0, newCoeffs, 0, coeffs.length);
 			newCoeffs[newCoeffs.length - 1] -= y;
 			PolynomialFunction f = new PolynomialFunction(newCoeffs, false);
-			return f.evaluateInverse(0, results);
+			return f.evaluateInverse(0, results, resultOffset);
 		}
 
 		PolynomialFunction derivative = getDerivative();
 
 		double[] extrema = new double[derivative.getDegree()];
-		int extremaCount = derivative.solve(extrema);
+		int extremaCount = derivative.evaluateInverse(0, extrema, 0);
 		double[] extremaYs = new double[extremaCount];
 		for (int a = 0; a < extremaCount; a++) {
 			extremaYs[a] = evaluate(extrema[a]);
@@ -199,11 +199,11 @@ public class PolynomialFunction {
 			double y1 = interestYs[a];
 			double y2 = interestYs[a + 1];
 			if (y1 == 0) {
-				results[returnValue++] = interest[a];
+				results[resultOffset + returnValue++] = interest[a];
 			} else if (y1 < 0 && y2 > 0) {
-				results[returnValue++] = refineNewtonsMethod_yIncreasing(this, derivative, interest[a], y1, interest[a + 1], y2);
+				results[resultOffset + returnValue++] = refineNewtonsMethod_yIncreasing(this, derivative, interest[a], y1, interest[a + 1], y2);
 			} else if (y1 > 0 && y2 < 0) {
-				results[returnValue++] = refineNewtonsMethod_yDecreasing(this, derivative, interest[a], y1, interest[a + 1], y2);
+				results[resultOffset + returnValue++] = refineNewtonsMethod_yDecreasing(this, derivative, interest[a], y1, interest[a + 1], y2);
 			}
 		}
 
@@ -344,15 +344,6 @@ public class PolynomialFunction {
 			}
 			ctr++;
 		}
-	}
-
-	/**
-	 * Calls <code>evaluateInverse(0)</code>
-	 *
-	 * @return calls <code>evaluateInverse(0)</code>
-	 */
-	public int solve(double[] results) {
-		return evaluateInverse(0, results);
 	}
 
 	public int getDegree() {
