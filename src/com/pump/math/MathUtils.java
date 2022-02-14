@@ -45,7 +45,7 @@ public class MathUtils {
         if (p.getDegree() <= 1)
             return -1;
 
-        int resultCount = p.evaluateInverse(0, eqn, 0);
+        int resultCount = p.solve(0, eqn, 0);
 
         for(int i = 0; i < resultCount; i++) {
             double result = eqn[i];

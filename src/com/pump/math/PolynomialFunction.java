@@ -10,10 +10,6 @@
  */
 package com.pump.math;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 /**
  * This function evaluates a polynomial expression.
  */
@@ -105,7 +101,7 @@ public class PolynomialFunction {
 	 * and strategically applying Newton's Method. This is imperfect, but a
 	 * decent analytical guess.
 	 */
-	public int evaluateInverse(double y, double[] results, int resultOffset) {
+	public int solve(double y, double[] results, int resultOffset) {
 		if (coeffs.length == 2) {
 			double x = (y - coeffs[1]) / coeffs[0];
 			results[resultOffset] = x;
@@ -116,23 +112,36 @@ public class PolynomialFunction {
 			System.arraycopy(coeffs, 0, newCoeffs, 0, coeffs.length);
 			newCoeffs[newCoeffs.length - 1] -= y;
 			PolynomialFunction f = new PolynomialFunction(newCoeffs, false);
-			return f.evaluateInverse(0, results, resultOffset);
+			return f.solve(0, results, resultOffset);
 		}
 
 		PolynomialFunction derivative = getDerivative();
 
-		double[] extrema = new double[derivative.getDegree()];
-		int extremaCount = derivative.evaluateInverse(0, extrema, 0);
-		double[] extremaYs = new double[extremaCount];
-		for (int a = 0; a < extremaCount; a++) {
-			extremaYs[a] = evaluate(extrema[a]);
+		double[] interestingXs = new double[derivative.getDegree() + 2];
+		double[] interestingYs = new double[interestingXs.length];
+		int interestingXCount = populateInterestingPoints(derivative, interestingXs, interestingYs);
+
+		int returnValue = 0;
+		for (int a = 0; a < interestingXCount - 1; a++) {
+			double y1 = interestingYs[a];
+			double y2 = interestingYs[a + 1];
+			if (y1 == 0) {
+				results[resultOffset + returnValue++] = interestingXs[a];
+			} else if (y1 < 0 && y2 > 0) {
+				results[resultOffset + returnValue++] = refineNewtonsMethod_yIncreasing(this, derivative, interestingXs[a], y1, interestingXs[a + 1], y2);
+			} else if (y1 > 0 && y2 < 0) {
+				results[resultOffset + returnValue++] = refineNewtonsMethod_yDecreasing(this, derivative, interestingXs[a], y1, interestingXs[a + 1], y2);
+			}
 		}
 
-		double[] interest = new double[extremaCount + 2];
-		double[] interestYs = new double[extremaCount + 2];
+		return returnValue;
+	}
 
-		System.arraycopy(extrema, 0, interest, 1, extremaCount);
-		System.arraycopy(extremaYs, 0, interestYs, 1, extremaYs.length);
+	private int populateInterestingPoints(PolynomialFunction derivative, double[] interestingXs, double[] interestingYs) {
+		int extremaCount = derivative.solve(0, interestingXs, 1);
+		for (int a = 1; a < 1 + extremaCount; a++) {
+			interestingYs[a] = evaluate(interestingXs[a]);
+		}
 
 		// seek the first interesting time:
 		boolean seekPositive;
@@ -155,17 +164,17 @@ public class PolynomialFunction {
 			}
 		}
 
-		double initialValue = extremaCount == 0 ? 0 : extrema[0];
+		double initialValue = extremaCount == 0 ? 0 : interestingXs[1];
 		identifyBoundary: for (int power = 1; power < 30; power++) {
 			double x = initialValue - Math.pow(10, power);
 			double v = evaluate(x);
 			if (seekPositive && v > 0) {
-				interest[0] = x;
-				interestYs[0] = v;
+				interestingXs[0] = x;
+				interestingYs[0] = v;
 				break identifyBoundary;
 			} else if (!seekPositive && v < 0) {
-				interest[0] = x;
-				interestYs[0] = v;
+				interestingXs[0] = x;
+				interestingYs[0] = v;
 				break identifyBoundary;
 			}
 		}
@@ -179,35 +188,21 @@ public class PolynomialFunction {
 			// leave seekPositive as-is
 		}
 
-		initialValue = extremaCount == 0 ? 0 : extrema[extremaCount - 1];
+		initialValue = extremaCount == 0 ? 0 : interestingXs[extremaCount];
 		identifyBoundary: for (int power = 1; power < 30; power++) {
 			double x = initialValue + Math.pow(10, power);
 			double v = evaluate(x);
 			if (seekPositive && v > 0) {
-				interest[interest.length - 1] = x;
-				interestYs[interest.length - 1] = v;
+				interestingXs[extremaCount + 1] = x;
+				interestingYs[extremaCount + 1] = v;
 				break identifyBoundary;
 			} else if (!seekPositive && v < 0) {
-				interest[interest.length - 1] = x;
-				interestYs[interest.length - 1] = v;
+				interestingXs[extremaCount + 1] = x;
+				interestingYs[extremaCount + 1] = v;
 				break identifyBoundary;
 			}
 		}
-
-		int returnValue = 0;
-		for (int a = 0; a < interest.length - 1; a++) {
-			double y1 = interestYs[a];
-			double y2 = interestYs[a + 1];
-			if (y1 == 0) {
-				results[resultOffset + returnValue++] = interest[a];
-			} else if (y1 < 0 && y2 > 0) {
-				results[resultOffset + returnValue++] = refineNewtonsMethod_yIncreasing(this, derivative, interest[a], y1, interest[a + 1], y2);
-			} else if (y1 > 0 && y2 < 0) {
-				results[resultOffset + returnValue++] = refineNewtonsMethod_yDecreasing(this, derivative, interest[a], y1, interest[a + 1], y2);
-			}
-		}
-
-		return returnValue;
+		return extremaCount + 2;
 	}
 
 	private static double refineNewtonsMethod_yIncreasing(PolynomialFunction function,

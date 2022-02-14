@@ -13,9 +13,9 @@ public class PolynomialFunctionTest extends TestCase {
         double[] eqn = {1, 0, 0};
         PolynomialFunction f = new PolynomialFunction(eqn);
 
-        assertEquals(0, f.evaluateInverse(-1, new double[3], 0));
-        assertEquals(1, f.evaluateInverse(0, new double[3], 0));
-        assertEquals(2, f.evaluateInverse(1, new double[3], 0));
+        assertEquals(0, f.solve(-1, new double[3], 0));
+        assertEquals(1, f.solve(0, new double[3], 0));
+        assertEquals(2, f.solve(1, new double[3], 0));
     }
 
     /**
@@ -26,7 +26,7 @@ public class PolynomialFunctionTest extends TestCase {
         double[] eqn = {0, 46.862915010152385, -46.86291501015239, 8.715728752538102};
         PolynomialFunction f = new PolynomialFunction(eqn);
         double[] solutions = new double[4];
-        int solutionCount = f.evaluateInverse(0, solutions, 0);
+        int solutionCount = f.solve(0, solutions, 0);
         assertEquals(Arrays.toString(solutions), 2, solutionCount);
         Arrays.sort(solutions, 0, solutionCount);
         assertTrue(Double.toString(solutions[0]), Math.abs(solutions[0] - 0.24698516981) < .00001);
@@ -41,7 +41,7 @@ public class PolynomialFunctionTest extends TestCase {
         double[] eqn = new double[] { 4.263256414560601E-14, -93.72583002030478, 46.86291501015239};
         PolynomialFunction f = new PolynomialFunction(eqn);
         double[] solutions = new double[3];
-        int solutionCount = f.evaluateInverse(0, solutions, 0);
+        int solutionCount = f.solve(0, solutions, 0);
 
         assertEquals(Arrays.toString(solutions), 2, solutionCount);
         Arrays.sort(solutions, 0, solutionCount);
@@ -58,7 +58,7 @@ public class PolynomialFunctionTest extends TestCase {
 
         PolynomialFunction f = new PolynomialFunction(eqn);
         double[] solutions = new double[3];
-        int solutionCount = f.evaluateInverse(0, solutions, 0);
+        int solutionCount = f.solve(0, solutions, 0);
         assertEquals(Arrays.toString(solutions), 3, solutionCount);
         Arrays.sort(solutions, 0, solutionCount);
         assertTrue(Double.toString(solutions[0]), Math.abs(solutions[0] - .14218299566818918) < .00001);
