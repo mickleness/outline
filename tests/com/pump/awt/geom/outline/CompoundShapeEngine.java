@@ -21,7 +21,7 @@ class CompoundShapeEngine implements OutlineEngine {
         for(OutlineOperation op : operationQueue) {
             switch(op.type) {
                 case ADD:
-                    returnValue.addSafely(op.shape);
+                    returnValue.add(op.shape);
                     break;
                 case SUBTRACT:
                     returnValue.subtract(op.shape);

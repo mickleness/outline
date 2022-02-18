@@ -48,7 +48,7 @@ public class OptimizedEngine implements OutlineEngine {
         for (OutlineOperation op : operationQueue) {
             switch (op.type) {
                 case ADD:
-                    result.addSafely(op.shape);
+                    result.add(op.shape);
                     break;
                 case SUBTRACT:
                     result.subtract(op.shape);
@@ -276,7 +276,7 @@ public class OptimizedEngine implements OutlineEngine {
         } else {
             baseShape = new CompoundShape(delegateEngine, shape1);
         }
-        baseShape.addSafely(shape2);
+        baseShape.add(shape2);
 
         return baseShape;
     }
