@@ -286,7 +286,7 @@ public class DefaultRectangularClipper extends AbstractRectangularClipper {
             PathIterator i = new ClosedPathIterator(incomingShape.getPathIterator(transform));
             ClippedPath p = new ClippedPath(i.getWindingRule());
             int k;
-            double[] f = new double[6];
+            double[] coords = new double[6];
             double lastX = 0.0;
             double lastY = 0.0;
 
@@ -299,6 +299,7 @@ public class DefaultRectangularClipper extends AbstractRectangularClipper {
             CubicFunction cxf = new CubicFunction();
             CubicFunction cyf = new CubicFunction();
 
+            Rectangle2D r = new Rectangle2D.Double();
             Function xf;
             Function yf;
             Point2D.Double point = new Point2D.Double();
@@ -306,57 +307,66 @@ public class DefaultRectangularClipper extends AbstractRectangularClipper {
             int tCtr;
 
             while (!i.isDone()) {
-                k = i.currentSegment(f);
+                k = i.currentSegment(coords);
                 i.next();
 
                 if (k == PathIterator.SEG_MOVETO) {
-                    point.setLocation(f[0], f[1]);
+                    point.setLocation(coords[0], coords[1]);
                     cap(point);
 
                     p.moveTo(point.x, point.y);
 
-                    lastX = f[0];
-                    lastY = f[1];
+                    lastX = coords[0];
+                    lastY = coords[1];
                 } else if (k == PathIterator.SEG_CLOSE) {
                     // because we used a ClosingPathIterator: we're guaranteed our subpath ended with a LINETO
                     // that ended at the original MOVETO starting point
                     p.closePath();
                 } else {
+                    r.setRect(lastX, lastY, 0, 0);
                     if (k == PathIterator.SEG_LINETO) {
-                        lxf.define(lastX, f[0]);
-                        lyf.define(lastY, f[1]);
+                        lxf.define(lastX, coords[0]);
+                        lyf.define(lastY, coords[1]);
 
                         xf = lxf;
                         yf = lyf;
 
-                        lastX = f[0];
-                        lastY = f[1];
+                        lastX = coords[0];
+                        lastY = coords[1];
                     } else if (k == PathIterator.SEG_QUADTO) {
-                        qxf.define(lastX, f[0], f[2]);
-                        qyf.define(lastY, f[1], f[3]);
+                        qxf.define(lastX, coords[0], coords[2]);
+                        qyf.define(lastY, coords[1], coords[3]);
+                        r.add(coords[0], coords[1]);
 
                         xf = qxf;
                         yf = qyf;
 
-                        lastX = f[2];
-                        lastY = f[3];
+                        lastX = coords[2];
+                        lastY = coords[3];
                     } else if (k == PathIterator.SEG_CUBICTO) {
-                        cxf.define(lastX, f[0], f[2], f[4]);
-                        cyf.define(lastY, f[1], f[3], f[5]);
+                        cxf.define(lastX, coords[0], coords[2], coords[4]);
+                        cyf.define(lastY, coords[1], coords[3], coords[5]);
+                        r.add(coords[0], coords[1]);
+                        r.add(coords[2], coords[3]);
 
                         xf = cxf;
                         yf = cyf;
 
-                        lastX = f[4];
-                        lastY = f[5];
+                        lastX = coords[4];
+                        lastY = coords[5];
                     } else {
                         throw new IllegalStateException("currentSegment = "+k);
                     }
+                    r.add(lastX, lastY);
 
                     // gather all the t values at which we might be
                     // crossing the bounds of our rectangle:
 
-                    tCtr = collectIntersectionTimes(xf, yf, intersectionTimes);
+                    if (r.intersects(rLeft, rTop, rRight - rLeft, rBottom - rTop)) {
+                        tCtr = collectIntersectionTimes(xf, yf, intersectionTimes);
+                    } else {
+                        tCtr = 0;
+                    }
                     intersectionTimes[tCtr++] = 1.0;
                     // put them in ascending order:
                     Arrays.sort(intersectionTimes, 0, tCtr);
@@ -420,6 +430,12 @@ public class DefaultRectangularClipper extends AbstractRectangularClipper {
      * smaller interval from an arbitrary [t0,t1].
      */
     static class ClippedPath {
+        // TODO: revisit this class's implementation. Maybe identify when coordinates are added as CAPPED vs
+        // UNCAPPED? (to help simplify output)
+
+        // TODO: look at output shapes. Visually the results we're getting are good, but I think there's still
+        // a lot of redundant path info out there (including MOVE_TO's paired with CLOSES)
+
         public final Path2D p;
         private final Stack<double[]> uncommittedPoints = new Stack<>();
         private double initialX, initialY;
