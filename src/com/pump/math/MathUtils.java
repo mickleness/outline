@@ -29,6 +29,10 @@ public class MathUtils {
     public static int solveCubic(double[] eqn, double[] res, double minX, double maxX) {
         int returnValue = 0;
 
+        // TODO : in the "area" project/repo I had encouraging results optimizing
+        // the Order3's solve-cubic logic. We should revisit that approach when
+        // we branch the Area class itself.
+
         // this is the code that doesn't pass our unit test that we're trying to replace:
 
 //        double[] results = new double[3];
