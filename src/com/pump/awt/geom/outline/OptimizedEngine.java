@@ -51,7 +51,7 @@ public class OptimizedEngine implements OutlineEngine {
 
         removeRectangularClipping(operationQueue);
 
-        operationQueue = consolidateOperationsWithSameType(operationQueue);
+        consolidateOperationsWithSameType(operationQueue);
 
         if (operationQueue.size() == 1) {
             OutlineOperation op = operationQueue.get(0);
@@ -246,41 +246,45 @@ public class OptimizedEngine implements OutlineEngine {
     /**
      * Consolidate all consecutive operations of the same type. For example: 5 consecutive add operations
      * can be consolidated into 1 add operation. 5 clip operations can become 1 clip, etc.
-     *
-     * TODO: modify the incoming list if possible; avoid returning a new list here. Just for consistency with other
-     * methods in this class.
      */
-    private List<OutlineOperation> consolidateOperationsWithSameType(List<OutlineOperation> operationQueue) {
-        List<OutlineOperation> newQueue = new ArrayList<>(operationQueue.size());
+    private void consolidateOperationsWithSameType(List<OutlineOperation> operationQueue) {
+        ListIterator<OutlineOperation> listIter = operationQueue.listIterator();
+        while (listIter.hasNext()) {
+            OutlineOperation runStart = listIter.next();
 
-        OutlineOperation lastOp = null;
-        for(OutlineOperation op : operationQueue) {
-            if (lastOp == null || lastOp.type != op.type) {
-                if (lastOp != null)
-                    newQueue.add(lastOp);
-                lastOp = op;
-            } else {
-                if (op.type == OutlineOperation.Type.ADD || op.type == OutlineOperation.Type.SUBTRACT) {
-                    Shape newShape = add(lastOp.shape, op.shape);
-                    lastOp = new OutlineOperation(op.type, newShape);
-                } else if (op.type == OutlineOperation.Type.INTERSECT) {
-                    Shape newShape = intersect(lastOp.shape, op.shape);
-                    lastOp = new OutlineOperation(OutlineOperation.Type.INTERSECT, newShape);
-                } else if (op.type == OutlineOperation.Type.XOR) {
-                    Shape newShape = xor(lastOp.shape, op.shape);
-                    lastOp = new OutlineOperation(OutlineOperation.Type.XOR, newShape);
-                } else {
-                    // this shouldn't be possible, but in case something changes:
-                    newQueue.add(lastOp);
-                    lastOp = op;
+            // we shouldn't have OutlineOperation.Type.TRANSFORM here, but just in case something changes:
+            if (runStart.shape != null) {
+                Shape newOpShape = runStart.shape;
+                boolean dirty = false;
+                while (listIter.hasNext()) {
+                    OutlineOperation op = listIter.next();
+                    if (op.type != runStart.type)
+                        break;
+
+                    if (runStart.type == OutlineOperation.Type.ADD || runStart.type == OutlineOperation.Type.SUBTRACT) {
+                        newOpShape = add(newOpShape, op.shape);
+                    } else if (runStart.type == OutlineOperation.Type.INTERSECT) {
+                        newOpShape = intersect(newOpShape, op.shape);
+                    } else if (op.type == OutlineOperation.Type.XOR) {
+                        newOpShape = xor(newOpShape, op.shape);
+                    } else {
+                        // this shouldn't be possible; was a new type added?
+                        throw new IllegalStateException("op.type = " + runStart.type);
+                    }
+                    listIter.remove();
+                    dirty = true;
+                }
+
+                if (dirty) {
+                    // rewind to our starting point:
+                    while (listIter.previous() != runStart) ;
+
+                    // replace it:
+                    listIter.set(new OutlineOperation(runStart.type, newOpShape));
+                    listIter.next();
                 }
             }
         }
-
-        if (lastOp != null)
-            newQueue.add(lastOp);
-
-        return newQueue;
     }
 
     private CompoundShape add(Shape shape1, Shape shape2) {
