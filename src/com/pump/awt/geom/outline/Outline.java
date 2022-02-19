@@ -1,5 +1,7 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.awt.geom.ShapeUtils;
+
 import java.awt.*;
 import java.awt.geom.*;
 import java.io.IOException;
@@ -116,13 +118,9 @@ public class Outline implements Shape, Serializable {
         if (operationQueue.isEmpty())
             return;
 
-        if (shape != null) {
-            if (shape instanceof Area && ((Area)shape).isEmpty()) {
-                // intentionally empty
-            } else {
-                OutlineOperation initOp = new OutlineOperation(OutlineOperation.Type.ADD, shape);
-                operationQueue.add(0, initOp);
-            }
+        if (shape != null && !ShapeUtils.isEmpty(shape)) {
+            OutlineOperation initOp = new OutlineOperation(OutlineOperation.Type.ADD, shape);
+            operationQueue.add(0, initOp);
         }
 
         shape = getEngine().calculate(operationQueue);
