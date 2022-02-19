@@ -36,7 +36,7 @@ public class CompoundShape implements Shape, Serializable {
     /**
      * This is an alternative winding rule indicating that the winding rule isn't
      * WIND_EVEN_ODD or WIND_NON_ZERO yet. CompoundShapes stay in this undefined
-     * shape as long as possible. (If an CompoundShape uses this winding rule then
+     * state as long as possible. (If a CompoundShape uses this winding rule then
      * its PathIterator picks a default rule.)
      */
     public static int WIND_UNKNOWN = -1;
@@ -50,16 +50,14 @@ public class CompoundShape implements Shape, Serializable {
 
     /**
      * The total bounds of all our member shapes, or null if we have
-     * no member shapes. This is meant to constantly mutate, so we need
-     * to make sure this object is different from any Rectangle2D we store
-     * in the shapes field.
+     * no member shapes. This is meant to constantly mutate.
      */
     private Rectangle2D cachedBounds = null;
 
     /**
      * Our winding rule, which may be WIND_UNKNOWN. As shapes are added this can
      * change (including changing to a WIND_NON_ZERO, WIND_EVEN_ODD, or back to
-     * WIND_UNKNOWN).
+     * WIND_UNKNOWN as this object is flattened).
      */
     private int windingRule = WIND_UNKNOWN;
 
@@ -107,78 +105,87 @@ public class CompoundShape implements Shape, Serializable {
     public boolean add(Shape operand) {
         if (operand == null || ShapeUtils.isEmpty(operand)) {
             return false;
-        } else if (operand instanceof CompoundShape) {
-            CompoundShape s = (CompoundShape) operand;
-            int operandWindingRule = s.getWindingRule();
 
-            if (windingRule != WIND_UNKNOWN && operandWindingRule != WIND_UNKNOWN && windingRule != operandWindingRule) {
+        } else if (isEmpty()) {
+            if (operand instanceof CompoundShape) {
+                CompoundShape s = (CompoundShape) operand;
+                shapes.putAll(s.shapes);
+                cachedBounds = new Rectangle2D.Double(s.cachedBounds.getX(), s.cachedBounds.getY(), s.cachedBounds.getWidth(), s.cachedBounds.getHeight());
+                windingRule = s.getWindingRule();
+            } else {
                 Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
-                if (contains(operandBounds))
-                    return false;
-
-                // Areas effectively don't have a winding rule
-                return add(new Area(operand));
+                shapes.put(operand, operandBounds);
+                cachedBounds = new Rectangle2D.Double(operandBounds.getX(), operandBounds.getY(), operandBounds.getWidth(), operandBounds.getHeight());
+                windingRule = getWindingRule(operand);
             }
+            return true;
+        }
 
-            // TODO: don't create Areas. That's the engine's job/choice. (Some engines might not even want Areas)
-            // TODO: the loop here might trigger flatten(..) several times. We should instead trigger it once
+        // This method is messier than the other operations because this is the only method that can
+        // add key/value pairs to the shapes map. This requires safety-checking the winding rules of
+        // the existing and incoming shapes.
+
+        Integer requiredWindingRule = windingRule == WIND_UNKNOWN ? null : Integer.valueOf(windingRule);
+        if (operand instanceof CompoundShape) {
+            CompoundShape s = (CompoundShape) operand;
 
             boolean returnValue = false;
-            for (Map.Entry<Shape, Rectangle2D> incomingShape : s.shapes.entrySet()) {
-                if (add(incomingShape.getKey(), incomingShape.getValue(), operandWindingRule))
-                    returnValue = true;
+            List<OutlineOperation> remainingAdds = new LinkedList<>();
+            for (Map.Entry<Shape, Rectangle2D> operandMemberEntry : s.shapes.entrySet()) {
+                Rectangle2D operandMemberBounds = operandMemberEntry.getValue();
+                if (contains(operandMemberBounds))
+                    continue;
+
+                returnValue = true;
+                if (intersects(operandMemberBounds)) {
+                    // we'll invoke flatten() to make sure we get the merge correct
+                    remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMemberEntry.getKey()));
+                } else if (requiredWindingRule == null) {
+                    shapes.put(operandMemberEntry.getKey(), operandMemberEntry.getValue());
+                    cachedBounds.add(operandMemberEntry.getValue());
+                } else {
+                    int operandMemberWindingRule = getWindingRule(operandMemberEntry.getKey());
+                    if (operandMemberWindingRule == WIND_UNKNOWN || operandMemberWindingRule == requiredWindingRule.intValue()) {
+                        shapes.put(operandMemberEntry.getKey(), operandMemberEntry.getValue());
+                        cachedBounds.add(operandMemberEntry.getValue());
+                    } else {
+                        // conflicting winding rules require passing this to an OutlineEngine to resolve:
+                        remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMemberEntry.getKey()));
+                    }
+                }
             }
+
+            if (!remainingAdds.isEmpty()) {
+                flatten(remainingAdds);
+            }
+
             return returnValue;
         }
 
         int operandWindingRule = getWindingRule(operand);
-        if (windingRule != WIND_UNKNOWN && operandWindingRule != WIND_UNKNOWN && windingRule != operandWindingRule) {
-            Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
-            if (contains(operandBounds))
-                return false;
-
-            // Areas effectively don't have a winding rule
-            return add(new Area(operand));
-        }
-
         Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
-        return add(operand, operandBounds, operandWindingRule);
-    }
 
-    private boolean add(Shape operand, Rectangle2D operandBounds, int operandWindingRule) {
-        if (!intersects(operandBounds)) {
-            shapes.put(operand, operandBounds);
-
-            if (cachedBounds == null) {
-                cachedBounds = new Rectangle2D.Double(operandBounds.getX(), operandBounds.getY(), operandBounds.getWidth(), operandBounds.getHeight());
-            } else {
-                cachedBounds.add(operandBounds);
-            }
-
-            if (windingRule == WIND_UNKNOWN) {
-                windingRule = operandWindingRule;
-            } else if (operandWindingRule != WIND_UNKNOWN && windingRule != operandWindingRule) {
-                // we shouldn't reach this condition, but if we do I want to know:
-                throw new IllegalStateException();
-            }
-
-            return true;
-        }
-
-        if (cachedBounds != null && operandBounds.contains(cachedBounds) && operand.contains(cachedBounds)) {
+        if (operandBounds.contains(cachedBounds) && operand.contains(cachedBounds)) {
             // the operand completely envelopes this object, so we can gut this object and just use the operand:
             windingRule = operandWindingRule;
             shapes.clear();
             shapes.put(operand, operandBounds);
             cachedBounds = new Rectangle2D.Double(operandBounds.getX(), operandBounds.getY(), operandBounds.getWidth(), operandBounds.getHeight());
             return true;
-        }
-
-        if (contains(operandBounds)) {
+        } else if (contains(operandBounds)) {
             return false;
         }
 
-        flatten(new OutlineOperation(OutlineOperation.Type.ADD, operand));
+        boolean isOperandWindingRuleCompatible = requiredWindingRule == null || operandWindingRule == WIND_UNKNOWN ||
+                requiredWindingRule.intValue() == operandWindingRule;
+
+        if (isOperandWindingRuleCompatible && !intersects(operandBounds)) {
+            shapes.put(operand, operandBounds);
+            cachedBounds.add(operandBounds);
+            return true;
+        }
+
+        flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.ADD, operand)));
 
         return true;
     }
@@ -206,18 +213,65 @@ public class CompoundShape implements Shape, Serializable {
         if (isEmpty())
             return false;
 
-        if (isDetached(operand)) {
+        if (isNotIntersecting(operand))
             return clear();
+
+        if (operand instanceof CompoundShape) {
+            CompoundShape s = (CompoundShape) operand;
+
+            // identify which parts of the operand are relevant, and ignore other parts
+            List<Map.Entry<Shape, Rectangle2D>> relevantOperandMembers = new LinkedList<>();
+            for (Map.Entry<Shape, Rectangle2D> operandEntry : s.shapes.entrySet()) {
+                if (isNotIntersecting(operandEntry.getValue())) {
+                    // ignore this operand entry
+                } else {
+                    relevantOperandMembers.add(operandEntry);
+                }
+            }
+
+            if (relevantOperandMembers.isEmpty()) {
+                return clear();
+            } else if (relevantOperandMembers.size() != s.shapes.size()) {
+                // create a new simpler operand with just the parts we're interested in:
+                CompoundShape newOperand = new CompoundShape();
+                newOperand.windingRule = s.getWindingRule();
+                for (Map.Entry<Shape, Rectangle2D> relevantOperandMember : relevantOperandMembers) {
+                    newOperand.shapes.put(relevantOperandMember.getKey(), relevantOperandMember.getValue());
+
+                    if (newOperand.cachedBounds == null) {
+                        newOperand.cachedBounds = new Rectangle2D.Double();
+                        newOperand.cachedBounds.setFrame(relevantOperandMember.getValue());
+                    } else {
+                        newOperand.cachedBounds.add(relevantOperandMember.getValue());
+                    }
+                }
+
+                operand = newOperand;
+            }
         }
 
-        // optimize for clipping to a rectangle:
+        boolean returnValue = false;
+        Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
+        Iterator<Map.Entry<Shape, Rectangle2D>> myIter = shapes.entrySet().iterator();
+        while (myIter.hasNext()) {
+            Map.Entry<Shape, Rectangle2D> entry = myIter.next();
+            if (!entry.getValue().intersects(operandBounds)) {
+                myIter.remove();
+                returnValue = true;
+            }
+        }
+
+        // here we optimize for clipping to a rectangle:
+
+        Rectangle2D operandAsRect = null;
         if (operand instanceof Rectangle2D) {
-            return clipRect((Rectangle2D) operand);
+            operandAsRect = (Rectangle2D) operand;
+        } else {
+            operandAsRect = ShapeUtils.toRectangle2D(operand);
         }
 
-        Rectangle2D operandAsRect = ShapeUtils.toRectangle2D(operand);
         if (operandAsRect != null) {
-            return clipRect(operandAsRect);
+            return clipRect(operandAsRect) || returnValue;
         }
 
         Rectangle2D meAsRect = toRectangle2D();
@@ -227,85 +281,27 @@ public class CompoundShape implements Shape, Serializable {
             Shape clippedShape = RectangularClipperFactory.get().createClipper().clip(operand, null, meAsRect);
             if (ShapeUtils.isEmpty(clippedShape)) {
                 cachedBounds = null;
+                windingRule = WIND_UNKNOWN;
             } else {
                 Rectangle2D clippedShapeBounds = ShapeUtils.getBounds2D(clippedShape);
                 shapes.put(clippedShape, clippedShapeBounds);
                 cachedBounds = new Rectangle2D.Double(clippedShapeBounds.getX(), clippedShapeBounds.getY(),
                         clippedShapeBounds.getWidth(), clippedShapeBounds.getHeight());
+                windingRule = getWindingRule(clippedShape);
             }
 
             return true;
         }
 
-        ////
-
-        int incomingWindingRule = getWindingRule(operand);
-
-        if (windingRule == WIND_UNKNOWN) {
-            windingRule = incomingWindingRule;
-        } else if (incomingWindingRule != WIND_UNKNOWN && windingRule != incomingWindingRule) {
-            // convert to an Area so that we don't have to worry about winding rules:
-            Area newShape = new Area(operand);
-            return clip(newShape);
-        }
-
-        if (operand instanceof CompoundShape) {
-            CompoundShape s = (CompoundShape) operand;
-
-            List<Map.Entry<Shape, Rectangle2D>> relevantOperandMembers = new LinkedList<>();
-            for (Map.Entry<Shape, Rectangle2D> operandEntry : s.shapes.entrySet()) {
-                if (operandEntry.getValue().intersects(cachedBounds)) {
-                    for (Map.Entry<Shape, Rectangle2D> myEntry : shapes.entrySet()) {
-                        if (myEntry.getValue().intersects(operandEntry.getValue())) {
-                            relevantOperandMembers.add(operandEntry);
-                        }
-                    }
-                }
-            }
-
-            if (relevantOperandMembers.size() != s.shapes.size()) {
-                CompoundShape newOperand = new CompoundShape();
-                for (Map.Entry<Shape, Rectangle2D> relevantOperandMember : relevantOperandMembers) {
-                    newOperand.shapes.put(relevantOperandMember.getKey(), relevantOperandMember.getValue());
-                    if (newOperand.cachedBounds == null) {
-                        newOperand.cachedBounds = new Rectangle2D.Double();
-                        newOperand.cachedBounds.setFrame(relevantOperandMember.getValue());
-                    } else {
-                        newOperand.cachedBounds.add(relevantOperandMember.getValue());
-                    }
-                }
-
-                if (newOperand.cachedBounds == null) {
-                    return clear();
-                }
-
-                operand = newOperand;
-            }
-        }
-
-        Rectangle2D shapeBounds = ShapeUtils.getBounds2D(operand);
-        shapes.entrySet().removeIf(entry -> !entry.getValue().intersects(shapeBounds));
+        //// end of special rect clipping
 
         if (shapes.size() == 0) {
             cachedBounds = null;
+            windingRule = WIND_UNKNOWN;
             return true;
-        } else if (shapes.size() == 1) {
-            meAsRect = toRectangle2D();
-            if (meAsRect != null) {
-                shapes.clear();
-                Shape clippedOperand = RectangularClipperFactory.get().createClipper().clip(operand, null, meAsRect);
-                Rectangle2D clippedOperandBounds = ShapeUtils.getBounds2D(clippedOperand);
-                shapes.put(clippedOperand, clippedOperandBounds);
-                cachedBounds = new Rectangle2D.Double(clippedOperandBounds.getMinX(),
-                        clippedOperandBounds.getMinY(),
-                        clippedOperandBounds.getWidth(),
-                        clippedOperandBounds.getHeight());
-                return true;
-            }
         }
 
-        cachedBounds = null;
-        flatten(new OutlineOperation(OutlineOperation.Type.INTERSECT, operand));
+        flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.INTERSECT, operand)));
 
         return true;
     }
@@ -315,12 +311,11 @@ public class CompoundShape implements Shape, Serializable {
      * this call may have modified this object.
      */
     public boolean subtract(Shape operand) {
-        if (isDetached(operand)) {
+        if (isNotIntersecting(operand)) {
             return false;
         }
 
-        cachedBounds = null;
-        flatten(new OutlineOperation(OutlineOperation.Type.SUBTRACT, operand));
+        flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.SUBTRACT, operand)));
         return true;
     }
 
@@ -329,12 +324,11 @@ public class CompoundShape implements Shape, Serializable {
      * this call may have modified this object.
      */
     public boolean xor(Shape operand) {
-        if (isDetached(operand)) {
+        if (isNotIntersecting(operand)) {
             return add(operand);
         }
 
-        cachedBounds = null;
-        flatten(new OutlineOperation(OutlineOperation.Type.XOR, operand));
+        flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.XOR, operand)));
         return true;
     }
 
@@ -342,7 +336,7 @@ public class CompoundShape implements Shape, Serializable {
      * Return true if this object definitely does not intersect the argument. This return false if the two
      * shapes *may* intersect.
      */
-    private boolean isDetached(Shape shape) {
+    private boolean isNotIntersecting(Shape shape) {
         if (isEmpty() || ShapeUtils.isEmpty(shape))
             return true;
 
@@ -395,57 +389,32 @@ public class CompoundShape implements Shape, Serializable {
     }
 
     /**
-     * Collapse the {@link #shapes} map into one element. This one element should be a sum of all previous
-     * elements plus the arguments provided here.
+     * Collapse the {@link #shapes} map into one element and apply the argument ops. This also updates
+     * the cachedBounds and windingRule fields.
      */
-    private void flatten(OutlineOperation additionalOp) {
-        try {
-            // see if we can avoid invoking our engine (which may create expensive Areas):
-            if (shapes.size() <= 1 && additionalOp == null) {
-                return;
-            } else if (additionalOp != null &&
-                    additionalOp.type == OutlineOperation.Type.ADD &&
-                    isEmpty()) {
-                cachedBounds = ShapeUtils.getBounds2D(additionalOp.shape);
-                shapes.put(additionalOp.shape, new Rectangle2D.Double(cachedBounds.getX(), cachedBounds.getY(), cachedBounds.getWidth(), cachedBounds.getHeight()));
-                windingRule = getWindingRule(additionalOp.shape);
-                return;
-            }
+    private void flatten(List<OutlineOperation> additionalOps) {
+        List<OutlineOperation> opsToProcess = new ArrayList<>(1 + additionalOps.size());
+        if (shapes.isEmpty()) {
+            // this shouldn't happen... but if somehow it does this case is harmless
+        } else if (shapes.size() == 1) {
+            // use the raw shape if possible. This may offer a performance boost if that shape
+            // is an Area, because other code may perform an instanceof check against it
+            opsToProcess.add(new OutlineOperation(OutlineOperation.Type.ADD, shapes.keySet().iterator().next()));
+        } else {
+            opsToProcess.add(new OutlineOperation(OutlineOperation.Type.ADD, this));
+        }
 
-            List<OutlineOperation> ops = new ArrayList<>(2);
-            if (shapes.size() == 1) {
-                ops.add(new OutlineOperation(OutlineOperation.Type.ADD, shapes.keySet().iterator().next()));
-            } else {
-                ops.add(new OutlineOperation(OutlineOperation.Type.ADD, this));
-            }
-            if (additionalOp != null) {
-                ops.add(additionalOp);
+        opsToProcess.addAll(additionalOps);
 
-                // update cached bounds:
-                // leave `cachedBounds` null if we need to recalculate it
-                if (cachedBounds != null) {
-                    if (additionalOp.type == OutlineOperation.Type.ADD ||
-                            additionalOp.type == OutlineOperation.Type.XOR) {
-                        cachedBounds.add(ShapeUtils.getBounds2D(additionalOp.shape));
-                    } else {
-                        cachedBounds = null;
-                    }
-                }
-            }
+        Shape newFlattenedShape = engine.calculate(opsToProcess);
 
-            Shape newFlattenedShape = engine.calculate(ops);
-
-            shapes.clear();
-            if (!ShapeUtils.isEmpty(newFlattenedShape)) {
-                shapes.put(newFlattenedShape, ShapeUtils.getBounds2D(newFlattenedShape));
-                windingRule = getWindingRule(newFlattenedShape);
-            } else {
-                cachedBounds = null;
-                windingRule = getWindingRule(newFlattenedShape);
-            }
-        } finally {
-            if (cachedBounds == null && !isEmpty())
-                cachedBounds = ShapeUtils.getBounds2D(getPathIterator(null));
+        windingRule = getWindingRule(newFlattenedShape);
+        shapes.clear();
+        if (!ShapeUtils.isEmpty(newFlattenedShape)) {
+            shapes.put(newFlattenedShape, ShapeUtils.getBounds2D(newFlattenedShape));
+            cachedBounds = ShapeUtils.getBounds2D(getPathIterator(null));
+        } else {
+            cachedBounds = null;
         }
     }
 

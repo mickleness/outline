@@ -9,6 +9,10 @@ import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
 import java.awt.geom.Rectangle2D;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serial;
 import java.util.*;
 import java.util.List;
 
@@ -18,13 +22,23 @@ import java.util.List;
  */
 public class OptimizedEngine implements OutlineEngine {
 
-    OutlineEngine delegateEngine;
+    @Serial
+    private static final long serialVersionUID = 1L;
 
+    private OutlineEngine delegateEngine;
+
+    /**
+     * Create an OptimizedEngine that delegates work to a {@link AreaOutlineEngine}.
+     */
     public OptimizedEngine() {
         this(new AreaOutlineEngine());
     }
 
+    /**
+     * Create an OptimizedEngine that delegates work to the argument engine.
+     */
     public OptimizedEngine(OutlineEngine delegateEngine) {
+        Objects.requireNonNull(delegateEngine);
         this.delegateEngine = delegateEngine;
     }
 
@@ -339,5 +353,23 @@ public class OptimizedEngine implements OutlineEngine {
     @Override
     public String toString() {
         return getClass().getSimpleName();
+    }
+
+    @Serial
+    private void writeObject(ObjectOutputStream out)
+            throws IOException {
+        out.writeInt(0);
+        out.writeObject(delegateEngine);
+    }
+
+    @Serial
+    private void readObject(ObjectInputStream in)
+            throws IOException, ClassNotFoundException {
+        int internalVersion = in.readInt();
+        if (internalVersion == 0) {
+            delegateEngine = (OutlineEngine) in.readObject();
+        } else {
+            throw new IOException("Unsupported internal version: " + internalVersion);
+        }
     }
 }

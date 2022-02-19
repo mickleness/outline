@@ -1,7 +1,7 @@
 package com.pump.awt.geom.outline;
 
-import java.awt.*;
 import java.awt.geom.Area;
+import java.io.*;
 import java.util.List;
 
 /**
@@ -16,7 +16,10 @@ import java.util.List;
  * operand.)
  * </p>
  */
-public class AreaOutlineEngine implements OutlineEngine {
+public class AreaOutlineEngine implements OutlineEngine, Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     @Override
     public Area calculate(List<OutlineOperation> operationQueue) {
@@ -83,5 +86,22 @@ public class AreaOutlineEngine implements OutlineEngine {
     @Override
     public String toString() {
         return getClass().getSimpleName();
+    }
+
+    @Serial
+    private void writeObject(ObjectOutputStream out)
+            throws IOException {
+        out.writeInt(0);
+    }
+
+    @Serial
+    private void readObject(ObjectInputStream in)
+            throws IOException, ClassNotFoundException {
+        int internalVersion = in.readInt();
+        if (internalVersion == 0) {
+            // intentionally empty
+        } else {
+            throw new IOException("Unsupported internal version: " + internalVersion);
+        }
     }
 }
