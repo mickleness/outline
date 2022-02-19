@@ -398,7 +398,7 @@ public class CompoundShape implements Shape, Serializable {
             // this shouldn't happen... but if somehow it does this case is harmless
         } else if (shapes.size() == 1) {
             // use the raw shape if possible. This may offer a performance boost if that shape
-            // is an Area, because other code may perform an instanceof check against it
+            // is an Area, because other code may perform an instanceof check against it later
             opsToProcess.add(new OutlineOperation(OutlineOperation.Type.ADD, shapes.keySet().iterator().next()));
         } else {
             opsToProcess.add(new OutlineOperation(OutlineOperation.Type.ADD, this));
@@ -556,7 +556,6 @@ public class CompoundShape implements Shape, Serializable {
         out.writeInt(0);
         out.writeObject(shapes);
         out.writeObject(cachedBounds);
-        // TODO: we need our engines to be serializable too
     }
 
     @Serial
