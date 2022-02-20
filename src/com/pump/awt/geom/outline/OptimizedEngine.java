@@ -3,7 +3,6 @@ package com.pump.awt.geom.outline;
 import com.pump.awt.geom.CompoundShape;
 import com.pump.awt.geom.ShapeUtils;
 import com.pump.awt.geom.clip.RectangularClipperFactory;
-import com.pump.util.ListUtils;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -173,11 +172,10 @@ public class OptimizedEngine implements OutlineEngine {
      * This should be called after we remove transforms.
      */
     private void removeOperationsOutsideOfClipping(List<OutlineOperation> operationQueue) {
-        // TODO: remove ListUtils#descendingIterator
-        Iterator<OutlineOperation> listIter = ListUtils.descendingIterator(operationQueue);
+        ListIterator<OutlineOperation> listIter = operationQueue.listIterator(operationQueue.size());
         Rectangle2D clippingBounds = null;
-        while (listIter.hasNext()) {
-            OutlineOperation op = listIter.next();
+        while (listIter.hasPrevious()) {
+            OutlineOperation op = listIter.previous();
             Rectangle2D bounds = ShapeUtils.getBounds2D(op.shape);
 
             if (op.type == OutlineOperation.Type.CLIP) {
@@ -190,8 +188,8 @@ public class OptimizedEngine implements OutlineEngine {
                 if (clippingBounds.isEmpty()) {
                     // nothing else is showing:
                     listIter.remove();
-                    while (listIter.hasNext()) {
-                        listIter.next();
+                    while (listIter.hasPrevious()) {
+                        listIter.previous();
                         listIter.remove();
                     }
                     return;
