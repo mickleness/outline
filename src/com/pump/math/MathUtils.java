@@ -41,8 +41,7 @@ public class MathUtils {
 //            }
 //        }
 
-        double[] eqn2 = new double[] { eqn[3], eqn[2], eqn[1], eqn[0]};
-        PolynomialFunction p = new PolynomialFunction(eqn2, false);
+        PolynomialFunction p = new PolynomialFunction(eqn, false);
         if (p.getDegree() <= 1)
             return -1;
 

@@ -21,16 +21,16 @@ public class PolynomialFunction {
 	 * Create a new <code>PolynomialFunction</code>.
 	 *
 	 * @param coeffs
-	 *            the coefficients of this polynomial. The first coefficient
-	 *            corresponds to the highest power of x. So if coeffs is [2, 3,
-	 *            4] then this function will evaluate as (2*t*t+3*t+4).
+	 *            the coefficients of this polynomial. The nth element is the coefficient
+	 *            for (x^n). So if coeffs is [2, 3, 4] then this function will evaluate as
+	 *            (2 + 3*t + 4*t*t).
 	 */
 	public PolynomialFunction(double[] coeffs) {
 		this(coeffs, true);
 	}
 
 	PolynomialFunction(double[] coeffs, boolean cloneArgument) {
-		double[] trimmedCoeffs = trimLeadingZeroes(coeffs);
+		double[] trimmedCoeffs = trimTrailingZeroes(coeffs);
 		if (trimmedCoeffs == coeffs && cloneArgument) {
 			this.coeffs = new double[coeffs.length];
 			System.arraycopy(coeffs, 0, this.coeffs, 0, coeffs.length);
@@ -42,9 +42,9 @@ public class PolynomialFunction {
 	/**
 	 * Return an array based on the argument with no trailing zeroes.
 	 */
-	private double[] trimLeadingZeroes(double[] coeffs) {
+	private double[] trimTrailingZeroes(double[] coeffs) {
 		int zeroCtr = 0;
-		for(int a = 0; a < coeffs.length; a++) {
+		for(int a = coeffs.length-1; a >= 0; a--) {
 			if (coeffs[a] == 0) {
 				zeroCtr++;
 			} else {
@@ -54,13 +54,13 @@ public class PolynomialFunction {
 		if (zeroCtr == 0)
 			return coeffs;
 		double[] newArray = new double[coeffs.length - zeroCtr];
-		System.arraycopy(coeffs, zeroCtr, newArray, 0, newArray.length);
+		System.arraycopy(coeffs, 0, newArray, 0, newArray.length);
 		return newArray;
 	}
 
 	public double evaluate(double x) {
-		double result = coeffs[0];
-		for (int a = 1, n = coeffs.length; a < n; a++) {
+		double result = coeffs[coeffs.length - 1];
+		for (int a = coeffs.length - 2; a >= 0; a--) {
 			result = result * x + coeffs[a];
 		}
 		return result;
@@ -73,16 +73,18 @@ public class PolynomialFunction {
 			sb.append("0");
 		} else {
 			for (int a = 0; a < coeffs.length; a++) {
-				int degree = coeffs.length - a - 1;
-				if (degree == 0) {
+				if (a == 0) {
 					sb.append(coeffs[a]);
-				} else if (degree == 1) {
+				} else if (a == 1) {
 					sb.append(coeffs[a] + "*x");
 				} else {
-					sb.append(coeffs[a] + "*(x^" + (degree) + ")");
+					sb.append(coeffs[a] + "*(x^" + a + ")");
 				}
-				if (a != coeffs.length - 1)
-					sb.append("+");
+				if (a != coeffs.length - 1) {
+					if (coeffs[a+1] >= 0) {
+						sb.append("+");
+					}
+				}
 			}
 		}
 		return sb.toString();
@@ -91,7 +93,7 @@ public class PolynomialFunction {
 	public PolynomialFunction getDerivative() {
 		double[] newCoeffs = new double[coeffs.length - 1];
 		for (int a = 0; a < newCoeffs.length; a++) {
-			newCoeffs[a] = coeffs[a] * (coeffs.length - a - 1);
+			newCoeffs[a] = coeffs[a + 1] * (a + 1);
 		}
 		return new PolynomialFunction(newCoeffs, false);
 	}
@@ -103,14 +105,14 @@ public class PolynomialFunction {
 	 */
 	public int solve(double y, double[] results, int resultOffset) {
 		if (coeffs.length == 2) {
-			double x = (y - coeffs[1]) / coeffs[0];
+			double x = (y - coeffs[0]) / coeffs[1];
 			results[resultOffset] = x;
 			return 1;
 		}
 		if (y != 0) {
 			double[] newCoeffs = new double[coeffs.length];
 			System.arraycopy(coeffs, 0, newCoeffs, 0, coeffs.length);
-			newCoeffs[newCoeffs.length - 1] -= y;
+			newCoeffs[0] -= y;
 			PolynomialFunction f = new PolynomialFunction(newCoeffs, false);
 			return f.solve(0, results, resultOffset);
 		}
@@ -147,7 +149,7 @@ public class PolynomialFunction {
 		boolean seekPositive;
 		if (coeffs.length % 2 == 0) {
 			// an odd-degree polynomial
-			if (coeffs[0] < 0) {
+			if (coeffs[coeffs.length-1] < 0) {
 				// with a negative leading coefficient
 
 				// f(-infinity) = +infinity && f(+infinity) = -infinity
@@ -157,7 +159,7 @@ public class PolynomialFunction {
 			}
 		} else {
 			// an even-degree polynomial
-			if (coeffs[0] < 0) {
+			if (coeffs[coeffs.length-1] < 0) {
 				seekPositive = false;
 			} else {
 				seekPositive = true;
