@@ -67,10 +67,10 @@ public class OptimizedEngine implements OutlineEngine {
                 case SUBTRACT:
                     result.subtract(op.shape);
                     break;
-                case INTERSECT:
+                case CLIP:
                     result.clip(op.shape);
                     break;
-                case XOR:
+                case EXCLUSIVE_OR:
                     result.xor(op.shape);
                     break;
             }
@@ -89,7 +89,7 @@ public class OptimizedEngine implements OutlineEngine {
         Rectangle2D clipBounds = null;
         while (iter.hasPrevious()) {
             OutlineOperation op = iter.previous();
-            if (op.type == OutlineOperation.Type.INTERSECT) {
+            if (op.type == OutlineOperation.Type.CLIP) {
                 Rectangle2D opBounds = ShapeUtils.getBounds2D(op.shape);
                 Rectangle2D opAsRect = ShapeUtils.toRectangle2D(op.shape.getPathIterator(null));
                 if (opAsRect != null) {
@@ -136,7 +136,7 @@ public class OptimizedEngine implements OutlineEngine {
             OutlineOperation op = iter.next();
             Rectangle2D opBounds = ShapeUtils.getBounds2D(op.shape);
 
-            if (op.type == OutlineOperation.Type.XOR) {
+            if (op.type == OutlineOperation.Type.EXCLUSIVE_OR) {
                 if (totalBounds == null || !totalBounds.intersects(opBounds)) {
                     op = new OutlineOperation(OutlineOperation.Type.ADD, op.shape);
                     iter.set(op);
@@ -148,7 +148,7 @@ public class OptimizedEngine implements OutlineEngine {
                     if (totalBounds == null || !totalBounds.intersects(opBounds))
                         iter.remove();
                     break;
-                case INTERSECT:
+                case CLIP:
                     if (totalBounds == null) {
                         iter.remove();
                     } else {
@@ -173,13 +173,14 @@ public class OptimizedEngine implements OutlineEngine {
      * This should be called after we remove transforms.
      */
     private void removeOperationsOutsideOfClipping(List<OutlineOperation> operationQueue) {
+        // TODO: remove ListUtils#descendingIterator
         Iterator<OutlineOperation> listIter = ListUtils.descendingIterator(operationQueue);
         Rectangle2D clippingBounds = null;
         while (listIter.hasNext()) {
             OutlineOperation op = listIter.next();
             Rectangle2D bounds = ShapeUtils.getBounds2D(op.shape);
 
-            if (op.type == OutlineOperation.Type.INTERSECT) {
+            if (op.type == OutlineOperation.Type.CLIP) {
                 if (clippingBounds == null) {
                     clippingBounds = bounds;
                 } else {
@@ -263,9 +264,9 @@ public class OptimizedEngine implements OutlineEngine {
 
                     if (runStart.type == OutlineOperation.Type.ADD || runStart.type == OutlineOperation.Type.SUBTRACT) {
                         newOpShape = add(newOpShape, op.shape);
-                    } else if (runStart.type == OutlineOperation.Type.INTERSECT) {
-                        newOpShape = intersect(newOpShape, op.shape);
-                    } else if (op.type == OutlineOperation.Type.XOR) {
+                    } else if (runStart.type == OutlineOperation.Type.CLIP) {
+                        newOpShape = clip(newOpShape, op.shape);
+                    } else if (op.type == OutlineOperation.Type.EXCLUSIVE_OR) {
                         newOpShape = xor(newOpShape, op.shape);
                     } else {
                         // this shouldn't be possible; was a new type added?
@@ -299,7 +300,7 @@ public class OptimizedEngine implements OutlineEngine {
         return baseShape;
     }
 
-    private Shape intersect(Shape shape1, Shape shape2) {
+    private Shape clip(Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
         if (empty1)
             return shape1;
@@ -335,7 +336,7 @@ public class OptimizedEngine implements OutlineEngine {
 
         List<OutlineOperation> newQueue = new LinkedList<>();
         newQueue.add(new OutlineOperation(OutlineOperation.Type.ADD, shape1));
-        newQueue.add(new OutlineOperation(OutlineOperation.Type.INTERSECT, shape2));
+        newQueue.add(new OutlineOperation(OutlineOperation.Type.CLIP, shape2));
         return delegateEngine.calculate(newQueue);
     }
 

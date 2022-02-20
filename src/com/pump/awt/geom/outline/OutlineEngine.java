@@ -3,11 +3,16 @@ package com.pump.awt.geom.outline;
 import java.awt.*;
 import java.util.List;
 
+/**
+ * This executes a series of {@link OutlineOperation} objects.
+ */
 public interface OutlineEngine {
 
     /**
+     * Calculate the result of a series of operations.
+     *
      * @param operationQueue the queue of operations to execute. This method may modify this list.
-     * @return this may be null if there is no shape data
+     * @return the resulting shape. This should not return null, but it may return an empty shape.
      */
     Shape calculate(List<OutlineOperation> operationQueue);
 }

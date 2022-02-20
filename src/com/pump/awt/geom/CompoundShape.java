@@ -301,7 +301,7 @@ public class CompoundShape implements Shape, Serializable {
             return true;
         }
 
-        flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.INTERSECT, operand)));
+        flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.CLIP, operand)));
 
         return true;
     }
@@ -328,7 +328,7 @@ public class CompoundShape implements Shape, Serializable {
             return add(operand);
         }
 
-        flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.XOR, operand)));
+        flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.EXCLUSIVE_OR, operand)));
         return true;
     }
 

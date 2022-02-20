@@ -376,7 +376,7 @@ public class DefaultRectangularClipper extends AbstractRectangularClipper {
                         double currentT = intersectionTimes[a];
                         if (prevT == currentT) {
                             // this is a harmless condition that could happen if both the x & y functions
-                            // identified the same interesting times.
+                            // identified the same intersection times.
                             continue;
                         }
 

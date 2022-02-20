@@ -40,8 +40,8 @@ public abstract class AbstractRectangularClipper implements RectangularClipper {
 
     /**
      * Return a Rectangle2D that expresses the clipped shape, or null if this method failed.
-     * This method helps both performance (because Rectangle2D's are easier to intersect
-     * against) and the return type (because some callers may have optimized behavior
+     * This method helps both performance (because {@link Rectangle2D#intersects(double, double, double, double)}
+     * is very efficient) and the return type (because some callers may have optimized behavior
      * if they get back a Rectangle or Rectangle2D).
      */
     protected Rectangle2D clipAsRect(Shape shape, AffineTransform tx, Rectangle2D clip) {

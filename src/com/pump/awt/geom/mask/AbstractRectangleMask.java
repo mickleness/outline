@@ -43,7 +43,7 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
         @Override
         public void run() {
             MonotonicPathIterator pi = new MonotonicPathIterator(new ClosedPathIterator(shape.getPathIterator(tx)));
-            RectangleIterator ri = new RectangleIterator(pi);
+            RectanglePathIterator ri = new RectanglePathIterator(pi);
             double lastX = 0;
             double lastY = 0;
             double[] coords = new double[8];
@@ -52,10 +52,10 @@ public abstract class AbstractRectangleMask<R extends Rectangle2D> implements Se
                 int k = ri.currentSegment(coords);
 
                 switch (k) {
-                    case RectangleIterator.SEG_RECTANGLE_EARLY_CLOSE:
-                    case RectangleIterator.SEG_RECTANGLE_EARLY_DONE:
-                    case RectangleIterator.SEG_RECTANGLE_FULL_CLOSE:
-                    case RectangleIterator.SEG_RECTANGLE_FULL_NO_CLOSE:
+                    case RectanglePathIterator.SEG_RECTANGLE_EARLY_CLOSE:
+                    case RectanglePathIterator.SEG_RECTANGLE_EARLY_DONE:
+                    case RectanglePathIterator.SEG_RECTANGLE_FULL_CLOSE:
+                    case RectanglePathIterator.SEG_RECTANGLE_FULL_NO_CLOSE:
                     {
                         double minX = Math.min(Math.min(coords[0], coords[2]), Math.min(coords[4], coords[6]));
                         double minY = Math.min(Math.min(coords[1], coords[3]), Math.min(coords[5], coords[7]));

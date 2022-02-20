@@ -49,7 +49,7 @@ public class AreaOutlineEngine implements OutlineEngine, Serializable {
                         }
                     }
                     break;
-                case XOR:
+                case EXCLUSIVE_OR:
                     rhs = new Area(operation.shape);
                     if (area.isEmpty()) {
                         area = rhs;
@@ -59,7 +59,7 @@ public class AreaOutlineEngine implements OutlineEngine, Serializable {
                         area.exclusiveOr(rhs);
                     }
                     break;
-                case INTERSECT:
+                case CLIP:
                     if (area.isEmpty()) {
                         // intentionally empty
                     } else {

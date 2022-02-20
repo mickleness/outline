@@ -3,7 +3,6 @@ package com.pump.awt.geom.outline;
 import com.pump.awt.geom.CompoundShape;
 
 import java.awt.*;
-import java.awt.geom.Area;
 import java.util.List;
 
 /**
@@ -26,10 +25,10 @@ class CompoundShapeEngine implements OutlineEngine {
                 case SUBTRACT:
                     returnValue.subtract(op.shape);
                     break;
-                case XOR:
+                case EXCLUSIVE_OR:
                     returnValue.xor(op.shape);
                     break;
-                case INTERSECT:
+                case CLIP:
                     returnValue.clip(op.shape);
                     break;
                 case TRANSFORM:

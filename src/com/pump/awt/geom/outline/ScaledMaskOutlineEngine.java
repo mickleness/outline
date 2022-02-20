@@ -80,10 +80,10 @@ public class ScaledMaskOutlineEngine implements OutlineEngine, Serializable {
                 case SUBTRACT:
                     returnValue.subtract(operand);
                     break;
-                case INTERSECT:
+                case CLIP:
                     returnValue.clip(operand);
                     break;
-                case XOR:
+                case EXCLUSIVE_OR:
                     returnValue.xor(operand);
                     break;
             }

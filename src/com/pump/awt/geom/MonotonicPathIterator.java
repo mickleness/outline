@@ -54,6 +54,8 @@ public class MonotonicPathIterator extends FilterPathIterator {
                 if (scratchArray == null)
                     scratchArray = new double[3];
 
+                // TODO: use MathUtils to centralize polynomial math
+
                 scratchArray[0] = 3.0 * (coords[0] - last.getX());
                 scratchArray[1] = 2.0 * (((3.0 * (coords[2] - coords[0])) - (3.0 * (coords[0] - last.getX()))));
                 scratchArray[2] = 3.0 * ((coords[4] - last.getX()) - (3.0 * (coords[2] - coords[0])));

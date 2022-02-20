@@ -12,7 +12,7 @@ import java.util.List;
  * This supports a few new segment types that are 8 elements long: 4 points that
  * compose a rectangle.
  */
-class RectangleIterator implements PathIterator {
+class RectanglePathIterator implements PathIterator {
 
     /**
      * This will populate the coords array with 8 values: four consecutive (x,y) values that
@@ -56,7 +56,7 @@ class RectangleIterator implements PathIterator {
     List<PathSegment> queue = new LinkedList<>();
     private double[] scratch = new double[6];
 
-    public RectangleIterator(PathIterator delegate) {
+    public RectanglePathIterator(PathIterator delegate) {
         this.delegate = delegate;
 
         populateQueue();

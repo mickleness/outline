@@ -108,9 +108,9 @@ public class EngineAccuracyTests extends OutlineTests {
                     str = "+";
                 } else if (ops.get(a).type == OutlineOperation.Type.SUBTRACT) {
                     str = "-";
-                } else if (ops.get(a).type == OutlineOperation.Type.XOR) {
+                } else if (ops.get(a).type == OutlineOperation.Type.EXCLUSIVE_OR) {
                     str = "X";
-                } else if (ops.get(a).type == OutlineOperation.Type.INTERSECT) {
+                } else if (ops.get(a).type == OutlineOperation.Type.CLIP) {
                     str = "[]";
                 } else {
                     str = "?";
@@ -192,12 +192,12 @@ public class EngineAccuracyTests extends OutlineTests {
                                 outline.subtract(operand);
                                 str = "outline.subtract("+str+")";
                                 break;
-                            case XOR:
+                            case EXCLUSIVE_OR:
                                 outline.exclusiveOr(operand);
                                 str = "outline.exclusiveOr("+str+")";
                                 break;
-                            case INTERSECT:
-                                outline.intersect(operand);
+                            case CLIP:
+                                outline.clip(operand);
                                 str = "outline.intersect("+str+")";
                                 break;
                             default:

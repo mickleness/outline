@@ -419,7 +419,7 @@ public class ClipArtTests extends OutlineTests {
                             for(int b = 0; b < (OutlineTests.RUN_OVERNIGHT ? 10 : 1); b++) {
                                 outline = new Outline(engine);
                                 outline.add(baseShape);
-                                outline.intersect(clipRect);
+                                outline.clip(clipRect);
                                 outline.flush();
                             }
 
