@@ -21,15 +21,12 @@ public class MathUtils {
      *        the cubic equation
      * @param res the array that contains the non-complex roots
      *        resulting from the solution of the cubic equation
-     * @param minX the minimum X value to consider
-     * @param maxX the maximum X value to consider
-     * @return the number of roots between the min and max, or -1 if the equation is a constant
-     * @since 1.3
+     * @param minX the minimum X value to consider. If a root is found that is less than this number it is ignored.
+     * @param maxX the maximum X value to consider. If a root is found that is greater than this number it is ignored.
+     * @return the number of roots written to 'res' between the min and max, or -1 if the equation is a constant.
      */
     public static int solveCubic(double[] eqn, double[] res, double minX, double maxX) {
-        int returnValue = 0;
-
-        // TODO : in the "area" project/repo I had encouraging results optimizing
+        // TODO: in the "area" project/repo I had encouraging results optimizing
         // the Order3's solve-cubic logic. We should revisit that approach when
         // we branch the Area class itself.
 
@@ -49,15 +46,22 @@ public class MathUtils {
         if (p.getDegree() <= 1)
             return -1;
 
-        int resultCount = p.solve(0, eqn, 0);
+        int resultCount = p.solve(0, res, 0);
 
-        for(int i = 0; i < resultCount; i++) {
-            double result = eqn[i];
-            if (result >= minX && result <= maxX) {
-                res[returnValue++] = result;
+        if (resultCount > 0) {
+            int minIndex = 0;
+            int maxIndex = resultCount - 1;
+            for (int i = minIndex; i <= maxIndex; i++) {
+                if (res[i] < minX || res[i] > maxX) {
+                    for (int z = i + 1; z <= maxIndex; z++) {
+                        res[z-1] = res[z];
+                    }
+                    maxIndex--;
+                    resultCount--;
+                }
             }
         }
 
-        return returnValue;
+        return resultCount;
     }
 }
