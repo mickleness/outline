@@ -79,8 +79,8 @@ public class CubicSolverTests extends TestCase {
         for (CubicSolver solver : getSolvers()) {
             int k = solver.solveCubic(eqn, 0, 1, res, 0);
             assertEquals(toString(res, 0, k), 1, k);
-            // TODO: finer detail
-            assertTrue( "expected 0.0104, found "+res[0], Math.abs(res[0] - 0.0104) < .0001);
+            double expectedRoot = 0.010409408593045498;
+            assertSimilar(expectedRoot, res[0]);
         }
     }
 
@@ -98,12 +98,16 @@ public class CubicSolverTests extends TestCase {
 
     private void testSimilar(double[] expected, double[] actual, int length) {
         for(int a = 0; a < length; a++) {
-            assertTrue( "expected = "+expected[a]+", actual = "+actual[a],
-                    Math.abs(expected[a] - actual[a]) < .0000001 );
+            assertSimilar(expected[a], actual[a]);
         }
     }
 
+    private void assertSimilar(double expected, double actual) {
+        assertTrue( "expected = "+expected+", actual = "+actual,
+                Math.abs(expected - actual) < .0000001 );
+    }
+
     private CubicSolver[] getSolvers() {
-        return new CubicSolver[] { new GeomCubicSolver() };
+        return new CubicSolver[] { new GeomCubicSolver(), new PolynomialCubicSolver() };
     }
 }

@@ -40,4 +40,108 @@ public abstract class CubicSolver {
      *  a constant.
      */
     public abstract int solveQuadratic(double[] eqn, double minX, double maxX, double[] res, int resOffset);
+
+
+    /**
+     * This eliminates values outside [minX, maxX] and stores the results in sorted order in 'res'
+     */
+    protected int constrainAndSort(int returnValue, double minX, double maxX, double[] data, int dataOffset, double[] res, int resOffset) {
+        // step 1: prune values that aren't between [minX, maxX]
+
+        switch (returnValue) {
+            case 3:
+                boolean b1 = data[dataOffset] >= minX && data[dataOffset] <= maxX;
+                boolean b2 = data[dataOffset + 1] >= minX && data[dataOffset + 1] <= maxX;
+                boolean b3 = data[dataOffset + 2] >= minX && data[dataOffset + 2] <= maxX;
+
+                if (b1 && b2 && b3) {
+                    // intentionally empty
+                } else if (b1 && b2 && !b3) {
+                    returnValue = 2;
+                } else if (b1 && !b2 && b3) {
+                    data[dataOffset + 1] = data[dataOffset + 2];
+                    returnValue = 2;
+                } else if (b1 && !b2 && !b3) {
+                    returnValue = 1;
+                } else if (!b1 && b2 && b3) {
+                    data[dataOffset] = data[dataOffset + 1];
+                    data[dataOffset + 1] = data[dataOffset + 2];
+                    returnValue = 2;
+                } else if (!b1 && b2 && !b3) {
+                    data[dataOffset] = data[dataOffset + 1];
+                    returnValue = 1;
+                } else if (!b1 && !b2 && b3) {
+                    data[dataOffset] = data[dataOffset + 2];
+                    returnValue = 1;
+                } else if (!b1 && !b2 && !b3) {
+                    returnValue = 0;
+                }
+                break;
+            case 2:
+                boolean c1 = data[dataOffset] >= minX && data[dataOffset] <= maxX;
+                boolean c2 = data[dataOffset + 1] >= minX && data[dataOffset + 1] <= maxX;
+
+                if (c1 && c2) {
+                    // intentionally empty
+                } else if (c1 && !c2) {
+                    returnValue = 1;
+                } else if (!c1 && c2) {
+                    data[dataOffset] = data[dataOffset + 1];
+                    returnValue = 1;
+                } else if (!c2 && !c2) {
+                    returnValue = 0;
+                }
+                break;
+            case 1:
+                boolean d1 = data[dataOffset] >= minX && data[dataOffset] <= maxX;
+                if (d1) {
+                    // intentionally empty
+                } else {
+                    returnValue = 0;
+                }
+        }
+
+        // step 2: sort values and store in `res`
+
+        switch (returnValue) {
+            case 3:
+                double min = data[dataOffset + 1] < data[dataOffset + 2] ? data[dataOffset + 1] : data[dataOffset + 2];
+                min = min < data[dataOffset] ? min : data[dataOffset];
+
+                double max = data[dataOffset + 1] > data[dataOffset + 2] ? data[dataOffset + 1] : data[dataOffset + 2];
+                max = max > data[dataOffset] ? max : data[dataOffset];
+
+                double middle;
+                if ((min == data[dataOffset] || min == data[dataOffset + 1]) &&
+                        (max == data[dataOffset] || max == data[dataOffset + 1])) {
+                    middle = data[dataOffset + 2];
+                } else if ((min == data[dataOffset] || min == data[dataOffset + 2]) &&
+                        (max == data[dataOffset] || max == data[dataOffset + 2])) {
+                    middle = data[dataOffset + 1];
+                } else {
+                    middle = data[dataOffset];
+                }
+
+                res[resOffset] = min;
+                res[resOffset + 1] = middle;
+                res[resOffset + 2] = max;
+                break;
+            case 2:
+                if (data[dataOffset] < data[dataOffset + 1]) {
+                    min = data[dataOffset];
+                    max = data[dataOffset + 1];
+                } else {
+                    min = data[dataOffset + 1];
+                    max = data[dataOffset];
+                }
+
+                res[resOffset] = min;
+                res[resOffset + 1] = max;
+                break;
+            case 1:
+                res[resOffset] = data[dataOffset];
+        }
+
+        return returnValue;
+    }
 }
