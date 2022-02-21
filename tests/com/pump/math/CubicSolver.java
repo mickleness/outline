@@ -144,4 +144,9 @@ public abstract class CubicSolver {
 
         return returnValue;
     }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName();
+    }
 }

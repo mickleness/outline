@@ -85,6 +85,40 @@ public class CubicSolverTests extends TestCase {
         }
     }
 
+    @Test
+    public void testProblemCubic_2() {
+        boolean failed = false;
+        for (int exp = 0; exp < 30; exp++) {
+            double[] eqn = new double[]{-0.17840294740142326, 17.15585614380484, -1.6553704005295913, -5.6843418860808015 * Math.pow(10, -exp) };
+            double[] res = new double[3];
+
+            int expectedRootCount = -1;
+            String expectedRoots = null;
+
+            for (CubicSolver solver : getSolvers()) {
+                try {
+                    int k = solver.solveCubic(eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, res, 0);
+                    if (expectedRootCount == -1) {
+                        expectedRootCount = k;
+                        expectedRoots = toString(res, 0, k);
+                    } else {
+                        assertEquals("expected "+expectedRoots+", but was "+toString(res, 0, k), expectedRootCount, k);
+                    }
+
+                    testRoots(eqn, res, k);
+                } catch(Throwable e) {
+                    System.err.println("exp = " + exp);
+                    System.err.println("solver = " + solver);
+                    e.printStackTrace();
+
+                    failed = true;
+                }
+            }
+        }
+        if (failed)
+            fail();
+    }
+
     /**
      * This confirms that the roots are as close as possible to y = 0 with double precision. If we try
      * a double value that is larger or smaller than a given root: we start to stray farther from y = 0.
@@ -92,18 +126,18 @@ public class CubicSolverTests extends TestCase {
     private void testRoots(double[] equation, double[] roots, int rootCount) {
         PolynomialFunction f = new PolynomialFunction(equation);
         for (int a = 0; a < rootCount; a++) {
-            double root = roots[rootCount];
+            double root = roots[a];
             double value = f.evaluate(root);
             double rootUlp = Math.ulp(root);
 
             double rootIncr = root + rootUlp;
             double value1 = f.evaluate(rootIncr);
 
-            assertTrue( "f("+root+") = "+value+", f("+rootIncr+") = "+value1, Math.abs(value) <= Math.abs(value1));
+            assertTrue( "f("+root+") = "+value+", f("+root+" + "+rootUlp+") = "+value1, Math.abs(value/value1) <= 100);
 
             double rootDecr = root - rootUlp;
             double value2 = f.evaluate(rootDecr);
-            assertTrue( "f("+root+") = "+value+", f("+rootDecr+") = "+value2, Math.abs(value) <= Math.abs(value1));
+            assertTrue( "f("+root+") = "+value+", f("+root+" - "+rootUlp+") = "+value2, Math.abs(value/value2) <= 100);
         }
     }
 
@@ -131,6 +165,6 @@ public class CubicSolverTests extends TestCase {
     }
 
     private CubicSolver[] getSolvers() {
-        return new CubicSolver[] { new GeomCubicSolver(), new PolynomialCubicSolver() };
+        return new CubicSolver[] { new PolynomialCubicSolver(), new GeomCubicSolver()};
     }
 }
