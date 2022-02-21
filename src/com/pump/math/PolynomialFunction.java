@@ -10,6 +10,8 @@
  */
 package com.pump.math;
 
+import java.awt.geom.QuadCurve2D;
+
 /**
  * This function evaluates a polynomial expression.
  */
@@ -115,6 +117,36 @@ public class PolynomialFunction {
 			newCoeffs[0] -= y;
 			PolynomialFunction f = new PolynomialFunction(newCoeffs, false);
 			return f.solve(0, results, resultOffset);
+		}
+
+		if (coeffs.length == 3) {
+			double b = Math.abs(coeffs[1] / coeffs[2]);
+			if (b < 1e8) {
+				if (resultOffset == 0) {
+					int returnValue = QuadCurve2D.solveQuadratic(coeffs, results);
+
+					if (returnValue == 2 && results[0] > results[1]) {
+						double swap = results[0];
+						results[0] = results[1];
+						results[1] = swap;
+					}
+
+					return returnValue;
+				}
+
+				double[] res2 = new double[2];
+				int returnValue = QuadCurve2D.solveQuadratic(coeffs, res2);
+				if (returnValue > 0)
+					System.arraycopy(res2, 0, results, resultOffset, returnValue);
+
+				if (returnValue == 2 && results[resultOffset] > results[resultOffset + 1]) {
+					double swap = results[resultOffset];
+					results[resultOffset] = results[resultOffset + 1];
+					results[resultOffset + 1] = swap;
+				}
+
+				return returnValue;
+			}
 		}
 
 		PolynomialFunction derivative = getDerivative();
