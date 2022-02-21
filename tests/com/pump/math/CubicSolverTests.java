@@ -80,7 +80,30 @@ public class CubicSolverTests extends TestCase {
             int k = solver.solveCubic(eqn, 0, 1, res, 0);
             assertEquals(toString(res, 0, k), 1, k);
             double expectedRoot = 0.010409408593045498;
+            testRoots(eqn, res, k);
             assertSimilar(expectedRoot, res[0]);
+        }
+    }
+
+    /**
+     * This confirms that the roots are as close as possible to y = 0 with double precision. If we try
+     * a double value that is larger or smaller than a given root: we start to stray farther from y = 0.
+     */
+    private void testRoots(double[] equation, double[] roots, int rootCount) {
+        PolynomialFunction f = new PolynomialFunction(equation);
+        for (int a = 0; a < rootCount; a++) {
+            double root = roots[rootCount];
+            double value = f.evaluate(root);
+            double rootUlp = Math.ulp(root);
+
+            double rootIncr = root + rootUlp;
+            double value1 = f.evaluate(rootIncr);
+
+            assertTrue( "f("+root+") = "+value+", f("+rootIncr+") = "+value1, Math.abs(value) <= Math.abs(value1));
+
+            double rootDecr = root - rootUlp;
+            double value2 = f.evaluate(rootDecr);
+            assertTrue( "f("+root+") = "+value+", f("+rootDecr+") = "+value2, Math.abs(value) <= Math.abs(value1));
         }
     }
 
