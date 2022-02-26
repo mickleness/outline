@@ -1,6 +1,21 @@
 package com.pump.math;
 
+import java.util.Objects;
+
 public abstract class CubicSolver {
+
+    private static CubicSolver DEFAULT_SOLVER = new RefineGeomCubicSolver();
+
+    /**
+     * Return the session's current default CubicSolver.
+     */
+    public static CubicSolver getDefault() {
+        return DEFAULT_SOLVER;
+    }
+
+    public static void setDefault(CubicSolver solver) {
+        DEFAULT_SOLVER = Objects.requireNonNull(solver);
+    }
 
     /**
      * Solve the cubic whose coefficients are in the {@code eqn}
@@ -45,7 +60,7 @@ public abstract class CubicSolver {
     /**
      * This eliminates values outside [minX, maxX] and stores the results in sorted order in 'res'
      */
-    protected int constrainAndSort(int returnValue, double minX, double maxX, double[] data, int dataOffset, double[] res, int resOffset) {
+    protected static int constrainAndSort(int returnValue, double minX, double maxX, double[] data, int dataOffset, double[] res, int resOffset) {
         // step 1: prune values that aren't between [minX, maxX]
 
         switch (returnValue) {
@@ -111,6 +126,12 @@ public abstract class CubicSolver {
                 double max = data[dataOffset + 1] > data[dataOffset + 2] ? data[dataOffset + 1] : data[dataOffset + 2];
                 max = max > data[dataOffset] ? max : data[dataOffset];
 
+                if (min == max) {
+                    res[resOffset] = min;
+                    returnValue = 1;
+                    break;
+                }
+
                 double middle;
                 if ((min == data[dataOffset] || min == data[dataOffset + 1]) &&
                         (max == data[dataOffset] || max == data[dataOffset + 1])) {
@@ -120,6 +141,13 @@ public abstract class CubicSolver {
                     middle = data[dataOffset + 1];
                 } else {
                     middle = data[dataOffset];
+                }
+
+                if (middle == min || middle == max) {
+                    res[resOffset] = min;
+                    res[resOffset + 1] = max;
+                    returnValue = 2;
+                    break;
                 }
 
                 res[resOffset] = min;
@@ -135,6 +163,12 @@ public abstract class CubicSolver {
                     max = data[dataOffset];
                 }
 
+                if (min == max) {
+                    res[resOffset] = min;
+                    returnValue = 1;
+                    break;
+                }
+
                 res[resOffset] = min;
                 res[resOffset + 1] = max;
                 break;
@@ -143,6 +177,36 @@ public abstract class CubicSolver {
         }
 
         return returnValue;
+    }
+
+    protected double evaluate(double[] eqn, int degree, double x) {
+        switch (degree) {
+            case 3:
+                return eqn[0] + x * (eqn[1] + x * (eqn[2] + x * eqn[3]));
+            case 2:
+                return eqn[0] + x * (eqn[1] + x * eqn[2]);
+            case 1:
+                return eqn[0] + x * eqn[1];
+            case 0:
+                return eqn[0];
+            default:
+                throw new IllegalArgumentException("degree = "+degree);
+        }
+    }
+
+    protected double evaluateDerivative(double[] eqn, int degree, double x) {
+        switch (degree) {
+            case 3:
+                return eqn[1] + x * (2 * eqn[2] + 3 * x * eqn[3]);
+            case 2:
+                return eqn[1] + 2 * x * eqn[2];
+            case 1:
+                return eqn[1];
+            case 0:
+                return 0;
+            default:
+                throw new IllegalArgumentException("degree = "+degree);
+        }
     }
 
     @Override

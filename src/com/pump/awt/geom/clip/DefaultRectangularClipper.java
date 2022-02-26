@@ -1,7 +1,7 @@
 package com.pump.awt.geom.clip;
 
 import com.pump.awt.geom.ClosedPathIterator;
-import com.pump.math.MathUtils;
+import com.pump.math.CubicSolver;
 
 import java.awt.*;
 import java.awt.geom.*;
@@ -218,7 +218,7 @@ public class DefaultRectangularClipper extends AbstractRectangularClipper {
             eqn[2] = b;
             eqn[3] = a;
 
-            int k = MathUtils.solveCubic(eqn, t2, 0, 1);
+            int k = CubicSolver.getDefault().solveCubic(eqn, 0, 1, t2, 0);
             if (k < 0)
                 return 0;
 
