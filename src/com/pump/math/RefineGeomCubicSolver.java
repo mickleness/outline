@@ -14,7 +14,7 @@ import java.awt.geom.QuadCurve2D;
  * it thinks accuracy may be at stake.)
  * </p>
  */
-public class RefineGeomCubicSolver extends GeomCubicSolver {
+public class RefineGeomCubicSolver extends CubicSolver {
 
     /**
      * We may (?) have stumbled into a local extrema, which means our attempts
@@ -47,7 +47,10 @@ public class RefineGeomCubicSolver extends GeomCubicSolver {
                 return constrainAndSort(returnValue, minX, maxX, res, resOffset, res, resOffset);
             }
 
-            int returnValue = super.solveCubic(eqn, minX, maxX, res, resOffset);
+            double[] dst = resOffset == 0 ? res : new double[3];
+            int returnValue = CubicCurve2D.solveCubic(eqn, dst);
+            returnValue = constrainAndSort(returnValue, minX, maxX, dst, 0, res, resOffset);
+
             for (int a = 0; a < returnValue; a++) {
                 refineRoot(eqn, 3, res[resOffset]);
             }

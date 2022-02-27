@@ -2,6 +2,10 @@ package com.pump.math;
 
 import junit.framework.TestCase;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -16,39 +20,39 @@ public class CubicSolverTests extends TestCase {
             this.expectedResults = results;
         }
 
-        public void test(CubicSolver solver) {
-            double[] actualResults = new double[3];
-            try {
-                int rootCount;
-                if (eqn.length == 4) {
-                    rootCount = solver.solveCubic(eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, actualResults, 0);
-                } else if (eqn.length == 3) {
-                    rootCount = solver.solveQuadratic(eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, actualResults, 0);
-                } else {
-                    throw new IllegalStateException();
-                }
-
-                if (expectedResults.length == 0) {
-                    assertTrue("rootCount = " + rootCount, rootCount <= 0);
-                } else {
-                    assertEquals(
-                            CubicSolverTests.toString(actualResults, 0, rootCount),
-                            expectedResults.length, rootCount);
-                    for (int a = 0; a < rootCount; a++) {
-                        assertSimilar("root #" + (a + 1) + " should be " + expectedResults[a] + ", but was " + actualResults[a],
-                                expectedResults[a], actualResults[a]);
-                    }
-                }
-            } catch (Throwable t) {
-                System.err.println(solver);
-                System.err.println(this);
-                throw t;
-            }
-        }
-
         @Override
         public String toString() {
             return "Sample[ eqn = " + CubicSolverTests.toString(eqn, 0, eqn.length) + ", expected results = " + CubicSolverTests.toString(expectedResults, 0, expectedResults.length) + "]";
+        }
+
+        /**
+         * This returns a "y = ..." equation as a String.
+         * <p>
+         * This can be copied and pasted into a graphing utility (like Grapher on Mac)
+         * to help visualize a polynomial's roots.
+         * </p>
+         */
+        public String getEquationString() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("y = ");
+            boolean needsPlus = false;
+            for (int a = 0; a < eqn.length; a++) {
+                if (eqn[a] != 0) {
+                    if (needsPlus && eqn[a] > 0) {
+                        sb.append('+');
+                    }
+                    needsPlus = true;
+                    sb.append(Double.toString(eqn[a]));
+                    if (a == 0) {
+                        // do nothing
+                    } else if (a == 1) {
+                        sb.append("*x");
+                    } else {
+                        sb.append("*(x^" + a + ")");
+                    }
+                }
+            }
+            return sb.toString();
         }
     }
 
@@ -63,6 +67,9 @@ public class CubicSolverTests extends TestCase {
         }
     }
 
+    /**
+     * This tests a few equations that we've personally visually inspected.
+     */
     public void testSamples_basics() {
         List<Sample> samples = new ArrayList<>();
         samples.add(new Sample(new double[]{-.1, 0, 1, 1}, new double[]{-0.8669513175959772, -0.4126055722546906, 0.2795568898506678}));
@@ -82,34 +89,98 @@ public class CubicSolverTests extends TestCase {
         samples.add(new Sample(new double[]{192.0, 112.0, 19.0, 1.0},
                 new double[]{-8, -3}));
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
-    private void testSamples(List<Sample> samples, CubicSolver solver, boolean shouldPass) {
+    private void testSamples(List<Sample> samples, boolean geomSolverExpectedToPass) {
         int failures = 0;
-        for (int sampleIndex = 0; sampleIndex < samples.size(); sampleIndex++) {
+        int expectedFailures = 0;
+
+        CubicSolver[] solvers = new CubicSolver[]{
+                new BinarySearchCubicSolver(),
+                new RefineGeomCubicSolver(),
+                new GeomCubicSolver()
+        };
+
+        sampleLoop : for (int sampleIndex = 0; sampleIndex < samples.size(); sampleIndex++) {
+            StringBuilder sb = new StringBuilder();
+
+            Sample sample = samples.get(sampleIndex);
+
+            sb.append("***** Sample Index: " + sampleIndex + "\n");
+            sb.append(sample.getEquationString() + "\n");
+            sb.append("Expected roots: " + toString(sample.expectedResults, 0, sample.expectedResults.length)+"\n");
+
+            boolean showReport = false;
             try {
-                Sample s = samples.get(sampleIndex);
-                s.test(solver);
-            } catch (Throwable t) {
-                System.err.println("sampleIndex = " + sampleIndex);
-                t.printStackTrace();
-                failures++;
-                if (failures > 100) {
-                    System.err.println("Max loggable failures reached; prematurely aborting test");
-                    break;
+                for (CubicSolver solver : solvers) {
+                    try {
+                        double[] actualResults = new double[3];
+                        int rootCount;
+                        if (sample.eqn.length == 4) {
+                            rootCount = solver.solveCubic(sample.eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, actualResults, 0);
+                        } else if (sample.eqn.length == 3) {
+                            rootCount = solver.solveQuadratic(sample.eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, actualResults, 0);
+                        } else {
+                            throw new IllegalStateException();
+                        }
+
+                        if (sample.expectedResults.length == 0) {
+                            assertTrue("rootCount = " + rootCount, rootCount <= 0);
+                        } else {
+                            assertEquals(
+                                    CubicSolverTests.toString(actualResults, 0, rootCount),
+                                    sample.expectedResults.length, rootCount);
+                            for (int a = 0; a < rootCount; a++) {
+                                assertSimilar("root #" + (a + 1) + " should be " + sample.expectedResults[a] + ", but was " + actualResults[a],
+                                        sample.expectedResults[a], actualResults[a]);
+                            }
+                        }
+
+                        sb.append(solver.getClass().getSimpleName() + " PASSED\n");
+                    } catch (Throwable t) {
+                        if (solver instanceof GeomCubicSolver && !geomSolverExpectedToPass) {
+                            sb.append(solver.getClass().getSimpleName() + " FAILED (as expected)\n");
+                            expectedFailures++;
+                        } else {
+                            sb.append(solver.getClass().getSimpleName() + " FAILED\n");
+                            failures++;
+                            showReport = true;
+                        }
+
+                        sb.append(getStackTrace(t) + "\n");
+
+                        if (failures > 100) {
+                            sb.append("Max loggable failures reached; prematurely aborting test\n");
+                            break sampleLoop;
+                        }
+                    }
                 }
+            } finally {
+                if (showReport)
+                    System.out.println(sb);
             }
         }
 
-        assertEquals(shouldPass, failures == 0);
+        if (expectedFailures == 0 && !geomSolverExpectedToPass)
+            fail("The GeomCubicSolver was expected to fail at least once, but it didn't.");
+
+        if (failures > 0)
+            fail(DecimalFormat.getInstance().format(failures)+" occurred; see console for details");
+    }
+
+    private static String getStackTrace(Throwable throwable) {
+        try (StringWriter sw = new StringWriter();
+             PrintWriter pw = new PrintWriter(sw)) {
+            throwable.printStackTrace(pw);
+            return sw.toString();
+        } catch (IOException ioe) {
+            throw new IllegalStateException(ioe);
+        }
     }
 
     public void testSamples_threeSmallIntegerRoots() {
         List<Sample> samples = new ArrayList<>();
-        Random random = new Random(0);
         for (int root1 = -10; root1 <= 10; root1++) {
             for (int root2 = -10; root2 <= 10; root2++) {
                 for (int root3 = -10; root3 <= 10; root3++) {
@@ -121,9 +192,7 @@ public class CubicSolverTests extends TestCase {
             }
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     public void testSamples_threeLargeIntegerRoots() {
@@ -137,9 +206,7 @@ public class CubicSolverTests extends TestCase {
                 samples.add(createSampleFromRoots(root1, root2, root3, 1));
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     public void testSamples_threeSmallDoubleRoots() {
@@ -154,9 +221,7 @@ public class CubicSolverTests extends TestCase {
                 samples.add(createSampleFromRoots(root1, root2, root3, multiplier));
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), true);
+        testSamples(samples, true);
     }
 
     public void testSamples_threeLargeDoubleRoots() {
@@ -170,16 +235,13 @@ public class CubicSolverTests extends TestCase {
                 samples.add(createSampleFromRoots(root1, root2, root3, 1));
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     // test double roots:
 
     public void testSamples_twoSmallIntegerRoots() {
         List<Sample> samples = new ArrayList<>();
-        Random random = new Random(0);
         for (int root1 = -10; root1 <= 10; root1++) {
             for (int root2 = -10; root2 <= 10; root2++) {
                 for (double multiplier : new double[]{-1, 1}) {
@@ -189,9 +251,7 @@ public class CubicSolverTests extends TestCase {
             }
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     public void testSamples_twoLargeIntegerRoots() {
@@ -204,9 +264,7 @@ public class CubicSolverTests extends TestCase {
                 samples.add(createSampleFromRoots(root1, root2, root2, 1));
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     public void testSamples_twoSmallDoubleRoots() {
@@ -220,9 +278,7 @@ public class CubicSolverTests extends TestCase {
                 samples.add(createSampleFromRoots(root1, root2, root2, multiplier));
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     public void testSamples_twoLargeDoubleRoots() {
@@ -235,25 +291,20 @@ public class CubicSolverTests extends TestCase {
                 samples.add(createSampleFromRoots(root1, root2, root2, 1));
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     // test triple roots:
 
     public void testSamples_oneSmallTripleIntegerRoot() {
         List<Sample> samples = new ArrayList<>();
-        Random random = new Random(0);
         for (int root1 = -10; root1 <= 10; root1++) {
             for (double multiplier : new double[]{-1, 1}) {
                 samples.add(createSampleFromRoots(root1, root1, root1, multiplier));
             }
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     public void testSamples_oneLargeTripleIntegerRoot() {
@@ -264,9 +315,7 @@ public class CubicSolverTests extends TestCase {
             samples.add(createSampleFromRoots(root1, root1, root1, 1));
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     public void testSamples_oneSmallTripleDoubleRoot() {
@@ -278,9 +327,7 @@ public class CubicSolverTests extends TestCase {
             samples.add(createSampleFromRoots(root1, root1, root1, multiplier));
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     public void testSamples_oneLargeTripleDoubleRoot() {
@@ -291,9 +338,7 @@ public class CubicSolverTests extends TestCase {
             samples.add(createSampleFromRoots(root1, root1, root1, 1));
         }
 
-        testSamples(samples, new BinarySearchCubicSolver(), true);
-        testSamples(samples, new RefineGeomCubicSolver(), true);
-        testSamples(samples, new GeomCubicSolver(), false);
+        testSamples(samples, false);
     }
 
     // TODO: add tests for two imaginary roots
