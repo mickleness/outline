@@ -69,12 +69,16 @@ public class RefineGeomCubicSolver extends CubicSolver {
     }
 
     protected int solveCubic_unbounded_smallLeadingCoefficient(double[] eqn, double[] res, int resOffset) {
+        // the leading coefficient of the (x^3) is so small we should ignore it and see what roots we
+        // identify when we treat this like a quadratic. We'll still use Newton's method to refine
+        // the x-value we get:
+
         double[] quadDst = resOffset == 0 ? res : new double[2];
         int rootCount = solveQuadratic(eqn, quadDst, false);
 
         // step 1: refine. Even if the results of solveQuadratic were perfect
         // (and they probably weren't), they didn't take into account the (x^3)
-        // term, so they may be a little bit off:
+        // term, so they're probably a little bit off:
         switch(rootCount) {
             case 2:
                 res[resOffset] = refineRoot(eqn, 3, quadDst[0]);
@@ -109,8 +113,10 @@ public class RefineGeomCubicSolver extends CubicSolver {
                 if (k == 2) {
                     res[resOffset + 1] = refineRoot(eqn, 3, scratch[0]);
                     res[resOffset + 2] = refineRoot(eqn, 3, scratch[1]);
+                    rootCount+=2;
                 } else if (k == 1) {
                     res[resOffset + 1] = refineRoot(eqn, 3, scratch[0]);
+                    rootCount++;
                 }
                 break;
             case 0:
