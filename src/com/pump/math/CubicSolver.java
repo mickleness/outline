@@ -179,7 +179,7 @@ public abstract class CubicSolver {
         return returnValue;
     }
 
-    protected double evaluate(double[] eqn, int degree, double x) {
+    protected static double evaluate(double[] eqn, int degree, double x) {
         switch (degree) {
             case 3:
                 return eqn[0] + x * (eqn[1] + x * (eqn[2] + x * eqn[3]));
