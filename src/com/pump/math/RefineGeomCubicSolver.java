@@ -48,23 +48,33 @@ public class RefineGeomCubicSolver extends CubicSolver {
                 dst[a] = refineRoot(eqn, 3, dst[a]);
             }
 
-            if (returnValue == 1 && Math.abs(eqn[2] / eqn[3]) > 1e8) {
+            double coeffRatio = Math.abs(eqn[2] / eqn[3]);
+            if (coeffRatio > 1e8 || coeffRatio < 1e-8) {
                 // if there's a very wide disparity between the (x^3) coefficient and the (x^2) coefficient,
-                // and if we successfully honed in on one root: let's double-check if we can find any others.
+                // and if we successfully honed in on one (or more) roots: let's see if we can derive more
 
-                // (alternatively: another approach might be to just solve the equation as if it's a quadratic
-                // and then refine the root(s) you produce?)
-
-                double[] quadEqn = cubicToQuadSyntheticDivision(eqn, dst[0]);
-                int quadRoots = solveQuadratic(quadEqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, dst, 1);
-                if (quadRoots > 0) {
-                    returnValue += quadRoots;
-                    for (int a = 1; a < returnValue; a++) {
-                        dst[a] = refineRoot(eqn, 3, dst[a]);
+                if (returnValue == 1) {
+                    double[] quadEqn = cubicToQuadSyntheticDivision(eqn, dst[0]);
+                    int quadRoots = solveQuadratic(quadEqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, dst, 1);
+                    for (int a = 0; a < quadRoots; a++) {
+                        dst[a + 1] = refineRoot(eqn, 3, dst[1 + a]);
+                        returnValue++;
                     }
+                } else if (returnValue == 2) {
+                    double[] lineEqn = cubicToLineSyntheticDivision(eqn, dst[0], dst[1]);
+                    if (lineEqn[1] == 0) {
+                        // not sure if this ever happens? Just in case let's abort
+                        throw new RuntimeException();
+                    }
+                    dst[2] = refineRoot(eqn, 3, -lineEqn[0] / lineEqn[1]);
+                    returnValue++;
                 }
             }
 
+            // not constraining; just sorting:
+            constrainAndSort(returnValue, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, dst, 0, dst, 0);
+
+            // now check for potential double roots
             for (int rootIndex = 0; rootIndex < returnValue - 1; rootIndex++) {
                 double delta = dst[rootIndex + 1] - dst[rootIndex];
                 double ulp = Math.ulp(dst[rootIndex]);
@@ -90,6 +100,20 @@ public class RefineGeomCubicSolver extends CubicSolver {
         double c = cubicEqn[1] + cubicRoot * b;
 
         return new double[] { c, b, a };
+    }
+
+    /**
+     * Return a linear equation by dividing a cubic equation by two of its supposed roots
+     */
+    protected double[] cubicToLineSyntheticDivision(double[] cubicEqn, double cubicRoot1, double cubicRoot2) {
+        // define our quadratic as:
+        // y = (x - cubicRoot1) * (x - cubicRoot2)
+
+        // double a = 1;
+        double b = -cubicRoot1 - cubicRoot2;
+        //double c = cubicRoot1 * cubicRoot2;
+
+        return new double[] { cubicEqn[2] - cubicEqn[3] * b, cubicEqn[3] };
     }
 
     private double refineRoot(double[] eqn, int degree, double value) {
