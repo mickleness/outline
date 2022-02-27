@@ -165,7 +165,13 @@ public class BinarySearchCubicSolver extends CubicSolver {
             direction = (eqn[0] > 0) ? Direction.RIGHT : Direction.LEFT;
         }
         List<Point2D.Double> windowPoints = new ArrayList<>(2);
-        findCubicBinarySearchWindowBoundary(windowPoints, eqn, 0, direction);
+        if (direction == Direction.RIGHT) {
+            windowPoints.add(new Point2D.Double(0, eqn[0]));
+            findCubicBinarySearchWindowBoundary(windowPoints, eqn, 0, direction);
+        } else {
+            findCubicBinarySearchWindowBoundary(windowPoints, eqn, 0, direction);
+            windowPoints.add(new Point2D.Double(0, eqn[0]));
+        }
         return refineBinarySearch(eqn, 3, windowPoints.get(0).x, windowPoints.get(0).y, windowPoints.get(1).x, windowPoints.get(1).y);
     }
 
@@ -255,18 +261,27 @@ public class BinarySearchCubicSolver extends CubicSolver {
 
         double x1 = vertexX - 1.25 * determinant / (2 * eqn[2]);
         double x2 = vertexX - .75 * determinant / (2 * eqn[2]);
-        double y1 = evaluate(eqn, 2, x1);
+        double x3 = vertexX + .75 * determinant / (2 * eqn[2]);
+        double x4 = vertexX + 1.25 * determinant / (2 * eqn[2]);
         double y2 = evaluate(eqn, 2, x2);
+        double y3 = evaluate(eqn, 2, x3);
 
-        res[resOffset] = refineBinarySearch(eqn, 2, x1, y1, x2, y2);
+        int returnValue;
+        if ((y2 < 0 && y3 > 0) || (y2 > 0 && y3 < 0)) {
+            // this is an edge case that can happen where the determinant is very small (1e-14 ish),
+            // and it basically SHOULD be zero, and we really only have one root to find:
+            res[resOffset] = refineBinarySearch(eqn, 2, x2, y2, x3, y3);
+            returnValue = 1;
+        } else {
+            double y1 = evaluate(eqn, 2, x1);
+            double y4 = evaluate(eqn, 2, x4);
 
-        x1 = vertexX + .75 * determinant / (2 * eqn[2]);
-        x2 = vertexX + 1.25 * determinant / (2 * eqn[2]);
-        y1 = evaluate(eqn, 2, x1);
-        y2 = evaluate(eqn, 2, x2);
-        res[resOffset + 1] = refineBinarySearch(eqn, 2, x1, y1, x2, y2);
+            res[resOffset] = refineBinarySearch(eqn, 2, x1, y1, x2, y2);
+            res[resOffset + 1] = refineBinarySearch(eqn, 2, x3, y3, x4, y4);
+            returnValue = 2;
+        }
 
-        return constrainAndSort(2, minX, maxX, res, resOffset, res, resOffset);
+        return constrainAndSort(returnValue, minX, maxX, res, resOffset, res, resOffset);
     }
 
     private double refineBinarySearch(double[] eqn, int degree, double x1, double y1, double x2, double y2) {
