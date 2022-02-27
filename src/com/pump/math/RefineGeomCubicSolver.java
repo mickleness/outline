@@ -52,7 +52,7 @@ public class RefineGeomCubicSolver extends CubicSolver {
             returnValue = constrainAndSort(returnValue, minX, maxX, dst, 0, res, resOffset);
 
             for (int a = 0; a < returnValue; a++) {
-                refineRoot(eqn, 3, res[resOffset]);
+                res[resOffset] = refineRoot(eqn, 3, res[resOffset]);
             }
 
             for (int rootIndex = 0; rootIndex < returnValue - 1; rootIndex++) {
@@ -181,7 +181,7 @@ public class RefineGeomCubicSolver extends CubicSolver {
         int returnValue = QuadCurve2D.solveQuadratic(eqn, dst);
         if (refineRoots && returnValue > 0) {
             for (int a = 0; a < returnValue; a++) {
-                refineRoot(eqn, 2, dst[a]);
+                dst[a] = refineRoot(eqn, 2, dst[a]);
             }
         }
         return returnValue;
