@@ -41,91 +41,55 @@ public class RefineGeomCubicSolver extends CubicSolver {
         }
 
         try {
-            double secondHighestCoeff = Math.abs(eqn[2] / eqn[3]);
-            if (secondHighestCoeff > 1e8) {
-                int returnValue = solveCubic_unbounded_smallLeadingCoefficient(eqn, res, resOffset);
-                return constrainAndSort(returnValue, minX, maxX, res, resOffset, res, resOffset);
-            }
-
             double[] dst = resOffset == 0 ? res : new double[3];
             int returnValue = CubicCurve2D.solveCubic(eqn, dst);
-            returnValue = constrainAndSort(returnValue, minX, maxX, dst, 0, res, resOffset);
 
             for (int a = 0; a < returnValue; a++) {
-                res[resOffset] = refineRoot(eqn, 3, res[resOffset]);
+                dst[a] = refineRoot(eqn, 3, dst[a]);
+            }
+
+            if (returnValue == 1 && Math.abs(eqn[2] / eqn[3]) > 1e8) {
+                // if there's a very wide disparity between the (x^3) coefficient and the (x^2) coefficient,
+                // and if we successfully honed in on one root: let's double-check if we can find any others.
+
+                // (alternatively: another approach might be to just solve the equation as if it's a quadratic
+                // and then refine the root(s) you produce?)
+
+                double[] quadEqn = cubicToQuadSyntheticDivision(eqn, dst[0]);
+                int quadRoots = solveQuadratic(quadEqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, dst, 1);
+                if (quadRoots > 0) {
+                    returnValue += quadRoots;
+                    for (int a = 1; a < returnValue; a++) {
+                        dst[a] = refineRoot(eqn, 3, dst[a]);
+                    }
+                }
             }
 
             for (int rootIndex = 0; rootIndex < returnValue - 1; rootIndex++) {
-                double delta = res[rootIndex + 1] - res[rootIndex];
-                double ulp = Math.ulp(res[rootIndex]);
+                double delta = dst[rootIndex + 1] - dst[rootIndex];
+                double ulp = Math.ulp(dst[rootIndex]);
                 if (delta < ulp * 1000000000) {
                     throw new PossibleDoubleRootException();
                 }
             }
+
+            returnValue = constrainAndSort(returnValue, minX, maxX, dst, 0, res, resOffset);
+
             return returnValue;
         } catch(Exception e) {
             return new BinarySearchCubicSolver().solveCubic(eqn, minX, maxX, res, resOffset);
         }
     }
 
-    protected int solveCubic_unbounded_smallLeadingCoefficient(double[] eqn, double[] res, int resOffset) {
-        // the leading coefficient of the (x^3) is so small we should ignore it and see what roots we
-        // identify when we treat this like a quadratic. We'll still use Newton's method to refine
-        // the x-value we get:
+    /**
+     * Return a quadratic equation by dividing a cubic equation by one of its supposed roots
+     */
+    protected double[] cubicToQuadSyntheticDivision(double[] cubicEqn, double cubicRoot) {
+        double a = cubicEqn[3];
+        double b = cubicEqn[2] + cubicRoot * a;
+        double c = cubicEqn[1] + cubicRoot * b;
 
-        double[] quadDst = resOffset == 0 ? res : new double[2];
-        int rootCount = solveQuadratic(eqn, quadDst, false);
-
-        // step 1: refine. Even if the results of solveQuadratic were perfect
-        // (and they probably weren't), they didn't take into account the (x^3)
-        // term, so they're probably a little bit off:
-        switch(rootCount) {
-            case 2:
-                res[resOffset] = refineRoot(eqn, 3, quadDst[0]);
-                res[resOffset + 1] = refineRoot(eqn, 3, quadDst[1]);
-                if (res[resOffset] == res[resOffset + 1]) {
-                    // unlikely, but if we somehow honed in on only one root:
-                    rootCount = 1;
-                }
-                break;
-            case 1:
-                res[resOffset] = refineRoot(eqn, 3, quadDst[0]);
-                break;
-        }
-
-        // step 2:
-
-        switch(rootCount) {
-            case 2:
-                // this is derived from a synthetic division approach:
-                double newRoot = - eqn[2] / eqn[3] - res[resOffset] - res[resOffset + 1];
-                res[resOffset + 2] = refineRoot(eqn, 3, newRoot);
-                rootCount++;
-                break;
-            case 1:
-                // use synthetic division to identify the remaining quadratic:
-                double[] scratch = new double[] {
-                        eqn[1] - (eqn[2] - eqn[3] * res[resOffset]) * res[resOffset],
-                        eqn[2] - eqn[3] * res[resOffset],
-                        eqn[3],
-                };
-                int k = QuadCurve2D.solveQuadratic(scratch, scratch);
-                if (k == 2) {
-                    res[resOffset + 1] = refineRoot(eqn, 3, scratch[0]);
-                    res[resOffset + 2] = refineRoot(eqn, 3, scratch[1]);
-                    rootCount+=2;
-                } else if (k == 1) {
-                    res[resOffset + 1] = refineRoot(eqn, 3, scratch[0]);
-                    rootCount++;
-                }
-                break;
-            case 0:
-            case -1:
-                // TODO: explore
-                throw new RuntimeException();
-        }
-
-        return rootCount;
+        return new double[] { c, b, a };
     }
 
     private double refineRoot(double[] eqn, int degree, double value) {
