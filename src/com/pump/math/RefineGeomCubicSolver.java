@@ -87,7 +87,7 @@ public class RefineGeomCubicSolver extends CubicSolver {
                 // the code above can miss some solutions.
 
                 Solution s1 = null;
-                if (verySmallLeadingCoefficient)
+                if (verySmallLeadingCoefficient && returnValue < 3)
                     s1 = solveCubic_treatLeadingCoefficientAsZero(eqn);
                 if (s1 != null)
                     returnValue = s1.getRoots(dst);

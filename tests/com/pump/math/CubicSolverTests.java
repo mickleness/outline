@@ -38,6 +38,11 @@ public class CubicSolverTests extends TestCase {
         samples.add(new Polynomial(new double[] {-10.715728752538103, 46.862915010152385, -46.86291501015237, -3.552713678800501E-15},
                 new double[] {-1.3190737911076092E16, 0.3539218196826379, 0.6460781803173623}));
 
+        // after the fix for the previous use case: the first test from testSamples_threeLargeIntegerRoots failed
+        // because the RefineGeomCubicSolver skipped the first root:
+        samples.add(new Polynomial(new double[] {1.4611407682010708E36, 1.8684690214944606E27, -1.43094277808606694E18, -1.690734402E9},
+                new double[] {-1.155484576E9, -7.239554E8, 1.033096058E9}));
+
         testSamples(samples, false);
     }
 
