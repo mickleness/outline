@@ -29,10 +29,14 @@ public class CubicSolverTests extends TestCase {
         samples.add(new Polynomial(new double[]{-0.17840294740142326, 17.15585614380484, -1.6553704005295913, -5.6843418860808015E-14},
                 new double[]{-2.9121584058546367E13, 0.010409408593045498, 10.353347330267443}));
 
-        // this came up in a randomized test and I wanted to safeguard it. Here there's a double root at x = -7, and
-        // CubicCurve2D#solveCubic returns two roots:
+        // Here there's a double root at x = -8, and CubicCurve2D#solveCubic returns
+        // [-8.000000117366898, -7.999999882633097, -3.0]
         samples.add(new Polynomial(new double[]{192.0, 112.0, 19.0, 1.0},
                 new double[]{-8, -3}));
+
+        // this is another example that came up from RectangularClipperTest#testCircle
+        samples.add(new Polynomial(new double[] {-10.715728752538103, 46.862915010152385, -46.86291501015237, -3.552713678800501E-15},
+                new double[] {-1.3190737911076092E16, 0.3539218196826379, 0.6460781803173623}));
 
         testSamples(samples, false);
     }
