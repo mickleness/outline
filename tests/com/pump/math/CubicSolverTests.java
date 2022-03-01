@@ -43,6 +43,11 @@ public class CubicSolverTests extends TestCase {
         samples.add(new Polynomial(new double[] {1.4611407682010708E36, 1.8684690214944606E27, -1.43094277808606694E18, -1.690734402E9},
                 new double[] {-1.155484576E9, -7.239554E8, 1.033096058E9}));
 
+        // for this (the first sample in testSamples_threeLargeDoubleRoots) the RefineGeomCubicSolver only
+        // returned [ -3.454933085829394E-24, 4.5008219593842995E-12]:
+        samples.add(new Polynomial(new double[] {-9.723097277156327E-174, -3.1095527945247437E-35, -4.5008219593773905E-12, 1.0},
+                new double[] {-6.908855365943251E-24, -3.1268474663870054E-139, 4.5008219593842995E-12}));
+
         testSamples(samples, false);
     }
 
