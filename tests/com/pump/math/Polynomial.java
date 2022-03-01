@@ -24,10 +24,25 @@ public class Polynomial {
      * @param eqn the coefficients were the nth term corresponds to the (x^n) variable
      * @param roots the roots this polynomial. This only contains unique values, so a
      *              single element might be a double or triple root.
+     *
+     * @throws ArithmeticException is any argument is NaN, infinite, or any of the roots end up creating an
+     *                             infinite y value.
      */
     public Polynomial(double[] eqn, double[] roots) {
         this.eqn = eqn;
         this.roots = roots;
+
+        for (int a = 0; a < eqn.length; a++) {
+            if (Double.isNaN(eqn[a]) || Double.isInfinite(eqn[a]))
+                throw new ArithmeticException(toString());
+        }
+        for (int a = 0; a < roots.length; a++) {
+            if (Double.isNaN(roots[a]) || Double.isInfinite(roots[a]))
+                throw new ArithmeticException(toString());
+            double y = CubicSolver.evaluate(eqn, eqn.length - 1, roots[a]);
+            if (Double.isNaN(y) || Double.isInfinite(y))
+                throw new ArithmeticException(this+", f("+roots[a]+") = "+y);
+        }
     }
 
     @Override

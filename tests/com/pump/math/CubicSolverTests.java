@@ -235,8 +235,13 @@ public class CubicSolverTests extends TestCase {
             double root1 = Double.longBitsToDouble(random.nextLong());
             double root2 = Double.longBitsToDouble(random.nextLong());
             double root3 = Double.longBitsToDouble(random.nextLong());
-            if (root1 != root2 && root2 != root3 && root1 != root3)
-                samples.add(Polynomial.createFromRoots(root1, root2, root3, 1));
+            if (root1 != root2 && root2 != root3 && root1 != root3) {
+                try {
+                    samples.add(Polynomial.createFromRoots(root1, root2, root3, 1));
+                } catch(ArithmeticException e) {
+                    // ignore, move on to next sample
+                }
+            }
         }
 
         testSamples(samples, false);
@@ -291,8 +296,13 @@ public class CubicSolverTests extends TestCase {
         while (samples.size() < 1_000_000) {
             double root1 = Double.longBitsToDouble(random.nextLong());
             double root2 = Double.longBitsToDouble(random.nextLong());
-            if (root1 != root2)
-                samples.add(Polynomial.createFromRoots(root1, root2, root2, 1));
+            if (root1 != root2) {
+                try {
+                    samples.add(Polynomial.createFromRoots(root1, root2, root2, 1));
+                } catch(ArithmeticException e) {
+                    // ignore, move on to next sample
+                }
+            }
         }
 
         testSamples(samples, false);
@@ -339,7 +349,11 @@ public class CubicSolverTests extends TestCase {
         Random random = new Random(0);
         for (int i = 0; i < 1_000_000; i++) {
             double root1 = Double.longBitsToDouble(random.nextLong());
-            samples.add(Polynomial.createFromRoots(root1, root1, root1, 1));
+            try {
+                samples.add(Polynomial.createFromRoots(root1, root1, root1, 1));
+            } catch(ArithmeticException e) {
+                // ignore, move on to next sample
+            }
         }
 
         testSamples(samples, false);
