@@ -84,6 +84,8 @@ public class RefineGeomCubicSolver extends CubicSolver {
     public int solveCubic(final double[] eqn,final double minX,final double maxX,final double[] res,final int resOffset) {
         if (eqn[3] == 0) {
             return solveQuadratic(eqn, minX, maxX, res, resOffset);
+        } else if (eqn[0] == 0) {
+            return solveCubic_constantIsZero(eqn, minX, maxX, res, resOffset);
         }
 
         try {
@@ -164,6 +166,27 @@ public class RefineGeomCubicSolver extends CubicSolver {
         } catch(Exception e) {
             return new BinarySearchCubicSolver().solveCubic(eqn, minX, maxX, res, resOffset);
         }
+    }
+
+    private int solveCubic_constantIsZero(double[] eqn, double minX, double maxX, double[] res, int resOffset) {
+        res[resOffset] = 0;
+        int returnValue = 1;
+
+        double[] quadEqn = new double[] { eqn[1], eqn[2], eqn[3] };
+        int k = solveQuadratic(quadEqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, res, resOffset + 1);
+        if (k == 1) {
+            double[] line = cubicToLineSyntheticDivision(eqn, 0, res[resOffset + 1]);
+            if (line[1] == 0) {
+                returnValue = 2;
+            } else {
+                res[resOffset + 2] = refineRoot(eqn, 3, -line[0] / line[1]);
+                returnValue = 3;
+            }
+        } else if (k == 2) {
+            returnValue = 3;
+        }
+        returnValue = constrainAndSort(returnValue, minX, maxX, res, resOffset, res, resOffset);
+        return returnValue;
     }
 
     /**
