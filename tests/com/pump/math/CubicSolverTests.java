@@ -350,7 +350,7 @@ public class CubicSolverTests extends TestCase {
                 try {
                     samples.add(Polynomial.createFromRoots(root1, root2, root2, 1));
                 } catch(ArithmeticException e) {
-                    // ignore, move on to next sample
+                    skippedCtr++;
                 }
             }
         }
