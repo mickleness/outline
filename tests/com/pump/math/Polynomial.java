@@ -26,9 +26,12 @@ public class Polynomial {
      *              single element might be a double or triple root.
      *
      * @throws ArithmeticException is any argument is NaN, infinite, or any of the roots end up creating an
-     *                             infinite y value.
+     *                             infinite y value. Also this throws an ArithmeticException if
+     *                             the roots argument indicates we expect a double or triple root,
+     *                             but due to rounding error the cubic equation that we produce doesn't
+     *                             exactly produce f(root) = 0.
      */
-    public Polynomial(double[] eqn, double[] roots) {
+    public Polynomial(double[] eqn, double[] roots) throws ArithmeticException {
         this.eqn = eqn;
         this.roots = roots;
 
@@ -40,9 +43,29 @@ public class Polynomial {
             if (Double.isNaN(roots[a]) || Double.isInfinite(roots[a]))
                 throw new ArithmeticException(toString());
             double y = CubicSolver.evaluate(eqn, eqn.length - 1, roots[a]);
-            if (Double.isNaN(y) || Double.isInfinite(y))
-                throw new ArithmeticException(this+", f("+roots[a]+") = "+y);
+
+            if (y != 0) {
+                if (isDoubleOrTripleRoot(roots[a])) {
+                    // this rules out a LOT of polynomials, but we can't really test our math in good faith otherwise.
+                    // for ex: if f(y) = 1e-14, then either:
+                    //   A. if this crosses the y-axis there are two roots (made possible by machine error)
+                    //   B. if this doesn't cross the y-axis: this isn't technically a root, even though it should be
+                    throw new ArithmeticException(this + ", f(" + roots[a] + ") = " + y);
+                } else {
+                    if (Double.isNaN(y) || Double.isInfinite(y))
+                        throw new ArithmeticException(toString());
+                }
+            }
         }
+    }
+
+    private boolean isDoubleOrTripleRoot(double root) {
+        int occurances = 0;
+        for (int a = 0; a < roots.length; a++) {
+            if (roots[a] == root)
+                occurances++;
+        }
+        return occurances > 1;
     }
 
     @Override

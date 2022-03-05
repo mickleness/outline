@@ -183,36 +183,53 @@ public class CubicSolverTests extends TestCase {
     }
 
     public void testSamples_threeSmallIntegerRoots() {
+        int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         for (int root1 = -10; root1 <= 10; root1++) {
             for (int root2 = -10; root2 <= 10; root2++) {
                 for (int root3 = -10; root3 <= 10; root3++) {
                     for (double multiplier : new double[]{ -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}) {
-                        if (root1 != root2 && root2 != root3 && root1 != root3)
-                            samples.add(Polynomial.createFromRoots(root1, root2, root3, multiplier));
+                        if (root1 != root2 && root2 != root3 && root1 != root3) {
+                            try {
+                                samples.add(Polynomial.createFromRoots(root1, root2, root3, multiplier));
+                            } catch(ArithmeticException e) {
+                                skippedCtr++;
+                            }
+                        }
                     }
                 }
             }
         }
 
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
+
         testSamples(samples, true);
     }
 
     public void testSamples_threeLargeIntegerRoots() {
+        int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
         while (samples.size() < 1_000_000) {
             double root1 = random.nextInt();
             double root2 = random.nextInt();
             double root3 = random.nextInt();
-            if (root1 != root2 && root2 != root3 && root1 != root3)
-                samples.add(Polynomial.createFromRoots(root1, root2, root3, random.nextInt()));
+            if (root1 != root2 && root2 != root3 && root1 != root3) {
+                try {
+                    samples.add(Polynomial.createFromRoots(root1, root2, root3, random.nextInt()));
+                } catch(ArithmeticException e) {
+                    skippedCtr++;
+                }
+            }
         }
+
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
         testSamples(samples, true);
     }
 
     public void testSamples_threeSmallDoubleRoots() {
+        int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
         while (samples.size() < 1_000_000) {
@@ -221,14 +238,22 @@ public class CubicSolverTests extends TestCase {
             double root3 = random.nextDouble() * 20 - 10;
             double multiplier = random.nextBoolean() ? -1.0 : 1.0;
             multiplier = multiplier * random.nextDouble() + .2;
-            if (root1 != root2 && root2 != root3 && root1 != root3)
-                samples.add(Polynomial.createFromRoots(root1, root2, root3, multiplier));
+            if (root1 != root2 && root2 != root3 && root1 != root3) {
+                try {
+                 samples.add(Polynomial.createFromRoots(root1, root2, root3, multiplier));
+                } catch(ArithmeticException e) {
+                    skippedCtr++;
+                }
+            }
         }
+
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
         testSamples(samples, true);
     }
 
     public void testSamples_threeLargeDoubleRoots() {
+        int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
         while (samples.size() < 1_000_000) {
@@ -239,10 +264,12 @@ public class CubicSolverTests extends TestCase {
                 try {
                     samples.add(Polynomial.createFromRoots(root1, root2, root3, 1));
                 } catch(ArithmeticException e) {
-                    // ignore, move on to next sample
+                    skippedCtr++;
                 }
             }
         }
+
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
         testSamples(samples, false);
     }
@@ -250,12 +277,61 @@ public class CubicSolverTests extends TestCase {
     // test double roots:
 
     public void testSamples_twoSmallIntegerRoots() {
+        int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         for (int root1 = -10; root1 <= 10; root1++) {
             for (int root2 = -10; root2 <= 10; root2++) {
                 for (double multiplier : new double[]{-1, 1}) {
-                    if (root1 != root2)
-                        samples.add(Polynomial.createFromRoots(root1, root2, root2, multiplier));
+                    if (root1 != root2) {
+                        try {
+                            samples.add(Polynomial.createFromRoots(root1, root2, root2, multiplier));
+                        } catch(ArithmeticException e) {
+                            skippedCtr++;
+                        }
+                    }
+                }
+            }
+        }
+
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
+
+        testSamples(samples, false);
+    }
+
+    public void testSamples_twoLargeIntegerRoots() {
+        int skippedCtr = 0;
+        List<Polynomial> samples = new ArrayList<>();
+        Random random = new Random(0);
+        while (samples.size() < 1_000_000) {
+            double root1 = random.nextInt();
+            double root2 = random.nextInt();
+            if (root1 != root2) {
+                try {
+                    samples.add(Polynomial.createFromRoots(root1, root2, root2, 1));
+                } catch(ArithmeticException e) {
+                    skippedCtr++;
+                }
+            }
+        }
+
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
+
+        testSamples(samples, false);
+    }
+
+    public void testSamples_twoSmallDoubleRoots() {
+        int skippedCtr = 0;
+        List<Polynomial> samples = new ArrayList<>();
+        Random random = new Random(0);
+        while (samples.size() < 1_000_000) {
+            double root1 = random.nextDouble() * 20 - 10;
+            double root2 = random.nextDouble() * 20 - 10;
+            double multiplier = random.nextBoolean() ? -1.0 : 1.0;
+            if (root1 != root2) {
+                try {
+                    samples.add(Polynomial.createFromRoots(root1, root2, root2, multiplier));
+                } catch(ArithmeticException e) {
+                    skippedCtr++;
                 }
             }
         }
@@ -263,34 +339,8 @@ public class CubicSolverTests extends TestCase {
         testSamples(samples, false);
     }
 
-    public void testSamples_twoLargeIntegerRoots() {
-        List<Polynomial> samples = new ArrayList<>();
-        Random random = new Random(0);
-        while (samples.size() < 1_000_000) {
-            double root1 = random.nextInt();
-            double root2 = random.nextInt();
-            if (root1 != root2)
-                samples.add(Polynomial.createFromRoots(root1, root2, root2, 1));
-        }
-
-        testSamples(samples, false);
-    }
-
-    public void testSamples_twoSmallDoubleRoots() {
-        List<Polynomial> samples = new ArrayList<>();
-        Random random = new Random(0);
-        while (samples.size() < 1_000_000) {
-            double root1 = random.nextDouble() * 20 - 10;
-            double root2 = random.nextDouble() * 20 - 10;
-            double multiplier = random.nextBoolean() ? -1.0 : 1.0;
-            if (root1 != root2)
-                samples.add(Polynomial.createFromRoots(root1, root2, root2, multiplier));
-        }
-
-        testSamples(samples, false);
-    }
-
     public void testSamples_twoLargeDoubleRoots() {
+        int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
         while (samples.size() < 1_000_000) {
@@ -305,46 +355,70 @@ public class CubicSolverTests extends TestCase {
             }
         }
 
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
+
         testSamples(samples, false);
     }
 
     // test triple roots:
 
     public void testSamples_oneSmallTripleIntegerRoot() {
+        int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         for (int root1 = -10; root1 <= 10; root1++) {
             for (double multiplier : new double[]{-1, 1}) {
-                samples.add(Polynomial.createFromRoots(root1, root1, root1, multiplier));
+                try {
+                    samples.add(Polynomial.createFromRoots(root1, root1, root1, multiplier));
+                } catch(ArithmeticException e) {
+                    skippedCtr++;
+                }
             }
         }
+
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
         testSamples(samples, false);
     }
 
     public void testSamples_oneLargeTripleIntegerRoot() {
+        int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
         for (int i = 0; i < 1_000_000; i++) {
             double root1 = random.nextInt();
-            samples.add(Polynomial.createFromRoots(root1, root1, root1, 1));
+            try {
+                samples.add(Polynomial.createFromRoots(root1, root1, root1, 1));
+            } catch(ArithmeticException e) {
+                skippedCtr++;
+            }
         }
+
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
         testSamples(samples, false);
     }
 
     public void testSamples_oneSmallTripleDoubleRoot() {
+        int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
         for (int i = 0; i < 1_000_000; i++) {
             double root1 = random.nextDouble() * 20 - 10;
             double multiplier = random.nextBoolean() ? -1.0 : 1.0;
-            samples.add(Polynomial.createFromRoots(root1, root1, root1, multiplier));
+            try {
+                samples.add(Polynomial.createFromRoots(root1, root1, root1, multiplier));
+            } catch(ArithmeticException e) {
+                skippedCtr++;
+            }
         }
+
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
         testSamples(samples, false);
     }
 
     public void testSamples_oneLargeTripleDoubleRoot() {
+        int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
         for (int i = 0; i < 1_000_000; i++) {
@@ -352,9 +426,11 @@ public class CubicSolverTests extends TestCase {
             try {
                 samples.add(Polynomial.createFromRoots(root1, root1, root1, 1));
             } catch(ArithmeticException e) {
-                // ignore, move on to next sample
+                skippedCtr++;
             }
         }
+
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
         testSamples(samples, false);
     }
