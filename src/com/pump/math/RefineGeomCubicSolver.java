@@ -82,13 +82,13 @@ public class RefineGeomCubicSolver extends CubicSolver {
 
     @Override
     public int solveCubic(final double[] eqn,final double minX,final double maxX,final double[] res,final int resOffset) {
-        if (eqn[3] == 0) {
-            return solveQuadratic(eqn, minX, maxX, res, resOffset);
-        } else if (eqn[0] == 0) {
-            return solveCubic_constantIsZero(eqn, minX, maxX, res, resOffset);
-        }
-
         try {
+            if (eqn[3] == 0) {
+                return solveQuadratic(eqn, minX, maxX, res, resOffset);
+            } else if (eqn[0] == 0) {
+                return solveCubic_constantIsZero(eqn, minX, maxX, res, resOffset);
+            }
+
             double[] dst = resOffset == 0 ? res : new double[3];
             int returnValue = CubicCurve2D.solveCubic(eqn, dst);
 
@@ -129,18 +129,6 @@ public class RefineGeomCubicSolver extends CubicSolver {
                 if (returnValue == 2) {
                     altSolution = solveCubic_twoKnownRoots(eqn, dst[0], dst[1]);
                     returnValue = altSolution.getRoots(dst);
-                }
-            }
-
-            // not constraining; just sorting:
-            constrainAndSort(returnValue, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, dst, 0, dst, 0);
-
-            // now check for potential double roots
-            for (int rootIndex = 0; rootIndex < returnValue - 1; rootIndex++) {
-                double delta = dst[rootIndex + 1] - dst[rootIndex];
-                double ulp = Math.ulp(dst[rootIndex]);
-                if (delta < ulp * 1000000000) {
-                    throw new PossibleDoubleRootException();
                 }
             }
 
@@ -289,6 +277,13 @@ public class RefineGeomCubicSolver extends CubicSolver {
         return new double[] { cubicEqn[2] / cubicEqn[3] - b, 1 };
     }
 
+    /**
+     * Most of the time we used [0,3] nudges. If we use more than MAX_NUDGES
+     * we're probably way off and nudging isn't going to fix our problems (but
+     * it may become a major performance drain).
+     */
+    private static final int MAX_NUDGES = 50;
+
     private double refineRoot(double[] eqn, int degree, double value) {
         double bestAbsY = Double.MAX_VALUE;
         double bestX = 0;
@@ -317,6 +312,34 @@ public class RefineGeomCubicSolver extends CubicSolver {
                 return newValue;
             value = newValue;
         }
+
+        // our bestX value might be really close now, but we might be able to do better.
+        // For ex: if it's "5.9999999999" we might be able to nudge it to "6.0"
+
+        int nudges = 0;
+        double leftX = Math.nextDown(bestX);
+        double leftYAbs = Math.abs(evaluate(eqn, 3, leftX));
+        if (leftYAbs < bestAbsY) {
+            while (leftYAbs < bestAbsY && nudges < MAX_NUDGES) {
+                bestX = leftX;
+                bestAbsY = leftYAbs;
+                // TODO: look inside Math.nextDown; we can optimize this
+                leftX = Math.nextDown(leftX);
+                leftYAbs = Math.abs(evaluate(eqn, 3, leftX));
+                nudges++;
+            }
+        } else {
+            double rightX = Math.nextUp(bestX);
+            double rightYAbs = Math.abs(evaluate(eqn, 3, rightX));
+            while (rightYAbs < bestAbsY && nudges < MAX_NUDGES) {
+                bestX = rightX;
+                bestAbsY = rightYAbs;
+                rightX = Math.nextUp(rightX);
+                rightYAbs = Math.abs(evaluate(eqn, 3, rightX));
+                nudges++;
+            }
+        }
+
         return bestX;
     }
 
