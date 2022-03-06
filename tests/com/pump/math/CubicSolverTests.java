@@ -61,12 +61,6 @@ public class CubicSolverTests extends TestCase {
         samples.add(new Polynomial(new double[] {-224.07371646029355, -117.17947142415825, -19.13872428371681, -1.0},
                 new double[] {-7.659867823855498, -3.818988636005816}));
 
-        // samples from from testSamples_oneLargeTripleIntegerRoot:
-        samples.add(new Polynomial(new double[] {1.542738998239148E27, 4.0054338161216993E18, 3.466453728E9, 1.0},
-                new double[] {-1.155484576E9}));
-        samples.add(new Polynomial(new double[] {5.164528250084982E27, 8.9634464099925012E18, 5.185589574E9, 1.0},
-                new double[] {-1.728529858E9}));
-
         testSamples(samples, false);
     }
 
