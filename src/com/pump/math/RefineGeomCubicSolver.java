@@ -126,25 +126,10 @@ public class RefineGeomCubicSolver extends CubicSolver {
                 if (altSolution != null)
                     returnValue = altSolution.getRoots(dst);
 
-//
-//                } else {
-//                    if (returnValue == 1) {
-//                        double[] quadEqn = cubicToQuadSyntheticDivision(eqn, dst[0]);
-//                        int quadRoots = solveQuadratic(quadEqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, dst, 1);
-//                        for (int a = 0; a < quadRoots; a++) {
-//                            dst[a + 1] = refineRoot(eqn, 3, dst[1 + a]);
-//                            returnValue++;
-//                        }
-//                    } else if (returnValue == 2) {
-//                        double[] lineEqn = cubicToLineSyntheticDivision(eqn, dst[0], dst[1]);
-//                        if (lineEqn[1] == 0) {
-//                            // not sure if this ever happens? Just in case let's abort
-//                            throw new RuntimeException();
-//                        }
-//                        dst[2] = refineRoot(eqn, 3, -lineEqn[0] / lineEqn[1]);
-//                        returnValue++;
-//                    }
-//                }
+                if (returnValue == 2) {
+                    altSolution = solveCubic_twoKnownRoots(eqn, dst[0], dst[1]);
+                    returnValue = altSolution.getRoots(dst);
+                }
             }
 
             // not constraining; just sorting:
@@ -166,6 +151,32 @@ public class RefineGeomCubicSolver extends CubicSolver {
         } catch(Exception e) {
             return new BinarySearchCubicSolver().solveCubic(eqn, minX, maxX, res, resOffset);
         }
+    }
+
+    private Solution solveCubic_twoKnownRoots(double[] eqn, double knownRoot1, double knownRoot2) {
+        // explore the possibility that there's a double root:
+
+        double[] doubleRootLine1 = cubicToLineSyntheticDivision(eqn, knownRoot1, knownRoot1);
+        double altRoot2 = -doubleRootLine1[0] / doubleRootLine1[1];
+        double ratio = knownRoot2 / altRoot2;
+        if (ratio >= .999999 && ratio <= 1.000001) {
+            // this looks like knownRoot1 is a double root; this is OK.
+            return null;
+        }
+
+        double[] doubleRootLine2 = cubicToLineSyntheticDivision(eqn, knownRoot2, knownRoot2);
+        double altRoot1 = -doubleRootLine2[0] / doubleRootLine2[1];
+        ratio = knownRoot1 / altRoot1;
+        if (ratio >= .999999 && ratio <= 1.000001) {
+            // this looks like knownRoot2 is a double root; this is OK.
+            return null;
+        }
+
+        double[] line = cubicToLineSyntheticDivision(eqn, knownRoot1, knownRoot2);
+        double candidateRoot = - line[0] / line[1];
+        candidateRoot = refineRoot(eqn, 3, candidateRoot);
+
+        return new Solution(candidateRoot, knownRoot1, knownRoot2);
     }
 
     private int solveCubic_constantIsZero(double[] eqn, double minX, double maxX, double[] res, int resOffset) {

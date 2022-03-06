@@ -1,5 +1,6 @@
 package com.pump.math;
 
+import com.pump.awt.geom.outline.OutlineTests;
 import junit.framework.TestCase;
 
 import java.io.IOException;
@@ -43,14 +44,28 @@ public class CubicSolverTests extends TestCase {
         samples.add(new Polynomial(new double[] {1.4611407682010708E36, 1.8684690214944606E27, -1.43094277808606694E18, -1.690734402E9},
                 new double[] {-1.155484576E9, -7.239554E8, 1.033096058E9}));
 
-        // for this (the first sample in testSamples_threeLargeDoubleRoots) the RefineGeomCubicSolver only
-        // returned [ -3.454933085829394E-24, 4.5008219593842995E-12]:
+        // these samples (from a now unrecognizable test) failed:
         samples.add(new Polynomial(new double[] {-9.723097277156327E-174, -3.1095527945247437E-35, -4.5008219593773905E-12, 1.0},
                 new double[] {-6.908855365943251E-24, -3.1268474663870054E-139, 4.5008219593842995E-12}));
-
-        // another sample from testSamples_threeLargeDoubleRoots:
         samples.add(new Polynomial(new double[] {0, -1.85220405838411E-85, -8.343452664423104E102, 1.0},
                 new double[] {-2.2199491420164698E-188, -1.8192638431544665E-246, 8.343452664423104E102}));
+
+        // a failing sample from testSamples_threeLargeDoubleRoots:
+        samples.add(new Polynomial(new double[] {-4.462025012114924E175,-1.9357246295338692E120,9.118188180599041E60,1.0},
+                new double[] {-9.325755266543536E60, -2.3048426205890857E55, 2.075901343707017E59}));
+
+        samples.add(new Polynomial(new double[] {1.051764403919818E300,-9.771659166907198E264,2.3892364643529587E132,1.0},
+                new double[] {-4.541074848891487E132, 1.076341679498743E35, 2.151838384538528E132}));
+
+        // a sample from testSamples_twoSmallDoubleRoots
+        samples.add(new Polynomial(new double[] {-224.07371646029355, -117.17947142415825, -19.13872428371681, -1.0},
+                new double[] {-7.659867823855498, -3.818988636005816}));
+
+        // samples from from testSamples_oneLargeTripleIntegerRoot:
+        samples.add(new Polynomial(new double[] {1.542738998239148E27, 4.0054338161216993E18, 3.466453728E9, 1.0},
+                new double[] {-1.155484576E9}));
+        samples.add(new Polynomial(new double[] {5.164528250084982E27, 8.9634464099925012E18, 5.185589574E9, 1.0},
+                new double[] {-1.728529858E9}));
 
         testSamples(samples, false);
     }
@@ -256,13 +271,21 @@ public class CubicSolverTests extends TestCase {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
-        while (samples.size() < 1_000_000) {
+
+        // this test is expensive to set up, because lots of Polynomials get rejected:
+        int testCount = OutlineTests.RUN_OVERNIGHT ? 1_000_000 : 10_000;
+
+        while (samples.size() < testCount) {
             double root1 = Double.longBitsToDouble(random.nextLong());
             double root2 = Double.longBitsToDouble(random.nextLong());
             double root3 = Double.longBitsToDouble(random.nextLong());
-            if (root1 != root2 && root2 != root3 && root1 != root3) {
+            if (root1 != root2 && root2 != root3 && root1 != root3 &&
+                    Math.getExponent(root1) > 40 &&
+                    Math.getExponent(root2) > 40 &&
+                    Math.getExponent(root3) > 40) {
                 try {
-                    samples.add(Polynomial.createFromRoots(root1, root2, root3, 1));
+                    Polynomial p = Polynomial.createFromRoots(root1, root2, root3, 1);
+                    samples.add(p);
                 } catch(ArithmeticException e) {
                     skippedCtr++;
                 }

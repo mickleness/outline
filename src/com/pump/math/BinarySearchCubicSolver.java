@@ -213,6 +213,10 @@ public class BinarySearchCubicSolver extends CubicSolver {
         int degree = Math.getExponent(initialX);
         for(int loop = 1; loop < 100; loop++, degree += Math.max(1, Math.abs(degree * 3 / 2))) {
             double newX = x + dirMultiplier * Math.pow(2, degree);
+            while (Double.isInfinite(newX)) {
+                degree--;
+                newX = x + dirMultiplier * Math.pow(2, degree);
+            }
             double newY = evaluate(eqn, 3, newX);
             if (newY == 0) {
                 dest.add(new Point2D.Double(newX, 0));
