@@ -57,10 +57,6 @@ public class CubicSolverTests extends TestCase {
         samples.add(new Polynomial(new double[] {1.051764403919818E300,-9.771659166907198E264,2.3892364643529587E132,1.0},
                 new double[] {-4.541074848891487E132, 1.076341679498743E35, 2.151838384538528E132}));
 
-        // a sample from testSamples_twoSmallDoubleRoots
-        samples.add(new Polynomial(new double[] {-224.07371646029355, -117.17947142415825, -19.13872428371681, -1.0},
-                new double[] {-7.659867823855498, -3.818988636005816}));
-
         testSamples(samples, false);
     }
 
