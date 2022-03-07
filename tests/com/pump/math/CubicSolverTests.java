@@ -45,8 +45,6 @@ public class CubicSolverTests extends TestCase {
                 new double[] {-1.155484576E9, -7.239554E8, 1.033096058E9}));
 
         // these samples (from a now unrecognizable test) failed:
-        samples.add(new Polynomial(new double[] {-9.723097277156327E-174, -3.1095527945247437E-35, -4.5008219593773905E-12, 1.0},
-                new double[] {-6.908855365943251E-24, -3.1268474663870054E-139, 4.5008219593842995E-12}));
         samples.add(new Polynomial(new double[] {0, -1.85220405838411E-85, -8.343452664423104E102, 1.0},
                 new double[] {-2.2199491420164698E-188, -1.8192638431544665E-246, 8.343452664423104E102}));
 
@@ -266,13 +264,10 @@ public class CubicSolverTests extends TestCase {
         int testCount = OutlineTests.RUN_OVERNIGHT ? 1_000_000 : 10_000;
 
         while (samples.size() < testCount) {
-            double root1 = Double.longBitsToDouble(random.nextLong());
-            double root2 = Double.longBitsToDouble(random.nextLong());
-            double root3 = Double.longBitsToDouble(random.nextLong());
-            if (root1 != root2 && root2 != root3 && root1 != root3 &&
-                    Math.getExponent(root1) > 40 &&
-                    Math.getExponent(root2) > 40 &&
-                    Math.getExponent(root3) > 40) {
+            double root1 = getLargeDouble(random);
+            double root2 = getLargeDouble(random);
+            double root3 = getLargeDouble(random);
+            if (root1 != root2 && root2 != root3 && root1 != root3) {
                 try {
                     Polynomial p = Polynomial.createFromRoots(root1, root2, root3, 1);
                     samples.add(p);
@@ -285,6 +280,21 @@ public class CubicSolverTests extends TestCase {
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
         testSamples(samples, false);
+    }
+
+    /**
+     * Return a double that has a large exponent. Here "large" is taken to mean
+     * "between 40 and 100". This value will probably be a root of a cubic equation, so we need
+     * to be able to cube it safely. If the max exponent a java double can have is 1023, then
+     * the absolute max exponent we should consider is around 340 (1023/3).
+     */
+    private double getLargeDouble(Random random) {
+        while (true) {
+            double d = Double.longBitsToDouble(random.nextLong());
+            int exp = Math.getExponent(d);
+            if (exp > 40 && exp < 100)
+                return d;
+        }
     }
 
     // test double roots:
@@ -357,8 +367,8 @@ public class CubicSolverTests extends TestCase {
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
         while (samples.size() < 1_000_000) {
-            double root1 = Double.longBitsToDouble(random.nextLong());
-            double root2 = Double.longBitsToDouble(random.nextLong());
+            double root1 = getLargeDouble(random);
+            double root2 = getLargeDouble(random);
             if (root1 != root2) {
                 try {
                     samples.add(Polynomial.createFromRoots(root1, root2, root2, 1));
@@ -435,7 +445,7 @@ public class CubicSolverTests extends TestCase {
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
         for (int i = 0; i < 1_000_000; i++) {
-            double root1 = Double.longBitsToDouble(random.nextLong());
+            double root1 = getLargeDouble(random);
             try {
                 samples.add(Polynomial.createFromRoots(root1, root1, root1, 1));
             } catch(ArithmeticException e) {
