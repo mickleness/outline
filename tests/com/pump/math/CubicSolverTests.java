@@ -35,25 +35,8 @@ public class CubicSolverTests extends TestCase {
         samples.add(new Polynomial(new double[]{192.0, 112.0, 19.0, 1.0},
                 new double[]{-8, -3}));
 
-        // this is another example that came up from RectangularClipperTest#testCircle
-        samples.add(new Polynomial(new double[] {-10.715728752538103, 46.862915010152385, -46.86291501015237, -3.552713678800501E-15},
-                new double[] {-1.3190737911076092E16, 0.3539218196826379, 0.6460781803173623}));
-
-        // after the fix for the previous use case: the first test from testSamples_threeLargeIntegerRoots failed
-        // because the RefineGeomCubicSolver skipped the first root:
-        samples.add(new Polynomial(new double[] {1.4611407682010708E36, 1.8684690214944606E27, -1.43094277808606694E18, -1.690734402E9},
-                new double[] {-1.155484576E9, -7.239554E8, 1.033096058E9}));
-
-        // these samples (from a now unrecognizable test) failed:
-        samples.add(new Polynomial(new double[] {0, -1.85220405838411E-85, -8.343452664423104E102, 1.0},
-                new double[] {-2.2199491420164698E-188, -1.8192638431544665E-246, 8.343452664423104E102}));
-
-        // a failing sample from testSamples_threeLargeDoubleRoots:
-        samples.add(new Polynomial(new double[] {-4.462025012114924E175,-1.9357246295338692E120,9.118188180599041E60,1.0},
-                new double[] {-9.325755266543536E60, -2.3048426205890857E55, 2.075901343707017E59}));
-
-        samples.add(new Polynomial(new double[] {1.051764403919818E300,-9.771659166907198E264,2.3892364643529587E132,1.0},
-                new double[] {-4.541074848891487E132, 1.076341679498743E35, 2.151838384538528E132}));
+        samples.add(new Polynomial(new double[] {8.371561982193448E60, 5.361709507616027E45, 2.5964398283509223E29, 1.0},
+                new double[] {-2.5964398283507157E29, -1.8948666914412416E16, -1.701569032021228E15}));
 
         testSamples(samples, false);
     }

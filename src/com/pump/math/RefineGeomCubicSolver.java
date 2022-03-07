@@ -69,6 +69,42 @@ public class RefineGeomCubicSolver extends CubicSolver {
             sb.append("]");
             return sb.toString();
         }
+
+        /**
+         * Identify which Solution produces y-values that are closer to zero.
+         * @return -1 if this object produces y-values that are closer, 1 if the argument produces y-values that
+         * are closer, or 0 if they're equivalent in this respect.
+         */
+        public int compareTo(double[] eqn, Solution other) {
+
+            double y0 = evaluate(eqn, 3, roots[0]);
+            double y1 = evaluate(eqn, 3, roots[1]);
+            double y2 = evaluate(eqn, 3, roots[2]);
+
+            double otherY0 = evaluate(eqn, 3, other.roots[0]);
+            double otherY1 = evaluate(eqn, 3, other.roots[1]);
+            double otherY2 = evaluate(eqn, 3, other.roots[2]);
+
+            double sum = 0;
+            double otherSum = 0;
+
+            if (y0 != otherY0) {
+                sum += y0 * y0;
+                otherSum += otherY0 * otherY0;
+            }
+
+            if (y1 != otherY1) {
+                sum += y1 * y1;
+                otherSum += otherY1 * otherY1;
+            }
+
+            if (y2 != otherY2) {
+                sum += y2 * y2;
+                otherSum += otherY2 * otherY2;
+            }
+
+            return Double.compare(sum, otherSum);
+        }
     }
 
     @Override
@@ -87,12 +123,12 @@ public class RefineGeomCubicSolver extends CubicSolver {
                 dst[a] = refineRoot(eqn, 3, dst[a]);
             }
 
-            if (returnValue < 3) {
-                int exp0 = Math.getExponent(eqn[0]);
-                int exp1 = Math.getExponent(eqn[1]);
-                int exp2 = Math.getExponent(eqn[2]);
-                int exp3 = Math.getExponent(eqn[3]);
+            int exp0 = Math.getExponent(eqn[0]);
+            int exp1 = Math.getExponent(eqn[1]);
+            int exp2 = Math.getExponent(eqn[2]);
+            int exp3 = Math.getExponent(eqn[3]);
 
+            if (returnValue < 3) {
                 Solution altSolution = null;
 
                 boolean isVerySmallLeadingCoefficient = (exp3 < exp2 - 8) && (exp3 < exp1 - 8) && (exp3 < exp0 - 8);
@@ -109,12 +145,30 @@ public class RefineGeomCubicSolver extends CubicSolver {
                         altSolution = solveCubic_treatConstantAsZero(eqn);
                 }
 
-                if (altSolution == null && returnValue == 2) {
-                    altSolution = solveCubic_twoKnownRoots(eqn, dst[0], dst[1]);
-                }
-
                 if (altSolution != null)
                     returnValue = altSolution.getRoots(dst);
+
+                if (returnValue == 2) {
+                    altSolution = solveCubic_twoKnownRoots(eqn, dst[0], dst[1]);
+                    if (altSolution != null)
+                        returnValue = altSolution.getRoots(dst);
+                }
+
+            }
+
+            if (returnValue == 3 && Math.max(Math.max(exp0, exp1), Math.max(exp2, exp3)) > 50) {
+                Solution currentSolution = new Solution(dst);
+                Solution[] altSolutions = solveCubic_findAltSolutions(eqn, dst);
+                for (Solution altSolution : altSolutions) {
+                    if (altSolution == null)
+                        break;
+
+                    if (altSolution.compareTo(eqn, currentSolution) < 0) {
+                        currentSolution = altSolution;
+                    }
+                }
+
+                returnValue = currentSolution.getRoots(dst);
             }
 
             // not constraining; just sorting:
@@ -133,6 +187,39 @@ public class RefineGeomCubicSolver extends CubicSolver {
         } catch(Exception e) {
             return new BinarySearchCubicSolver().solveCubic(eqn, minX, maxX, res, resOffset);
         }
+    }
+
+    private Solution[] solveCubic_findAltSolutions(double[] eqn, double[] threeRoots) {
+        Solution[] returnValue = new Solution[6];
+        int ctr = 0;
+        for (double initialRoot : threeRoots) {
+            double[] quad = cubicToQuadSyntheticDivision(eqn, initialRoot);
+            int k = solveQuadratic(quad, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, quad, 0);
+            if (k == 1) {
+                quad[0] = refineRoot(eqn, 3, quad[0]);
+                double[] line = cubicToLineSyntheticDivision(eqn, initialRoot, quad[0]);
+                double lastRoot = -line[0] / line[1];
+                lastRoot = refineRoot(eqn, 3, lastRoot);
+                returnValue[ctr++] = new Solution(initialRoot, quad[0], lastRoot);
+            } else if (k == 2) {
+                quad[0] = refineRoot(eqn, 3, quad[0]);
+                quad[1] = refineRoot(eqn, 3, quad[1]);
+
+                double[] line = cubicToLineSyntheticDivision(eqn, initialRoot, quad[0]);
+                double lastRoot = -line[0] / line[1];
+                lastRoot = refineRoot(eqn, 3, lastRoot);
+
+                returnValue[ctr++] = new Solution(initialRoot, quad[0], lastRoot);
+
+                line = cubicToLineSyntheticDivision(eqn, initialRoot, quad[1]);
+                lastRoot = -line[0] / line[1];
+                lastRoot = refineRoot(eqn, 3, lastRoot);
+
+                returnValue[ctr++] = new Solution(initialRoot, quad[1], lastRoot);
+            }
+        }
+
+        return returnValue;
     }
 
     private Solution solveCubic_twoKnownRoots(double[] eqn, double knownRoot1, double knownRoot2) {
