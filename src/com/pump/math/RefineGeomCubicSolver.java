@@ -73,13 +73,13 @@ public class RefineGeomCubicSolver extends CubicSolver {
 
     @Override
     public int solveCubic(final double[] eqn,final double minX,final double maxX,final double[] res,final int resOffset) {
-        if (eqn[3] == 0) {
-            return solveQuadratic(eqn, minX, maxX, res, resOffset);
-        } else if (eqn[0] == 0) {
-            return solveCubic_constantIsZero(eqn, minX, maxX, res, resOffset);
-        }
-
         try {
+            if (eqn[3] == 0) {
+                return solveQuadratic(eqn, minX, maxX, res, resOffset);
+            } else if (eqn[0] == 0) {
+                return solveCubic_constantIsZero(eqn, minX, maxX, res, resOffset);
+            }
+
             double[] dst = resOffset == 0 ? res : new double[3];
             int returnValue = CubicCurve2D.solveCubic(eqn, dst);
 
@@ -109,14 +109,12 @@ public class RefineGeomCubicSolver extends CubicSolver {
                         altSolution = solveCubic_treatConstantAsZero(eqn);
                 }
 
+                if (altSolution == null && returnValue == 2) {
+                    altSolution = solveCubic_twoKnownRoots(eqn, dst[0], dst[1]);
+                }
+
                 if (altSolution != null)
                     returnValue = altSolution.getRoots(dst);
-
-                if (returnValue == 2) {
-                    altSolution = solveCubic_twoKnownRoots(eqn, dst[0], dst[1]);
-                    if (altSolution != null)
-                        returnValue = altSolution.getRoots(dst);
-                }
             }
 
             // not constraining; just sorting:
