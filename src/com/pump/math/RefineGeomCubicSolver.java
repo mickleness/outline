@@ -138,11 +138,11 @@ public class RefineGeomCubicSolver extends CubicSolver {
                 solutions.add(new Solution(refineRoot(eqn, 3, dst[0])));
             } else if (returnValue == 2) {
                 solutions.add(new Solution(refineRoot(eqn, 3, dst[0]),
-                        refineRoot(eqn, 3, dst[1]),
-                        refineRoot(eqn, 3, dst[2])));
+                        refineRoot(eqn, 3, dst[1])));
             } else {
                 solutions.add(new Solution(refineRoot(eqn, 3, dst[0]),
-                        refineRoot(eqn, 3, dst[1])));
+                        refineRoot(eqn, 3, dst[1]),
+                        refineRoot(eqn, 3, dst[2])));
             }
 
             int exp0 = Math.getExponent(eqn[0]);
@@ -166,7 +166,7 @@ public class RefineGeomCubicSolver extends CubicSolver {
 
             for (Solution s : solutions.toArray(new Solution[0])) {
                 if (s.roots.length == 2) {
-                    Solution threeRoots = solveCubic_twoKnownRoots(eqn, dst[0], dst[1]);
+                    Solution threeRoots = solveCubic_twoKnownRoots(eqn, s.roots[0], s.roots[1]);
                     if (threeRoots != null)
                         solutions.add(threeRoots);
                 }
@@ -179,19 +179,19 @@ public class RefineGeomCubicSolver extends CubicSolver {
                             solutions.add(newS);
                     }
                 }
-
-                Solution currentSolution = solutions.remove(0);
-                for (Solution altSolution : solutions) {
-                    if (altSolution == null)
-                        break;
-
-                    if (altSolution.compareTo(eqn, currentSolution) < 0) {
-                        currentSolution = altSolution;
-                    }
-                }
-
-                returnValue = currentSolution.getRoots(dst);
             }
+
+            Solution currentSolution = solutions.remove(0);
+            for (Solution altSolution : solutions) {
+                if (altSolution == null)
+                    break;
+
+                if (altSolution.compareTo(eqn, currentSolution) < 0) {
+                    currentSolution = altSolution;
+                }
+            }
+
+            returnValue = currentSolution.getRoots(dst);
 
             // not constraining; just sorting:
             constrainAndSort(returnValue, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, dst, 0, dst, 0);
