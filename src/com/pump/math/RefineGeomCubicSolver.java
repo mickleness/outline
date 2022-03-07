@@ -2,6 +2,8 @@ package com.pump.math;
 
 import java.awt.geom.CubicCurve2D;
 import java.awt.geom.QuadCurve2D;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * This uses {@link QuadCurve2D#solveQuadratic(double[], double[])} and
@@ -76,6 +78,10 @@ public class RefineGeomCubicSolver extends CubicSolver {
          * are closer, or 0 if they're equivalent in this respect.
          */
         public int compareTo(double[] eqn, Solution other) {
+            if (roots.length > other.roots.length)
+                return -1;
+            if (roots.length < other.roots.length)
+                return 1;
 
             double y0 = evaluate(eqn, 3, roots[0]);
             double y1 = evaluate(eqn, 3, roots[1]);
@@ -110,6 +116,7 @@ public class RefineGeomCubicSolver extends CubicSolver {
     @Override
     public int solveCubic(final double[] eqn,final double minX,final double maxX,final double[] res,final int resOffset) {
         try {
+            // first consider cases that are guaranteed to be simpler:
             if (eqn[3] == 0) {
                 return solveQuadratic(eqn, minX, maxX, res, resOffset);
             } else if (eqn[0] == 0) {
@@ -119,8 +126,16 @@ public class RefineGeomCubicSolver extends CubicSolver {
             double[] dst = resOffset == 0 ? res : new double[3];
             int returnValue = CubicCurve2D.solveCubic(eqn, dst);
 
-            for (int a = 0; a < returnValue; a++) {
-                dst[a] = refineRoot(eqn, 3, dst[a]);
+            List<Solution> solutions = new LinkedList<>();
+            if (returnValue == 1) {
+                solutions.add(new Solution(refineRoot(eqn, 3, dst[0])));
+            } else if (returnValue == 2) {
+                solutions.add(new Solution(refineRoot(eqn, 3, dst[0]),
+                        refineRoot(eqn, 3, dst[1]),
+                        refineRoot(eqn, 3, dst[2])));
+            } else {
+                solutions.add(new Solution(refineRoot(eqn, 3, dst[0]),
+                        refineRoot(eqn, 3, dst[1])));
             }
 
             int exp0 = Math.getExponent(eqn[0]);
@@ -128,38 +143,38 @@ public class RefineGeomCubicSolver extends CubicSolver {
             int exp2 = Math.getExponent(eqn[2]);
             int exp3 = Math.getExponent(eqn[3]);
 
-            if (returnValue < 3) {
-                Solution altSolution = null;
+            boolean isVerySmallLeadingCoefficient = (exp3 < exp2 - 8) && (exp3 < exp1 - 8) && (exp3 < exp0 - 8);
 
-                boolean isVerySmallLeadingCoefficient = (exp3 < exp2 - 8) && (exp3 < exp1 - 8) && (exp3 < exp0 - 8);
+            if (isVerySmallLeadingCoefficient) {
                 // if there's a very wide disparity between the (x^3) coefficient and the (x^2) coefficient
-                // the code above can miss some solutions.
-
-                if (isVerySmallLeadingCoefficient) {
-                    altSolution = solveCubic_treatLeadingCoefficientAsZero(eqn);
-                }
-
-                if (altSolution == null) {
-                    boolean isVerySmallConstant = (exp0 < exp1 - 8) && (exp0 < exp2 - 8) && (exp0 < exp3 - 8);
-                    if (isVerySmallConstant)
-                        altSolution = solveCubic_treatConstantAsZero(eqn);
-                }
-
-                if (altSolution != null)
-                    returnValue = altSolution.getRoots(dst);
-
-                if (returnValue == 2) {
-                    altSolution = solveCubic_twoKnownRoots(eqn, dst[0], dst[1]);
-                    if (altSolution != null)
-                        returnValue = altSolution.getRoots(dst);
-                }
-
+                // then Cubic2D.solveCubic can miss some:
+                solutions.add(solveCubic_treatLeadingCoefficientAsZero(eqn));
             }
 
-            if (returnValue == 3 && Math.max(Math.max(exp0, exp1), Math.max(exp2, exp3)) > 50) {
-                Solution currentSolution = new Solution(dst);
-                Solution[] altSolutions = solveCubic_findAltSolutions(eqn, dst);
-                for (Solution altSolution : altSolutions) {
+
+            boolean isVerySmallConstant = (exp0 < exp1 - 8) && (exp0 < exp2 - 8) && (exp0 < exp3 - 8);
+            if (isVerySmallConstant) {
+                solutions.add(solveCubic_treatConstantAsZero(eqn));
+            }
+
+            for (Solution s : solutions.toArray(new Solution[0])) {
+                if (s.roots.length == 2) {
+                    Solution threeRoots = solveCubic_twoKnownRoots(eqn, dst[0], dst[1]);
+                    if (threeRoots != null)
+                        solutions.add(threeRoots);
+                }
+            }
+
+            if (Math.max(Math.max(exp0, exp1), Math.max(exp2, exp3)) > 50) {
+                for (Solution s : solutions.toArray(new Solution[0])) {
+                    for (Solution newS : solveCubic_findAltSolutions(eqn, s.roots)) {
+                        if (newS != null)
+                            solutions.add(newS);
+                    }
+                }
+
+                Solution currentSolution = solutions.remove(0);
+                for (Solution altSolution : solutions) {
                     if (altSolution == null)
                         break;
 
