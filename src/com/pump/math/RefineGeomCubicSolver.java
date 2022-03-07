@@ -44,15 +44,22 @@ public class RefineGeomCubicSolver extends CubicSolver {
         }
 
         public Solution(double root1, double root2) {
-            roots = new double[] { root1, root2 };
+            if (root1 < root2) {
+                roots = new double[] { root1, root2};
+            } else {
+                roots = new double[] { root2, root1 };
+            }
         }
 
         public Solution(double root1, double root2, double root3) {
-            roots = new double[] { root1, root2, root3};
+            roots = new double[] { root1, root2, root3 };
+            // sort the roots:
+            constrainAndSort(3, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, roots, 0, roots, 0);
         }
 
         public Solution(double[] roots) {
             this.roots = roots;
+            constrainAndSort(roots.length, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, roots, 0, roots, 0);
         }
 
         public int getRoots(double[] dst) {
