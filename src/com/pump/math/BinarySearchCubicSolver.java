@@ -13,8 +13,6 @@ import java.util.List;
  */
 public class BinarySearchCubicSolver extends CubicSolver {
 
-    enum Direction { LEFT, RIGHT }
-
     @Override
     public int solveCubic(double[] eqn, double minX, double maxX, double[] res, int resOffset) {
         if (eqn[3] == 0) {
@@ -29,15 +27,11 @@ public class BinarySearchCubicSolver extends CubicSolver {
         if (derivRootCount == -1)
             return -1;
 
-
-        if (derivRootCount == 0) {
-            res[resOffset] = solveCubic_oneRoot_noExtrema(eqn);
-            return 1;
-        }
+        double rootsBound = getSingleBound(eqn, 3);
 
         List<Point2D.Double> windowPoints = new ArrayList<>(derivRootCount + 4);
 
-        findCubicBinarySearchWindowBoundary(windowPoints, eqn, extremaX[0], Direction.LEFT);
+        windowPoints.add(new Point2D.Double(-rootsBound, evaluate(eqn, 3 ,-rootsBound)));
 
         for (int a = 0; a < derivRootCount; a++) {
             double x = extremaX[a];
@@ -45,7 +39,7 @@ public class BinarySearchCubicSolver extends CubicSolver {
             windowPoints.add(new Point2D.Double(x,y));
         }
 
-        findCubicBinarySearchWindowBoundary(windowPoints, eqn, extremaX[derivRootCount - 1], Direction.RIGHT);
+        windowPoints.add(new Point2D.Double(rootsBound, evaluate(eqn, 3 ,rootsBound)));
 
         int returnValue = 0;
 
@@ -88,6 +82,27 @@ public class BinarySearchCubicSolver extends CubicSolver {
         }
 
         return constrainAndSort(returnValue, minX, maxX, res, resOffset, res, resOffset);
+    }
+
+    /**
+     * Return a positive double M. All roots will be located with [-M, M].
+     * This relies on the "Single Bound Theorem"
+     *
+     * @param eqn the coefficients
+     * @param degree the degree of the polynomial ("3" for cubics)
+     */
+    private double getSingleBound(double[] eqn, int degree) {
+        double coeffMax = 0;
+        double coeffSum = 0;
+        for(int i = 0; i < degree; i++) {
+            double z = Math.abs(eqn[i] / eqn[degree]);
+            coeffMax = Math.max(coeffMax, z);
+            coeffSum = coeffSum + z;
+        }
+        double m1 = 1 + coeffMax;
+        double m2 = Math.max(1, coeffSum);
+        double m = Math.min(m1, m2);
+        return m;
     }
 
     /**
@@ -150,105 +165,6 @@ public class BinarySearchCubicSolver extends CubicSolver {
             }
         }
         return returnValue;
-    }
-
-    private double solveCubic_oneRoot_noExtrema(double[] eqn) {
-        // we have a root and no extrema
-
-        if (eqn[0] == 0) {
-            // unlikely fringe case, but we'll take it:
-            return 0;
-        }
-
-        // use x = 0 as one of our arbitrary bounds
-
-        Direction direction;
-        if (eqn[3] > 0) {
-            direction =  (eqn[0] > 0) ? Direction.LEFT : Direction.RIGHT;
-        } else {
-            direction = (eqn[0] > 0) ? Direction.RIGHT : Direction.LEFT;
-        }
-        List<Point2D.Double> windowPoints = new ArrayList<>(2);
-        if (direction == Direction.RIGHT) {
-            windowPoints.add(new Point2D.Double(0, eqn[0]));
-            findCubicBinarySearchWindowBoundary(windowPoints, eqn, 0, direction);
-        } else {
-            findCubicBinarySearchWindowBoundary(windowPoints, eqn, 0, direction);
-            windowPoints.add(new Point2D.Double(0, eqn[0]));
-        }
-        return refineBinarySearch(eqn, 3, windowPoints.get(0).x, windowPoints.get(0).y, windowPoints.get(1).x, windowPoints.get(1).y);
-    }
-
-    /**
-     * This looks to the left/right of a given x-value and identifies another x-value where the function
-     * has definitely crossed over the y-axis. This only adds one element to dest.
-     *
-     * @param eqn the cubic equation
-     * @param initialX the initial x value
-     * @param direction -1 to look to the left, +1 to look to the right
-     */
-    private void findCubicBinarySearchWindowBoundary(List<Point2D.Double> dest, double[] eqn, double initialX, Direction direction) {
-        double y = evaluate(eqn, 3, initialX);
-        if (y == 0)
-            return;
-
-        boolean isInitialYPositive = y > 0;
-
-        // will there be any roots between (initialX, initialY) and infinity? If not: abort
-        if (eqn[3] > 0) {
-            // we ultimately slope up to +infinity:
-
-            if (direction == Direction.RIGHT && isInitialYPositive)
-                return;
-            if (direction == Direction.LEFT && !isInitialYPositive)
-                return;
-        } else {
-            // we ultimately slope down to -infinity:
-
-            if (direction == Direction.RIGHT && !isInitialYPositive)
-                return;
-            if (direction == Direction.LEFT && isInitialYPositive)
-                return;
-        }
-
-        double x = initialX;
-        boolean finished = false;
-        double dirMultiplier = direction == Direction.LEFT ? -1 : 1;
-        int degree = Math.getExponent(initialX);
-        for(int loop = 1; loop < 100; loop++, degree += Math.max(1, Math.abs(degree * 3 / 2))) {
-            double newX = x + dirMultiplier * Math.pow(2, degree);
-            while (Double.isInfinite(newX)) {
-                degree--;
-                newX = x + dirMultiplier * Math.pow(2, degree);
-            }
-            double newY = evaluate(eqn, 3, newX);
-            if (newY == 0) {
-                dest.add(new Point2D.Double(newX, 0));
-                return;
-            }
-
-            if (isInitialYPositive) {
-                if (newY > 0) {
-                    x = newX;
-                    y = newY;
-                } else {
-                    finished = true;
-                }
-            } else {
-                if (newY < 0) {
-                    x = newX;
-                    y = newY;
-                } else {
-                    finished = true;
-                }
-            }
-
-            if (finished) {
-                dest.add(new Point2D.Double(newX, newY));
-                return;
-            }
-        }
-        throw new IllegalStateException("eqn = " + Arrays.toString(eqn)+", x = "+x+", direction = "+direction);
     }
 
     @Override
