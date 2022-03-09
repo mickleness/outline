@@ -53,8 +53,11 @@ public class CubicSolverTests extends TestCase {
         samples.add(new Polynomial(new double[] { -3.12535144655481E71, -4.3437116376849414E58, 5.3832333713648586E29, 1.0 },
                 new double[] { -6.0958070476229905E29, -7.19511723439478E12, 7.1257367625813165E28}));
 
-        samples.add(new Polynomial(new double[] {8.713322750169244E76, 2.9013724134673826E53, 2.415258178649569E29, 1.0},
-                new double[] {-2.4152461659245442E29, -6.0138842979012276E23, -5.998840726851468E23}));
+        samples.add(new Polynomial(new double[] { 2.9013724134673826E53, 4.830516357299138E29, 3.0, 0},
+                new double[] {-1.6101661127372E29, -6.0063625123646355E23 } ));
+
+//        samples.add(new Polynomial(new double[] {8.713322750169244E76, 2.9013724134673826E53, 2.415258178649569E29, 1.0},
+//                new double[] {-2.4152461659245442E29, -6.0138842979012276E23, -5.998840726851468E23}));
 
         testSamples(samples, false);
     }

@@ -17,6 +17,10 @@ public class BinarySearchCubicSolver extends CubicSolver {
 
     @Override
     public int solveCubic(double[] eqn, double minX, double maxX, double[] res, int resOffset) {
+        if (eqn[3] == 0) {
+            return solveQuadratic(eqn, minX, maxX, res, resOffset);
+        }
+
         double[] deriv = new double[] { eqn[1], 2 * eqn[2], 3 * eqn[3] };
 
         double[] extremaX = new double[2];
