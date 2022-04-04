@@ -461,18 +461,14 @@ public class RefineGeomCubicSolver extends CubicSolver {
     }
 
     protected int solveQuadratic(double[] eqn, double[] dst, boolean refineRoots) {
-        if (eqn[2] != 0) {
-            double secondHighestCoeff = Math.abs(eqn[1] / eqn[2]);
-            if (secondHighestCoeff > 1e8) {
-                double x = -eqn[0] / eqn[1];
-                if (refineRoots) {
-                    dst[0] = refineRoot(eqn, 2, x);
-                } else {
-                    dst[0] = x;
-                }
-                return 1;
-            }
-        }
+        // TODO: test the comment below. Do we need to check
+        // nearly-degenerate cases or not?
+
+        // for cubics: we said if the leading coefficient is close
+        // to zero (especially relative to other coefficients), then
+        // we should consider the possibility that it is a degenerate
+        // quadratic. We might (?) want to apply the same logic here,
+        // but as of this writing we don't have a use case for it.
 
         int returnValue = QuadCurve2D.solveQuadratic(eqn, dst);
         if (refineRoots && returnValue > 0) {
