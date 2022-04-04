@@ -21,8 +21,8 @@ public class Polynomial {
     double[] eqn, roots;
 
     /**
-     * @param eqn the coefficients were the nth term corresponds to the (x^n) variable
-     * @param roots the roots this polynomial. This only contains unique values, so a
+     * @param eqn the coefficients where the nth term corresponds to the (x^n) variable
+     * @param roots the roots of this polynomial. This only contains unique values, so a
      *              single element might be a double or triple root.
      *
      * @throws ArithmeticException is any argument is NaN, infinite, or any of the roots end up creating an

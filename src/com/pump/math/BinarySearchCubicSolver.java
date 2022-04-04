@@ -102,7 +102,16 @@ public class BinarySearchCubicSolver extends CubicSolver {
         double m1 = 1 + coeffMax;
         double m2 = Math.max(1, coeffSum);
         double m = Math.min(m1, m2);
-        return m;
+
+        // return m;
+
+        // here's where we deviate from the theorem a little bit.
+        // We found some edge cases where (presumably due to rounding/machine error)
+        // the value 'm' is just a little too small. So let's scale it up just
+        // a little to be *sure* we're setting a reliable boundary for the boundary
+        // of our roots:
+
+        return m * 1.03125;
     }
 
     /**

@@ -66,6 +66,12 @@ public class CubicSolverTests extends TestCase {
         samples.add(new Polynomial(new double[] { 2.9013724134673826E53, 4.830516357299138E29, 3.0, 0},
                 new double[] {-1.6101661127372E29, -6.0063625123646355E23 } ));
 
+        // here BinarySearchCubicSolver failed because getSingleBound was just a little too small
+        // (it returned the root itself; probably a machine rounding error):
+        samples.add(new Polynomial(new double[] {-14.7157287525381, 46.86291501015238, -46.86291501015238, -1.7763568394002505E-15},
+                new double[] {-2.6381475822152184E16} ));
+
+        // TODO: reinstate
 //        samples.add(new Polynomial(new double[] {8.713322750169244E76, 2.9013724134673826E53, 2.415258178649569E29, 1.0},
 //                new double[] {-2.4152461659245442E29, -6.0138842979012276E23, -5.998840726851468E23}));
 
