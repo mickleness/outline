@@ -155,13 +155,17 @@ public class RefineGeomCubicSolver extends CubicSolver {
             if (isVerySmallLeadingCoefficient) {
                 // if there's a very wide disparity between the (x^3) coefficient and the (x^2) coefficient
                 // then Cubic2D.solveCubic can miss some:
-                solutions.add(solveCubic_treatLeadingCoefficientAsZero(eqn));
+                Solution z = solveCubic_treatLeadingCoefficientAsZero(eqn);
+                if (z != null)
+                    solutions.add(z);
             }
 
 
             boolean isVerySmallConstant = (exp0 < exp1 - 8) && (exp0 < exp2 - 8) && (exp0 < exp3 - 8);
             if (isVerySmallConstant) {
-                solutions.add(solveCubic_treatConstantAsZero(eqn));
+                Solution z = solveCubic_treatConstantAsZero(eqn);
+                if (z != null)
+                    solutions.add(z);
             }
 
             for (Solution s : solutions.toArray(new Solution[0])) {
