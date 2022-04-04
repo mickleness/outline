@@ -1,5 +1,6 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.TestUtils;
 import com.pump.awt.geom.ShapeUtilsTest;
 import com.pump.awt.geom.outline.clipart.*;
 import org.junit.Test;
@@ -233,7 +234,7 @@ public class ClipArtTests extends OutlineTests {
 
     private void testScript(String logName, String description, TestScript script) throws Exception {
         List<Result> results = new LinkedList<>();
-        try(Writer logWriter = createLog(logName, OutlineTests.RUN_OVERNIGHT)) {
+        try(Writer logWriter = TestUtils.createLog(logName, OutlineTests.RUN_OVERNIGHT, true)) {
 
             logWriter.write(description + "\n\n");
 

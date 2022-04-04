@@ -1,11 +1,10 @@
 package com.pump.math;
 
+import com.pump.TestUtils;
 import com.pump.awt.geom.outline.OutlineTests;
 import junit.framework.TestCase;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,9 +13,20 @@ import java.util.Random;
 public class CubicSolverTests extends TestCase {
 
     /**
+     * If true then we'll write .log files describing all the GeomCubicSolver failures.
+     * <p>
+     * This is useful if we want to catalog the failures of CubicCurve2D / QuadCurve2D, but that's
+     * not really the main reason this class exists.
+     * </p>
+     */
+    private static boolean logGeomFailures = false;
+
+    // TODO: add test from testCircle
+
+    /**
      * This tests a few equations that we've personally visually inspected.
      */
-    public void testSamples_basics() {
+    public void testSamples_basics() throws IOException {
         List<Polynomial> samples = new ArrayList<>();
         samples.add(new Polynomial(new double[]{-.1, 0, 1, 1}, new double[]{-0.8669513175959772, -0.4126055722546906, 0.2795568898506678}));
         samples.add(new Polynomial(new double[]{-.5, -1, 1}, new double[]{-0.36602540378443865, 1.3660254037844386}));
@@ -59,10 +69,10 @@ public class CubicSolverTests extends TestCase {
 //        samples.add(new Polynomial(new double[] {8.713322750169244E76, 2.9013724134673826E53, 2.415258178649569E29, 1.0},
 //                new double[] {-2.4152461659245442E29, -6.0138842979012276E23, -5.998840726851468E23}));
 
-        testSamples(samples, false);
+        testSamples("basics", samples, false);
     }
 
-    private void testSamples(List<Polynomial> samples, boolean geomSolverExpectedToPass) {
+    private void testSamples(String name, List<Polynomial> samples, boolean geomSolverExpectedToPass) throws IOException {
         int failures = 0;
         int expectedFailures = 0;
 
@@ -72,103 +82,122 @@ public class CubicSolverTests extends TestCase {
                 new GeomCubicSolver()
         };
 
-        sampleLoop : for (int sampleIndex = 0; sampleIndex < samples.size(); sampleIndex++) {
-            StringBuilder sb = new StringBuilder();
+        File geomSolverLog = new File(name+" GeomCubicSolver.log");
+        try (Writer logWriter = TestUtils.createLog(name + " GeomCubicSolver", logGeomFailures, false)) {
+            sampleLoop : for (int sampleIndex = 0; sampleIndex < samples.size(); sampleIndex++) {
+                StringBuilder sb = new StringBuilder();
+                StringBuilder stacktrace = new StringBuilder();
 
-            Polynomial sample = samples.get(sampleIndex);
+                Polynomial sample = samples.get(sampleIndex);
 
-            sb.append("***** Sample Index: " + sampleIndex + "\n");
-            sb.append(sample.getEquationString() + "\n");
-            sb.append("Expected root(s): " + toString(sample.roots, 0, sample.roots.length)+"\n");
-            double[] rootYs = new double[sample.roots.length];
-            for(int a = 0; a<sample.roots.length; a++) {
-                rootYs[a] = CubicSolver.evaluate(sample.eqn, sample.eqn.length - 1, sample.roots[a]);
-                sb.append("f("+sample.roots[a]+") = "+rootYs[a]+"\n");
-            }
+                sb.append("***** Sample Index: " + sampleIndex + "\n");
+                sb.append(sample.getEquationString() + "\n");
+                sb.append("Expected root(s): " + toString(sample.roots, 0, sample.roots.length)+"\n");
+                double[] rootYs = new double[sample.roots.length];
+                for(int a = 0; a<sample.roots.length; a++) {
+                    rootYs[a] = CubicSolver.evaluate(sample.eqn, sample.eqn.length - 1, sample.roots[a]);
+                    sb.append("f("+sample.roots[a]+") = "+rootYs[a]+"\n");
+                }
 
-            boolean showReport = false;
-            try {
-                for (CubicSolver solver : solvers) {
-                    sb.append(solver.getClass().getSimpleName()+"\n");
-                    try {
-                        double[] actualResults = new double[3];
-                        int rootCount;
-                        if (sample.eqn.length == 4) {
-                            rootCount = solver.solveCubic(sample.eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, actualResults, 0);
-                        } else if (sample.eqn.length == 3) {
-                            rootCount = solver.solveQuadratic(sample.eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, actualResults, 0);
-                        } else {
-                            throw new IllegalStateException();
-                        }
+                boolean showReport = false;
+                boolean includeInGeomLog = false;
+                try {
+                    for (CubicSolver solver : solvers) {
+                        sb.append(solver.getClass().getSimpleName()+"\n");
+                        try {
+                            double[] actualResults = new double[3];
+                            int rootCount;
+                            if (sample.eqn.length == 4) {
+                                rootCount = solver.solveCubic(sample.eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, actualResults, 0);
+                            } else if (sample.eqn.length == 3) {
+                                rootCount = solver.solveQuadratic(sample.eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, actualResults, 0);
+                            } else {
+                                throw new IllegalStateException();
+                            }
 
-                        if (sample.roots.length == 0) {
-                            sb.append("\tIdentified no roots\n");
-                            assertTrue("rootCount = " + rootCount, rootCount <= 0);
-                        } else {
-                            sb.append("\tIdentified "+rootCount+" root(s): " + toString(actualResults, 0, rootCount)+"\n");
-                            assertEquals(
-                                    "the number of identified roots is incorrect",
-                                    sample.roots.length, rootCount);
-                            for (int a = 0; a < rootCount; a++) {
-                                // check each root. Due to machine error: it's possible the roots the solver identified
-                                // may be perfect fits for the polynomial even if they aren't the same as the
-                                // *intended* root we used to generate the Sample's polynomial.
+                            if (sample.roots.length == 0) {
+                                sb.append("\tIdentified no roots\n");
+                                assertTrue("rootCount = " + rootCount, rootCount <= 0);
+                            } else {
+                                sb.append("\tIdentified "+rootCount+" root(s): " + toString(actualResults, 0, rootCount)+"\n");
+                                assertEquals(
+                                        "the number of identified roots is incorrect",
+                                        sample.roots.length, rootCount);
+                                for (int a = 0; a < rootCount; a++) {
+                                    // check each root. Due to machine error: it's possible the roots the solver identified
+                                    // may be perfect fits for the polynomial even if they aren't the same as the
+                                    // *intended* root we used to generate the Sample's polynomial.
 
-                                double expectedRoot = sample.roots[a];
-                                double observedRoot = actualResults[a];
+                                    double expectedRoot = sample.roots[a];
+                                    double observedRoot = actualResults[a];
 
-                                double observedRootY = CubicSolver.evaluate(sample.eqn, sample.eqn.length - 1, observedRoot);
-                                if (observedRootY != rootYs[a]) {
-                                    sb.append("\tf("+observedRoot+") = "+observedRootY+"\n");
-                                }
-
-                                String msg = "expected = "+expectedRoot+", observed = "+observedRoot;
-
-                                if (expectedRoot != 0) {
-                                    if (Math.abs(observedRootY) <= Math.abs(rootYs[a])) {
-                                        // OK, great. Maybe the x-value it gave us didn't exactly match the x-value
-                                        // we wanted, but (through the magic of rounding error) the end result shows
-                                        // that x-value is as good (or better!) than the x-value we originally wanted
-                                    } else {
-                                        // not good. The y-value we get when we plug in the observed root is
-                                        // worse than if we found the expected x-value. So now we have to quantify
-                                        // "how far off is too far off?"
-                                        double ulp1 = Math.ulp(expectedRoot);
-                                        double ulp2 = Math.ulp(observedRoot);
-                                        double ulp = Math.max(ulp1, ulp2);
-                                        assertTrue(msg, Math.abs(expectedRoot - observedRoot) < 1_000_000_000 * ulp);
+                                    double observedRootY = CubicSolver.evaluate(sample.eqn, sample.eqn.length - 1, observedRoot);
+                                    if (observedRootY != rootYs[a]) {
+                                        sb.append("\tf("+observedRoot+") = "+observedRootY+"\n");
                                     }
-                                } else {
-                                    // the ulp logic doesn't do well if the root should be zero:
-                                    assertTrue(msg, Math.abs(observedRoot) < .0000000000001);
+
+                                    String msg = "expected = "+expectedRoot+", observed = "+observedRoot;
+
+                                    if (expectedRoot != 0) {
+                                        if (Math.abs(observedRootY) <= Math.abs(rootYs[a])) {
+                                            // OK, great. Maybe the x-value it gave us didn't exactly match the x-value
+                                            // we wanted, but (through the magic of rounding error) the end result shows
+                                            // that x-value is as good (or better!) than the x-value we originally wanted
+                                        } else {
+                                            // not good. The y-value we get when we plug in the observed root is
+                                            // worse than if we found the expected x-value. So now we have to quantify
+                                            // "how far off is too far off?"
+                                            double ulp1 = Math.ulp(expectedRoot);
+                                            double ulp2 = Math.ulp(observedRoot);
+                                            double ulp = Math.max(ulp1, ulp2);
+                                            assertTrue(msg, Math.abs(expectedRoot - observedRoot) < 1_000_000_000 * ulp);
+                                        }
+                                    } else {
+                                        // the ulp logic doesn't do well if the root should be zero:
+                                        assertTrue(msg, Math.abs(observedRoot) < .0000000000001);
+                                    }
                                 }
                             }
-                        }
 
-                        sb.append("\tPASSED\n");
-                    } catch (Throwable t) {
-                        if (solver instanceof GeomCubicSolver && !geomSolverExpectedToPass) {
-                            sb.append("\tFAILED (as expected)\n");
-                            expectedFailures++;
-                        } else {
-                            sb.append("\tFAILED\n");
-                            failures++;
-                            showReport = true;
-                        }
+                            sb.append("\tPASSED\n");
+                        } catch (Throwable t) {
+                            includeInGeomLog = solver instanceof GeomCubicSolver;
+                            if (solver instanceof GeomCubicSolver && !geomSolverExpectedToPass) {
+                                sb.append("\tFAILED (as expected)\n");
+                                expectedFailures++;
+                            } else {
+                                sb.append("\tFAILED\n");
+                                failures++;
+                                showReport = true;
+                            }
 
-                        sb.append(getStackTrace(t) + "\n");
+                            stacktrace.append(getStackTrace(t) + "\n");
 
-                        if (failures > 100) {
-                            sb.append("Max loggable failures reached; prematurely aborting test\n");
-                            break sampleLoop;
+                            if (failures > 100) {
+                                break sampleLoop;
+                            }
                         }
                     }
+                } finally {
+                    if (showReport) {
+                        if (failures == 101) {
+                            System.out.println("Max loggable failures reached");
+                        } else if (failures <= 100) {
+                            System.out.println(sb);
+                            System.out.println(stacktrace);
+                        }
+                    }
+                    if (includeInGeomLog) {
+                        logWriter.write(sb.toString());
+                        logWriter.write("\n");
+                        logWriter.flush();
+                    }
                 }
-            } finally {
-                if (showReport)
-                    System.out.println(sb);
             }
         }
+
+        if (geomSolverLog.exists() && geomSolverLog.length() == 0)
+            geomSolverLog.delete();
 
         if (expectedFailures == 0 && !geomSolverExpectedToPass)
             fail("The GeomCubicSolver was expected to fail at least once, but it didn't.");
@@ -189,7 +218,7 @@ public class CubicSolverTests extends TestCase {
         }
     }
 
-    public void testSamples_threeSmallIntegerRoots() {
+    public void testSamples_threeSmallIntegerRoots() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         for (int root1 = -10; root1 <= 10; root1++) {
@@ -210,10 +239,10 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, true);
+        testSamples("threeSmallIntegerRoots", samples, true);
     }
 
-    public void testSamples_threeLargeIntegerRoots() {
+    public void testSamples_threeLargeIntegerRoots() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
@@ -232,10 +261,10 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, true);
+        testSamples("threeLargeIntegerRoots", samples, true);
     }
 
-    public void testSamples_threeSmallDoubleRoots() {
+    public void testSamples_threeSmallDoubleRoots() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
@@ -256,10 +285,10 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, true);
+        testSamples("threeSmallDoubleRoots", samples, true);
     }
 
-    public void testSamples_threeLargeDoubleRoots() {
+    public void testSamples_threeLargeDoubleRoots() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
@@ -283,7 +312,7 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, false);
+        testSamples("threeLargeDoubleRoots", samples, false);
     }
 
     /**
@@ -303,7 +332,7 @@ public class CubicSolverTests extends TestCase {
 
     // test double roots:
 
-    public void testSamples_twoSmallIntegerRoots() {
+    public void testSamples_twoSmallIntegerRoots() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         for (int root1 = -10; root1 <= 10; root1++) {
@@ -322,10 +351,10 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, false);
+        testSamples("twoSmallIntegerRoots", samples, false);
     }
 
-    public void testSamples_twoLargeIntegerRoots() {
+    public void testSamples_twoLargeIntegerRoots() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
@@ -343,10 +372,10 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, false);
+        testSamples("twoLargeIntegerRoots", samples, false);
     }
 
-    public void testSamples_twoSmallDoubleRoots() {
+    public void testSamples_twoSmallDoubleRoots() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
@@ -363,10 +392,12 @@ public class CubicSolverTests extends TestCase {
             }
         }
 
-        testSamples(samples, false);
+        System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
+
+        testSamples("twoSmallDoubleRoots", samples, false);
     }
 
-    public void testSamples_twoLargeDoubleRoots() {
+    public void testSamples_twoLargeDoubleRoots() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
@@ -384,12 +415,12 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, false);
+        testSamples("twoLargeDoubleRoots", samples, false);
     }
 
     // test triple roots:
 
-    public void testSamples_oneSmallTripleIntegerRoot() {
+    public void testSamples_oneSmallTripleIntegerRoot() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         for (int root1 = -10; root1 <= 10; root1++) {
@@ -404,10 +435,10 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, false);
+        testSamples("oneSmallTripleIntegerRoot", samples, false);
     }
 
-    public void testSamples_oneLargeTripleIntegerRoot() {
+    public void testSamples_oneLargeTripleIntegerRoot() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
@@ -422,10 +453,10 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, false);
+        testSamples("oneLargeTripleIntegerRoot", samples, false);
     }
 
-    public void testSamples_oneSmallTripleDoubleRoot() {
+    public void testSamples_oneSmallTripleDoubleRoot() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
@@ -441,10 +472,10 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, false);
+        testSamples("oneSmallTripleDoubleRoot", samples, false);
     }
 
-    public void testSamples_oneLargeTripleDoubleRoot() {
+    public void testSamples_oneLargeTripleDoubleRoot() throws IOException {
         int skippedCtr = 0;
         List<Polynomial> samples = new ArrayList<>();
         Random random = new Random(0);
@@ -459,7 +490,7 @@ public class CubicSolverTests extends TestCase {
 
         System.out.println("Skipped "+DecimalFormat.getInstance().format(skippedCtr)+" samples");
 
-        testSamples(samples, false);
+        testSamples("oneLargeTripleDoubleRoot", samples, false);
     }
 
     // TODO: add tests for two imaginary roots

@@ -18,28 +18,6 @@ public abstract class OutlineTests extends TestCase {
      */
     public static final boolean RUN_OVERNIGHT = true;
 
-    public Writer createLog(String name, boolean writeFile) throws FileNotFoundException {
-        if (name.contains("/") || name.contains("\\"))
-            throw new IllegalArgumentException("illegal name = "+name);
-        OutputStream out;
-        if (writeFile) {
-            File file = new File(name + " Output.log");
-            FileOutputStream fileOut = new FileOutputStream(file);
-            out = fileOut;
-        } else {
-            out = new ByteArrayOutputStream();
-        }
-        OutputStreamWriter writer = new OutputStreamWriter(out) {
-            @Override
-            public void write(String str) throws IOException {
-                super.write(str);
-                System.out.print(str);
-            }
-        };
-
-        return writer;
-    }
-
     public OutlineEngine[] getEngines() {
         List<OutlineEngine> engines = new ArrayList<>();
         engines.add(new AreaOutlineEngine());
