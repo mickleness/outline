@@ -6,6 +6,18 @@ public abstract class CubicSolver {
 
     private static CubicSolver DEFAULT_SOLVER = new RefineGeomCubicSolver();
 
+
+    /**
+     * Here "nudge" refers to moving a double one ulp higher or lower as we
+     * look for roots.
+     * <p>
+     * Most of the time we used [0,3] nudges. If we use more than MAX_NUDGES
+     * we're probably way off and nudging isn't going to fix our problems (but
+     * it may become a major performance drain).
+     * </p>
+     */
+    protected static int MAX_NUDGES = 50;
+
     /**
      * Return the session's current default CubicSolver.
      */

@@ -132,17 +132,15 @@ public class RefineGeomCubicSolver extends CubicSolver {
 
             double[] dst = resOffset == 0 ? res : new double[3];
             int returnValue = CubicCurve2D.solveCubic(eqn, dst);
+            returnValue = refineRoots(eqn, 3, dst, returnValue);
 
             List<Solution> solutions = new LinkedList<>();
             if (returnValue == 1) {
-                solutions.add(new Solution(refineRoot(eqn, 3, dst[0])));
+                solutions.add(new Solution(dst[0]));
             } else if (returnValue == 2) {
-                solutions.add(new Solution(refineRoot(eqn, 3, dst[0]),
-                        refineRoot(eqn, 3, dst[1])));
+                solutions.add(new Solution(dst[0], dst[1]));
             } else {
-                solutions.add(new Solution(refineRoot(eqn, 3, dst[0]),
-                        refineRoot(eqn, 3, dst[1]),
-                        refineRoot(eqn, 3, dst[2])));
+                solutions.add(new Solution(dst[0], dst[1], dst[2]));
             }
 
             int exp0 = Math.getExponent(eqn[0]);
@@ -213,6 +211,20 @@ public class RefineGeomCubicSolver extends CubicSolver {
         } catch(Exception e) {
             return new BinarySearchCubicSolver().solveCubic(eqn, minX, maxX, res, resOffset);
         }
+    }
+
+    private int refineRoots(double[] eqn, int degree, double[] roots, int rootCount) {
+        int origRootCount = rootCount;
+        int returnValue = 0;
+        for (int a = 0; a < rootCount; a++) {
+            try {
+                roots[returnValue] = refineRoot(eqn, degree, roots[a]);
+                returnValue++;
+            } catch(LocalExtremaException e) {
+                // intentionally empty
+            }
+        }
+        return returnValue;
     }
 
     private Solution[] solveCubic_findAltSolutions(double[] eqn, double[] threeRoots) {
@@ -383,25 +395,29 @@ public class RefineGeomCubicSolver extends CubicSolver {
         return new double[] { cubicEqn[2] / cubicEqn[3] - b, 1 };
     }
 
-    /**
-     * Most of the time we used [0,3] nudges. If we use more than MAX_NUDGES
-     * we're probably way off and nudging isn't going to fix our problems (but
-     * it may become a major performance drain).
-     */
-    private static final int MAX_NUDGES = 50;
-
     private double refineRoot(double[] eqn, int degree, double value) {
         double bestAbsY = Double.MAX_VALUE;
+        double bestY = Double.MAX_VALUE;
         double bestX = 0;
+        boolean observedNegativeYValue = false;
+        boolean observedPositiveYValue = false;
 
         for (int ctr = 300; ctr >= 0; ctr--) {
             double y = evaluate(eqn, degree, value);
+
+            if (!observedNegativeYValue && y < 0)
+                observedNegativeYValue = true;
+
+            if (!observedPositiveYValue && y > 0)
+                observedPositiveYValue = true;
+
             if (y == 0)
                 return value;
 
             double yAbs = Math.abs(y);
             if (yAbs < bestAbsY) {
                 bestAbsY = yAbs;
+                bestY = y;
                 bestX = value;
             } else if (ctr > 4) {
                 // immediately start the real countdown to return our best answer
@@ -424,26 +440,56 @@ public class RefineGeomCubicSolver extends CubicSolver {
 
         int nudges = 0;
         double leftX = Math.nextDown(bestX);
-        double leftYAbs = Math.abs(evaluate(eqn, 3, leftX));
+        double leftY = evaluate(eqn, 3, leftX);
+        double leftYAbs = Math.abs(leftY);
         if (leftYAbs < bestAbsY) {
             while (leftYAbs < bestAbsY && nudges < MAX_NUDGES) {
                 bestX = leftX;
                 bestAbsY = leftYAbs;
                 // TODO: look inside Math.nextDown; we can optimize this, + the else block's loop
                 leftX = Math.nextDown(leftX);
-                leftYAbs = Math.abs(evaluate(eqn, 3, leftX));
+                leftY = evaluate(eqn, 3, leftX);
+
+                if (leftY == 0)
+                    return leftX;
+
+                if (!observedNegativeYValue && leftY < 0)
+                    observedNegativeYValue = true;
+
+                if (!observedPositiveYValue && leftY > 0)
+                    observedPositiveYValue = true;
+
+                leftYAbs = Math.abs(leftY);
                 nudges++;
             }
         } else {
             double rightX = Math.nextUp(bestX);
-            double rightYAbs = Math.abs(evaluate(eqn, 3, rightX));
+            double rightY = evaluate(eqn, 3, rightX);
+            double rightYAbs = Math.abs(rightY);
             while (rightYAbs < bestAbsY && nudges < MAX_NUDGES) {
                 bestX = rightX;
                 bestAbsY = rightYAbs;
                 rightX = Math.nextUp(rightX);
-                rightYAbs = Math.abs(evaluate(eqn, 3, rightX));
+                rightY = evaluate(eqn, 3, rightX);
+
+                if (rightY == 0)
+                    return rightX;
+
+                if (!observedNegativeYValue && rightY < 0)
+                    observedNegativeYValue = true;
+
+                if (!observedPositiveYValue && rightY > 0)
+                    observedPositiveYValue = true;
+
+                rightYAbs = Math.abs(rightY);
                 nudges++;
             }
+        }
+
+        // if our guesses never cross the x-axis that probably means we're dealing with
+        // a local extrema and Newton's Method can't find a root with the original initial guess.
+        if (!(observedNegativeYValue && observedPositiveYValue)) {
+            throw new LocalExtremaException();
         }
 
         return bestX;

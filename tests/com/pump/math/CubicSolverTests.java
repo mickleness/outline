@@ -1,6 +1,9 @@
 package com.pump.math;
 
 import com.pump.TestUtils;
+import com.pump.awt.geom.clip.DefaultRectangularClipper;
+import com.pump.awt.geom.clip.RectangularClipper;
+import com.pump.awt.geom.clip.RectangularClipperTest;
 import com.pump.awt.geom.outline.OutlineTests;
 import junit.framework.TestCase;
 
@@ -21,10 +24,10 @@ public class CubicSolverTests extends TestCase {
      */
     private static boolean logGeomFailures = false;
 
-    // TODO: add test from testCircle
-
     /**
-     * This tests a few equations that we've personally visually inspected.
+     * This tests a few equations that we've personally visually inspected. This includes several
+     * cases that are associated with individual commits/fixes are problems were observed in other
+     * tests.
      */
     public void testSamples_basics() throws IOException {
         List<Polynomial> samples = new ArrayList<>();
@@ -70,6 +73,23 @@ public class CubicSolverTests extends TestCase {
         // (it returned the root itself; probably a machine rounding error):
         samples.add(new Polynomial(new double[] {-14.7157287525381, 46.86291501015238, -46.86291501015238, -1.7763568394002505E-15},
                 new double[] {-2.6381475822152184E16} ));
+
+        // here CubicCurve2D.solveCubic(..) returns 3 roots, even though there should only be 1
+        samples.add(new Polynomial(new double[] {-14.715728752538102, 46.86291501015238, -46.86291501015237, -1.0658141036401503E-14},
+                new double[] {-4.396912637025364E15}));
+
+        // these samples failed intermittently as I developed the solution to the previous sample. (The failures had to do
+        // with how we applied Newton's Method, and how we looked for local extrema and/or aborted when we thought we found them.)
+        samples.add(new Polynomial(new double[] {-1620.0, -882.0, -132.0, -6},
+                new double[] {-10, -9, -3}));
+        samples.add(new Polynomial(new double[] {11.7157287525381, -46.86291501015239, 46.86291501015239,-7.105427357601002E-15},
+                new double[] {0.5000000000000001, 6.595368955538046E15}));
+        samples.add(new Polynomial(new double[] {-80.0,-66.2741699796952,12.548339959390404,13.725830020304798},
+                new double[] {-1.7954389122043282, -1.4142135623730976, 2.2954389122043324}));
+
+        // this relates to the BinarySearchCubicSolver and how it handles double roots:
+        samples.add(new Polynomial(new double[] { 11.715728752538098, -46.8629150101524, 46.86291501015242, -2.1316282072803006E-14 },
+                new double[] {.5, 2.198456318512683E15}));
 
         // TODO: reinstate
 //        samples.add(new Polynomial(new double[] {8.713322750169244E76, 2.9013724134673826E53, 2.415258178649569E29, 1.0},
@@ -221,6 +241,87 @@ public class CubicSolverTests extends TestCase {
             return sw.toString();
         } catch (IOException ioe) {
             throw new IllegalStateException(ioe);
+        }
+    }
+
+    /**
+     * This unit tests harvests all the CubicSolver usages in the {@link RectangularClipperTest#testCircle()} method and analyzes them.
+     * <p>
+     * The testCircle() method presents some challenging use cases for CubicSolvers.
+     * Among other things: it takes a circular Ellipse2D.Double and rotates it 45°. This results in some unusual
+     * bezier curves where one dimension is a "normal" cubic polynomial, and the other dimension is supposed
+     * to be quadratic/linear (because it's degenerated cubic), but because of rounding error the leading coefficient
+     * is not technically zero.
+     * </p>
+     */
+    public void testSamples_fromTestCircle() throws IOException {
+        RectangularClipperTest t = new RectangularClipperTest() {
+
+            @Override
+            protected RectangularClipper[] getClippers() {
+                // if we return just the DefaultRectangularClipper and nothing else:
+                // then we'll still invoke the CubicSolver class, but we won't do the
+                // expensive shape comparisons.
+                return new RectangularClipper[] { new DefaultRectangularClipper() };
+            }
+        };
+
+        class CubicSolverUsageLog implements AutoCloseable {
+
+            CubicSolver origDefault = CubicSolver.getDefault();
+            List<Polynomial> polynomials = new ArrayList<>();
+
+            {
+                CubicSolver.setDefault(new BinarySearchCubicSolver() {
+                    @Override
+                    public int solveCubic(double[] eqn, double minX, double maxX, double[] res, int resOffset) {
+                        int returnValue = super.solveCubic(eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, res, resOffset);
+                        logPolynomial(eqn, res, resOffset, returnValue);
+                        return constrainAndSort(returnValue, minX, maxX, res, resOffset, res, resOffset);
+                    }
+
+                    private void logPolynomial(double[] eqn, double[] res, int resOffset, int resLength) {
+                        if (resLength >= 0) {
+                            double[] results = new double[resLength];
+                            for (int a = 0; a < results.length; a++) {
+                                results[a] = res[resOffset + a];
+                            }
+                            polynomials.add(
+                                    new Polynomial(
+                                            eqn.clone(),
+                                            results
+                                    )
+                            );
+                        }
+                    }
+
+                    @Override
+                    public int solveQuadratic(double[] eqn, double minX, double maxX, double[] res, int resOffset) {
+                        int returnValue = super.solveQuadratic(eqn, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, res, resOffset);
+                        logPolynomial(eqn, res, resOffset, returnValue);
+                        return constrainAndSort(returnValue, minX, maxX, res, resOffset, res, resOffset);
+                    }
+                });
+            }
+
+            @Override
+            public void close() {
+                CubicSolver.setDefault(origDefault);
+            }
+        }
+
+        try(CubicSolverUsageLog usageLog = new CubicSolverUsageLog()) {
+            t.testCircle();
+            System.out.println("Identified "+usageLog.polynomials.size()+" usages in RectangularClipperTest#testCircle");
+            testSamples("RectangularClipperTest#testCircle", usageLog.polynomials, false);
+
+            // in some early testing the BinarySearchCubicSolver failed to identify one root in some cases.
+            // a cubic should always have one root, so let's sanity check that:
+            for (Polynomial p : usageLog.polynomials) {
+                if (p.eqn.length == 4 && p.roots.length == 0) {
+                    fail(p.toString());
+                }
+            }
         }
     }
 

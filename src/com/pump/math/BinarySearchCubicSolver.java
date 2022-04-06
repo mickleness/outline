@@ -64,6 +64,43 @@ public class BinarySearchCubicSolver extends CubicSolver {
                         double leftX = windowPoints.get(windowPointIndex).x;
                         double rightX = windowPoints.get(windowPointIndex + 1).x;
                         res[resOffset + (returnValue++)] = refineBinarySearch(eqn, 3, leftX, leftY, rightX, rightY);
+                    } else {
+                        // what follows is very edge-case-y: it's possible a window starts/ends at a value like
+                        // x = .499999999, and at exactly x = .5 there's a double root. The binary search isn't
+                        // great at finding double roots, because the y-value never dips below the x-axis. And in this
+                        // case machine error might have landed us just a few ulps away from the exact root:
+                        checkDoubleRoot_leftEdge : {
+                            boolean shouldGoUp = rightY > leftY;
+
+                            double leftX = windowPoints.get(windowPointIndex).x;
+                            double dy = evaluateDerivative(eqn, 3, leftX);
+                            while (shouldGoUp ? dy <= 0 : dy >= 0) {
+                                // TODO: see how nextUp is implemented; optimize this loop and the following loop
+                                leftX = Math.nextUp(leftX);
+                                double y = evaluate(eqn, 3, leftX);
+                                if (y == 0) {
+                                    res[resOffset + (returnValue++)] = leftX;
+                                    break checkDoubleRoot_leftEdge;
+                                }
+                                dy = evaluateDerivative(eqn, 3, leftX);
+                            }
+                        }
+
+                        checkDoubleRoot_rightEdge : {
+                            boolean shouldGoUp = rightY > leftY;
+
+                            double rightX = windowPoints.get(windowPointIndex + 1).x;
+                            double dy = evaluateDerivative(eqn, 3, rightX);
+                            while (shouldGoUp ? dy <= 0 : dy >= 0) {
+                                rightX = Math.nextDown(rightX);
+                                double y = evaluate(eqn, 3, rightX);
+                                if (y == 0) {
+                                    res[resOffset + (returnValue++)] = rightX;
+                                    break checkDoubleRoot_rightEdge;
+                                }
+                                dy = evaluateDerivative(eqn, 3, rightX);
+                            }
+                        }
                     }
                 }
             }

@@ -142,7 +142,7 @@ public class RectangularClipperTest extends TestCase {
         }
     }
 
-    private RectangularClipper[] getClippers() {
+    protected RectangularClipper[] getClippers() {
         return new RectangularClipper[] { new AreaRectangularClipper(), new DefaultRectangularClipper() };
     }
 
