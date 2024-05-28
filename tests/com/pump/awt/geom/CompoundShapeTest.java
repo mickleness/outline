@@ -32,6 +32,14 @@ public class CompoundShapeTest extends TestCase {
         assertEquals(0, engine.operationCtr);
     }
 
+    public void testAdd_optimizeCaseWherePreexistingOperandContainsIncomingOperand_var1() {
+        TestOutlineEngine engine = new TestOutlineEngine();
+        CompoundShape s1 = new CompoundShape(engine, new Ellipse2D.Float(0,0,10,10));
+        s1.add(new CompoundShape(engine, new Ellipse2D.Float(5,5,1, 1)));
+
+        assertEquals(0, engine.operationCtr);
+    }
+
     /**
      * This makes sure that if the newly added shape contains s1: we recognize
      * this is a null op and we do NOT do further work.
@@ -56,6 +64,14 @@ public class CompoundShapeTest extends TestCase {
         assertEquals(0, engine.operationCtr);
     }
 
+    public void testAdd_optimizeCaseWhereIncomingOperandContainsPreexistingOperand_var2() {
+        TestOutlineEngine engine = new TestOutlineEngine();
+        CompoundShape s1 = new CompoundShape(engine, new Ellipse2D.Float(5,5,1, 1));
+        s1.add(new CompoundShape(engine, new Ellipse2D.Float(0,0,10,10)));
+
+        assertEquals(0, engine.operationCtr);
+    }
+
     /**
      * This makes sure that if s1 and the new shape do not touch: we recognize
      * this is a null op and we do NOT do further work.
@@ -64,6 +80,14 @@ public class CompoundShapeTest extends TestCase {
         TestOutlineEngine engine = new TestOutlineEngine();
         CompoundShape s1 = new CompoundShape(engine, new Ellipse2D.Float(0,0,5,5));
         s1.add(new Ellipse2D.Float(0, 6, 5, 5));
+
+        assertEquals(0, engine.operationCtr);
+    }
+
+    public void testAdd_optimizeCaseWhereOperandsDoNotTouch_var1() {
+        TestOutlineEngine engine = new TestOutlineEngine();
+        CompoundShape s1 = new CompoundShape(engine, new Ellipse2D.Float(0,0,5,5));
+        s1.add(new CompoundShape(engine, new Ellipse2D.Float(0, 6, 5, 5)));
 
         assertEquals(0, engine.operationCtr);
     }
@@ -77,6 +101,14 @@ public class CompoundShapeTest extends TestCase {
         TestOutlineEngine engine = new TestOutlineEngine();
         CompoundShape s1 = new CompoundShape(engine, new Ellipse2D.Float(0,0,5,5));
         s1.add(new Ellipse2D.Float(2, 3, 5, 5));
+
+        assertEquals(1, engine.operationCtr);
+    }
+
+    public void testAdd_noOptimizationForOverlappingOperands_var1() {
+        TestOutlineEngine engine = new TestOutlineEngine();
+        CompoundShape s1 = new CompoundShape(engine, new Ellipse2D.Float(0,0,5,5));
+        s1.add(new CompoundShape(engine, new Ellipse2D.Float(2, 3, 5, 5)));
 
         assertEquals(1, engine.operationCtr);
     }

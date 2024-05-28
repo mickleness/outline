@@ -96,6 +96,28 @@ public class CompoundShape implements Shape, Serializable {
         return windingRule;
     }
 
+    public void reset() {
+        reset(null);
+    }
+
+    public void reset(Shape operand) {
+        if (operand == null) {
+            shapes.clear();
+            cachedBounds = null;
+            windingRule = WIND_UNKNOWN;
+        } if (operand instanceof CompoundShape) {
+            CompoundShape s = (CompoundShape) operand;
+            shapes.putAll(s.shapes);
+            cachedBounds = new Rectangle2D.Double(s.cachedBounds.getX(), s.cachedBounds.getY(), s.cachedBounds.getWidth(), s.cachedBounds.getHeight());
+            windingRule = s.getWindingRule();
+        } else {
+            Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
+            shapes.put(operand, operandBounds);
+            cachedBounds = new Rectangle2D.Double(operandBounds.getX(), operandBounds.getY(), operandBounds.getWidth(), operandBounds.getHeight());
+            windingRule = getWindingRule(operand);
+        }
+    }
+
     /**
      * Add a shape to this CompoundShape.
      *
@@ -105,19 +127,16 @@ public class CompoundShape implements Shape, Serializable {
     public boolean add(Shape operand) {
         if (operand == null || ShapeUtils.isEmpty(operand)) {
             return false;
-
         } else if (isEmpty()) {
-            if (operand instanceof CompoundShape) {
-                CompoundShape s = (CompoundShape) operand;
-                shapes.putAll(s.shapes);
-                cachedBounds = new Rectangle2D.Double(s.cachedBounds.getX(), s.cachedBounds.getY(), s.cachedBounds.getWidth(), s.cachedBounds.getHeight());
-                windingRule = s.getWindingRule();
-            } else {
-                Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
-                shapes.put(operand, operandBounds);
-                cachedBounds = new Rectangle2D.Double(operandBounds.getX(), operandBounds.getY(), operandBounds.getWidth(), operandBounds.getHeight());
-                windingRule = getWindingRule(operand);
-            }
+            reset(operand);
+            return true;
+        }
+
+        Rectangle2D operandBounds = operand.getBounds2D();
+        if (cachedBounds.contains(operandBounds) && contains(operandBounds)) {
+            return false;
+        } else if (operandBounds.contains(cachedBounds) && operand.contains(cachedBounds)) {
+            reset(operand);
             return true;
         }
 
@@ -163,20 +182,8 @@ public class CompoundShape implements Shape, Serializable {
         }
 
         int operandWindingRule = getWindingRule(operand);
-        Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
-
-        if (operandBounds.contains(cachedBounds) && operand.contains(cachedBounds)) {
-            // the operand completely envelopes this object, so we can gut this object and just use the operand:
-            windingRule = operandWindingRule;
-            shapes.clear();
-            shapes.put(operand, operandBounds);
-            cachedBounds = new Rectangle2D.Double(operandBounds.getX(), operandBounds.getY(), operandBounds.getWidth(), operandBounds.getHeight());
-            return true;
-        } else if (contains(operandBounds)) {
-            return false;
-        }
-
-        boolean isOperandWindingRuleCompatible = requiredWindingRule == null || operandWindingRule == WIND_UNKNOWN ||
+        boolean isOperandWindingRuleCompatible = requiredWindingRule == null ||
+                operandWindingRule == WIND_UNKNOWN ||
                 requiredWindingRule.intValue() == operandWindingRule;
 
         if (isOperandWindingRuleCompatible && !intersects(operandBounds)) {
@@ -210,11 +217,14 @@ public class CompoundShape implements Shape, Serializable {
      * this call may have modified this object.
      */
     public boolean clip(Shape operand) {
+        boolean isEmpty = isEmpty();
         if (isEmpty())
             return false;
 
-        if (isNotIntersecting(operand))
-            return clear();
+        if (isNotIntersecting(operand)) {
+            reset();
+            return !isEmpty;
+        }
 
         if (operand instanceof CompoundShape) {
             CompoundShape s = (CompoundShape) operand;
@@ -230,7 +240,8 @@ public class CompoundShape implements Shape, Serializable {
             }
 
             if (relevantOperandMembers.isEmpty()) {
-                return clear();
+                reset();
+                return !isEmpty;
             } else if (relevantOperandMembers.size() != s.shapes.size()) {
                 // create a new simpler operand with just the parts we're interested in:
                 CompoundShape newOperand = new CompoundShape();
@@ -460,18 +471,6 @@ public class CompoundShape implements Shape, Serializable {
      */
     public boolean isEmpty() {
         return shapes.isEmpty();
-    }
-
-    /**
-     * Remove all shapes from this CompoundShape.
-     */
-    public boolean clear() {
-        boolean hadPreviousData = !isEmpty();
-        shapes.clear();
-        cachedBounds = null;
-        windingRule = WIND_UNKNOWN;
-
-        return hadPreviousData;
     }
 
     @Override
