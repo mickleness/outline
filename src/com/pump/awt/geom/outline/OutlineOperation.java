@@ -58,12 +58,6 @@ public final class OutlineOperation implements Serializable {
         TRANSFORM
     }
 
-    // I'm always reluctant to implement Serializable with the default
-    // serialization before, but (I think?) in this case we HAVE to use
-    // the default behavior if we want to preserve the 'final' keywords
-    // for the three fields (type, shape, transform). I think keeping
-    // those public and final is worth it.
-
     @Serial
     private static final long serialVersionUID = 1L;
 
@@ -102,5 +96,23 @@ public final class OutlineOperation implements Serializable {
         }
         sb.append("]");
         return sb.toString();
+    }
+
+    @Serial
+    private void writeObject(java.io.ObjectOutputStream out)
+            throws IOException {
+        out.writeInt(0);
+        out.defaultWriteObject();
+    }
+
+    @Serial
+    private void readObject(java.io.ObjectInputStream in)
+            throws IOException, ClassNotFoundException {
+        int internalVersion = in.readInt();
+        if (internalVersion == 0) {
+            in.defaultReadObject();
+        } else {
+            throw new UnsupportedOperationException("unsupported internal version: "+internalVersion);
+        }
     }
 }

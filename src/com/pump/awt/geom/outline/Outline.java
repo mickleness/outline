@@ -239,7 +239,7 @@ public class Outline implements Shape, Serializable {
             operationQueue = (List<OutlineOperation>) in.readObject();
             shape = (Shape) in.readObject();
         } else {
-            throw new IOException("unsupported internal version: "+internalVersion);
+            throw new UnsupportedOperationException("unsupported internal version: "+internalVersion);
         }
     }
 

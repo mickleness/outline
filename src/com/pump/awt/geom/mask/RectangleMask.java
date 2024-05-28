@@ -14,7 +14,7 @@ import java.util.*;
 import java.util.List;
 
 /**
- * This is a composition int-based rectangles.
+ * This is a composition of int-based rectangles.
  */
 public class RectangleMask extends AbstractRectangleMask<Rectangle> implements Iterable<Rectangle> {
     @Serial

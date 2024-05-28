@@ -35,9 +35,9 @@ public class CompoundShape implements Shape, Serializable {
 
     /**
      * This is an alternative winding rule indicating that the winding rule isn't
-     * WIND_EVEN_ODD or WIND_NON_ZERO yet. CompoundShapes stay in this undefined
-     * state as long as possible. (If a CompoundShape uses this winding rule then
-     * its PathIterator picks a default rule.)
+     * WIND_EVEN_ODD or WIND_NON_ZERO yet. It makes no difference yet, so it can be either.
+     * CompoundShapes stay in this undefined state as long as possible. (If a CompoundShape
+     * uses this winding rule then its PathIterator picks a default rule.)
      */
     public static int WIND_UNKNOWN = -1;
 
