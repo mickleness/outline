@@ -61,7 +61,7 @@ public class CompoundShape implements Shape, Serializable {
      */
     private int windingRule = WIND_UNKNOWN;
 
-    private OutlineEngine engine = new AreaOutlineEngine();
+    private OutlineEngine engine;
 
     public CompoundShape() {
         this( (OutlineEngine) null);
@@ -78,10 +78,10 @@ public class CompoundShape implements Shape, Serializable {
      * Create a new CompoundShape that combines the argument shapes.
      *
      * @param engine the optional engine to use when this shape needs to perform a complex operation.
+     *               If this is null then this object uses an AreaOutlineEngine.
      */
     public CompoundShape(OutlineEngine engine, Shape... shapes)  {
-        if (engine != null)
-            this.engine = engine;
+        this.engine = engine == null ?  new AreaOutlineEngine() : engine;
 
         for(Shape shape : shapes) {
             add(shape);
@@ -138,7 +138,7 @@ public class CompoundShape implements Shape, Serializable {
 
                 returnValue = true;
                 if (intersects(operandMemberBounds)) {
-                    // we'll invoke flatten() to make sure we get the merge correct
+                    // we'll invoke flatten() later to make sure we get the merge correct
                     remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMemberEntry.getKey()));
                 } else if (requiredWindingRule == null) {
                     shapes.put(operandMemberEntry.getKey(), operandMemberEntry.getValue());
