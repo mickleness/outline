@@ -150,7 +150,6 @@ public class CompoundShape implements Shape, Serializable {
         // add key/value pairs to the shapes map. This requires safety-checking the winding rules of
         // the existing and incoming shapes.
 
-        Integer requiredWindingRule = windingRule == WIND_UNKNOWN ? null : Integer.valueOf(windingRule);
         if (operand instanceof CompoundShape) {
             CompoundShape s = (CompoundShape) operand;
 
@@ -165,12 +164,12 @@ public class CompoundShape implements Shape, Serializable {
                 if (intersects(operandMemberBounds)) {
                     // we'll invoke flatten() later to make sure we get the merge correct
                     remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMember.shape));
-                } else if (requiredWindingRule == null) {
+                } else if (windingRule == WIND_UNKNOWN) {
                     shapes.add(operandMember);
                     cachedBounds.add(operandMember.bounds);
                 } else {
                     int operandMemberWindingRule = getWindingRule(operandMember.shape);
-                    if (operandMemberWindingRule == WIND_UNKNOWN || operandMemberWindingRule == requiredWindingRule.intValue()) {
+                    if (operandMemberWindingRule == WIND_UNKNOWN || operandMemberWindingRule == windingRule) {
                         shapes.add(operandMember);
                         cachedBounds.add(operandMember.bounds);
                     } else {
@@ -188,9 +187,9 @@ public class CompoundShape implements Shape, Serializable {
         }
 
         int operandWindingRule = getWindingRule(operand);
-        boolean isOperandWindingRuleCompatible = requiredWindingRule == null ||
+        boolean isOperandWindingRuleCompatible = windingRule == WIND_UNKNOWN ||
                 operandWindingRule == WIND_UNKNOWN ||
-                requiredWindingRule.intValue() == operandWindingRule;
+                windingRule == operandWindingRule;
 
         if (isOperandWindingRuleCompatible && !intersects(operandBounds)) {
             shapes.add(new Member(operand, operandBounds));
