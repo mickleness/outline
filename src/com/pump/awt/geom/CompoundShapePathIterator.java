@@ -3,6 +3,7 @@ package com.pump.awt.geom;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.PathIterator;
+import java.util.Arrays;
 import java.util.Iterator;
 
 /**
@@ -16,8 +17,8 @@ public class CompoundShapePathIterator implements PathIterator {
     int windingRule;
     PathIterator current;
 
-    public CompoundShapePathIterator(Iterator<Shape> shapes, AffineTransform transform, Double flatness, int windingRule) {
-        this.shapes = shapes;
+    public CompoundShapePathIterator(Shape[] shapes, AffineTransform transform, Double flatness, int windingRule) {
+        this.shapes = Arrays.asList(shapes).iterator();
         this.transform = transform;
         this.flatness = flatness;
 

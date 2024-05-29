@@ -1,5 +1,6 @@
 package com.pump.awt.geom.outline;
 
+import com.pump.awt.geom.EmptyPathIterator;
 import com.pump.awt.geom.ShapeUtils;
 
 import java.awt.*;

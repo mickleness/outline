@@ -41,12 +41,18 @@ public class CompoundShape implements Shape, Serializable {
      */
     public static int WIND_UNKNOWN = -1;
 
+    record Member(Shape shape, Rectangle2D bounds) {
+        public Member(Shape shape) {
+            this(shape, ShapeUtils.getBounds2D(shape));
+        }
+    }
+
     /**
      * The member shapes and their bounds. (These are generally supposed to be
      * immutable once submitted into this map, but we can't enforce that if
      * the user tries to mutate a shape.)
      */
-    protected Map<Shape, Rectangle2D> shapes = new HashMap<>();
+    protected List<Member> shapes = new LinkedList<>();
 
     /**
      * The total bounds of all our member shapes, or null if we have
@@ -101,19 +107,19 @@ public class CompoundShape implements Shape, Serializable {
     }
 
     public void reset(Shape operand) {
+        shapes.clear();
         if (operand == null) {
-            shapes.clear();
             cachedBounds = null;
             windingRule = WIND_UNKNOWN;
-        } if (operand instanceof CompoundShape) {
+        } else if (operand instanceof CompoundShape) {
             CompoundShape s = (CompoundShape) operand;
-            shapes.putAll(s.shapes);
+            shapes.addAll(s.shapes);
             cachedBounds = new Rectangle2D.Double(s.cachedBounds.getX(), s.cachedBounds.getY(), s.cachedBounds.getWidth(), s.cachedBounds.getHeight());
             windingRule = s.getWindingRule();
         } else {
-            Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
-            shapes.put(operand, operandBounds);
-            cachedBounds = new Rectangle2D.Double(operandBounds.getX(), operandBounds.getY(), operandBounds.getWidth(), operandBounds.getHeight());
+            Member m = new Member(operand);
+            shapes.add(m);
+            cachedBounds = new Rectangle2D.Double(m.bounds.getX(), m.bounds.getY(), m.bounds.getWidth(), m.bounds.getHeight());
             windingRule = getWindingRule(operand);
         }
     }
@@ -150,26 +156,26 @@ public class CompoundShape implements Shape, Serializable {
 
             boolean returnValue = false;
             List<OutlineOperation> remainingAdds = new LinkedList<>();
-            for (Map.Entry<Shape, Rectangle2D> operandMemberEntry : s.shapes.entrySet()) {
-                Rectangle2D operandMemberBounds = operandMemberEntry.getValue();
+            for (Member operandMember : s.shapes) {
+                Rectangle2D operandMemberBounds = operandMember.bounds;
                 if (contains(operandMemberBounds))
                     continue;
 
                 returnValue = true;
                 if (intersects(operandMemberBounds)) {
                     // we'll invoke flatten() later to make sure we get the merge correct
-                    remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMemberEntry.getKey()));
+                    remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMember.shape));
                 } else if (requiredWindingRule == null) {
-                    shapes.put(operandMemberEntry.getKey(), operandMemberEntry.getValue());
-                    cachedBounds.add(operandMemberEntry.getValue());
+                    shapes.add(operandMember);
+                    cachedBounds.add(operandMember.bounds);
                 } else {
-                    int operandMemberWindingRule = getWindingRule(operandMemberEntry.getKey());
+                    int operandMemberWindingRule = getWindingRule(operandMember.shape);
                     if (operandMemberWindingRule == WIND_UNKNOWN || operandMemberWindingRule == requiredWindingRule.intValue()) {
-                        shapes.put(operandMemberEntry.getKey(), operandMemberEntry.getValue());
-                        cachedBounds.add(operandMemberEntry.getValue());
+                        shapes.add(operandMember);
+                        cachedBounds.add(operandMember.bounds);
                     } else {
                         // conflicting winding rules require passing this to an OutlineEngine to resolve:
-                        remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMemberEntry.getKey()));
+                        remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMember.shape));
                     }
                 }
             }
@@ -187,7 +193,7 @@ public class CompoundShape implements Shape, Serializable {
                 requiredWindingRule.intValue() == operandWindingRule;
 
         if (isOperandWindingRuleCompatible && !intersects(operandBounds)) {
-            shapes.put(operand, operandBounds);
+            shapes.add(new Member(operand, operandBounds));
             cachedBounds.add(operandBounds);
             return true;
         }
@@ -203,7 +209,7 @@ public class CompoundShape implements Shape, Serializable {
      */
     private Rectangle2D toRectangle2D() {
         if (shapes.size() == 1) {
-            Shape shape = shapes.keySet().iterator().next();
+            Shape shape = shapes.get(0).shape;
             if (shape instanceof Rectangle2D) {
                 return (Rectangle2D) shape;
             }
@@ -230,12 +236,12 @@ public class CompoundShape implements Shape, Serializable {
             CompoundShape s = (CompoundShape) operand;
 
             // identify which parts of the operand are relevant, and ignore other parts
-            List<Map.Entry<Shape, Rectangle2D>> relevantOperandMembers = new LinkedList<>();
-            for (Map.Entry<Shape, Rectangle2D> operandEntry : s.shapes.entrySet()) {
-                if (isNotIntersecting(operandEntry.getValue())) {
+            List<Member> relevantOperandMembers = new LinkedList<>();
+            for (Member operandMember : s.shapes) {
+                if (isNotIntersecting(operandMember.shape())) {
                     // ignore this operand entry
                 } else {
-                    relevantOperandMembers.add(operandEntry);
+                    relevantOperandMembers.add(operandMember);
                 }
             }
 
@@ -246,14 +252,14 @@ public class CompoundShape implements Shape, Serializable {
                 // create a new simpler operand with just the parts we're interested in:
                 CompoundShape newOperand = new CompoundShape();
                 newOperand.windingRule = s.getWindingRule();
-                for (Map.Entry<Shape, Rectangle2D> relevantOperandMember : relevantOperandMembers) {
-                    newOperand.shapes.put(relevantOperandMember.getKey(), relevantOperandMember.getValue());
+                for (Member relevantOperandMember : relevantOperandMembers) {
+                    newOperand.shapes.add(relevantOperandMember);
 
                     if (newOperand.cachedBounds == null) {
                         newOperand.cachedBounds = new Rectangle2D.Double();
-                        newOperand.cachedBounds.setFrame(relevantOperandMember.getValue());
+                        newOperand.cachedBounds.setFrame(relevantOperandMember.bounds);
                     } else {
-                        newOperand.cachedBounds.add(relevantOperandMember.getValue());
+                        newOperand.cachedBounds.add(relevantOperandMember.bounds);
                     }
                 }
 
@@ -263,10 +269,10 @@ public class CompoundShape implements Shape, Serializable {
 
         boolean returnValue = false;
         Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
-        Iterator<Map.Entry<Shape, Rectangle2D>> myIter = shapes.entrySet().iterator();
+        Iterator<Member> myIter = shapes.iterator();
         while (myIter.hasNext()) {
-            Map.Entry<Shape, Rectangle2D> entry = myIter.next();
-            if (!entry.getValue().intersects(operandBounds)) {
+            Member entry = myIter.next();
+            if (!entry.shape.intersects(operandBounds)) {
                 myIter.remove();
                 returnValue = true;
             }
@@ -295,7 +301,7 @@ public class CompoundShape implements Shape, Serializable {
                 windingRule = WIND_UNKNOWN;
             } else {
                 Rectangle2D clippedShapeBounds = ShapeUtils.getBounds2D(clippedShape);
-                shapes.put(clippedShape, clippedShapeBounds);
+                shapes.add(new Member(clippedShape, clippedShapeBounds));
                 cachedBounds = new Rectangle2D.Double(clippedShapeBounds.getX(), clippedShapeBounds.getY(),
                         clippedShapeBounds.getWidth(), clippedShapeBounds.getHeight());
                 windingRule = getWindingRule(clippedShape);
@@ -358,16 +364,16 @@ public class CompoundShape implements Shape, Serializable {
 
         if (shape instanceof CompoundShape) {
             CompoundShape otherShape = (CompoundShape) shape;
-            for (Map.Entry<Shape, Rectangle2D> entry1 : shapes.entrySet()) {
-                for (Map.Entry<Shape, Rectangle2D> entry2 : otherShape.shapes.entrySet()) {
-                    if (entry1.getValue().intersects(entry2.getValue())) {
+            for (Member entry1 : shapes) {
+                for (Member entry2 : otherShape.shapes) {
+                    if (entry1.bounds.intersects(entry2.bounds)) {
                         return false;
                     }
                 }
             }
         } else {
-            for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
-                if (entry.getValue().intersects(shapeBounds)) {
+            for (Member entry : shapes) {
+                if (entry.bounds.intersects(shapeBounds)) {
                     return false;
                 }
             }
@@ -378,8 +384,8 @@ public class CompoundShape implements Shape, Serializable {
 
     protected boolean clipRect(Rectangle2D rect) {
         Collection<Shape> clippedShapes = new HashSet<>();
-        for(Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
-            Shape clippedShape = RectangularClipperFactory.get().createClipper().clip(entry.getKey(), null, rect);
+        for(Member entry : shapes) {
+            Shape clippedShape = RectangularClipperFactory.get().createClipper().clip(entry.shape, null, rect);
             clippedShapes.add(clippedShape);
         }
         shapes.clear();
@@ -387,7 +393,7 @@ public class CompoundShape implements Shape, Serializable {
         for(Shape clippedShape : clippedShapes) {
             if (!ShapeUtils.isEmpty(clippedShape)) {
                 Rectangle2D clippedShapeRect = ShapeUtils.getBounds2D(clippedShape);
-                shapes.put(clippedShape, clippedShapeRect);
+                shapes.add(new Member(clippedShape, clippedShapeRect));
 
                 if (cachedBounds == null) {
                     cachedBounds = new Rectangle2D.Double(clippedShapeRect.getMinX(), clippedShapeRect.getMinY(), clippedShapeRect.getWidth(), clippedShapeRect.getHeight());
@@ -410,7 +416,7 @@ public class CompoundShape implements Shape, Serializable {
         } else if (shapes.size() == 1) {
             // use the raw shape if possible. This may offer a performance boost if that shape
             // is an Area, because other code may perform an instanceof check against it later
-            opsToProcess.add(new OutlineOperation(OutlineOperation.Type.ADD, shapes.keySet().iterator().next()));
+            opsToProcess.add(new OutlineOperation(OutlineOperation.Type.ADD, shapes.get(0).shape));
         } else {
             opsToProcess.add(new OutlineOperation(OutlineOperation.Type.ADD, this));
         }
@@ -422,7 +428,7 @@ public class CompoundShape implements Shape, Serializable {
         windingRule = getWindingRule(newFlattenedShape);
         shapes.clear();
         if (!ShapeUtils.isEmpty(newFlattenedShape)) {
-            shapes.put(newFlattenedShape, ShapeUtils.getBounds2D(newFlattenedShape));
+            shapes.add(new Member(newFlattenedShape));
             cachedBounds = ShapeUtils.getBounds2D(getPathIterator(null));
         } else {
             cachedBounds = null;
@@ -456,7 +462,12 @@ public class CompoundShape implements Shape, Serializable {
      * </p>
      */
     public Shape[] getShapes() {
-        return shapes.keySet().toArray(new Shape[0]);
+        Shape[] returnValue = new Shape[shapes.size()];
+        int ctr = 0;
+        for (Member member : shapes) {
+            returnValue[ctr++] = member.shape;
+        }
+        return returnValue;
     }
 
     /**
@@ -494,8 +505,8 @@ public class CompoundShape implements Shape, Serializable {
         if (cachedBounds == null || !cachedBounds.contains(x,y))
             return false;
 
-        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
-            if (entry.getValue().contains(x,y) && entry.getKey().contains(x, y))
+        for (Member entry : shapes) {
+            if (entry.bounds.contains(x,y) && entry.shape.contains(x, y))
                 return true;
         }
         return false;
@@ -516,8 +527,8 @@ public class CompoundShape implements Shape, Serializable {
         if (cachedBounds == null || !cachedBounds.intersects(r))
             return false;
 
-        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
-            if (ShapeUtils.intersects(entry.getValue(), r) && entry.getKey().intersects(r))
+        for (Member entry : shapes) {
+            if (ShapeUtils.intersects(entry.bounds, r) && entry.shape.intersects(r))
                 return true;
         }
         return false;
@@ -528,8 +539,8 @@ public class CompoundShape implements Shape, Serializable {
         if (cachedBounds == null || !cachedBounds.contains(x,y,w,h))
             return false;
 
-        for (Map.Entry<Shape, Rectangle2D> entry : shapes.entrySet()) {
-            if (entry.getValue().contains(x, y, w, h) && entry.getKey().contains(x, y, w, h))
+        for (Member entry : shapes) {
+            if (entry.bounds.contains(x, y, w, h) && entry.shape.contains(x, y, w, h))
                 return true;
         }
         return false;
@@ -542,27 +553,36 @@ public class CompoundShape implements Shape, Serializable {
 
     @Override
     public PathIterator getPathIterator(AffineTransform at) {
-        return new CompoundShapePathIterator(shapes.keySet().iterator(), at, null, windingRule);
+        return new CompoundShapePathIterator(getShapes(), at, null, windingRule);
     }
 
     @Override
     public PathIterator getPathIterator(AffineTransform at, double flatness) {
-        return new CompoundShapePathIterator(shapes.keySet().iterator(), at, flatness, windingRule);
+        return new CompoundShapePathIterator(getShapes(), at, flatness, windingRule);
     }
 
     @Serial
     private void writeObject(java.io.ObjectOutputStream out) throws IOException {
         out.writeInt(0);
-        out.writeObject(shapes);
         out.writeObject(cachedBounds);
+        out.writeInt(shapes.size());
+        for(Member member : shapes) {
+            out.writeObject(member.shape);
+            out.writeObject(member.bounds);
+        }
     }
 
     @Serial
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
         int internalVersion = in.readInt();
         if (internalVersion == 0) {
-            shapes = (Map<Shape, Rectangle2D>) in.readObject();
             cachedBounds = (Rectangle2D) in.readObject();
+            int size = in.readInt();
+            for (int a = 0; a < size; a++) {
+                Shape shape = (Shape) in.readObject();
+                Rectangle2D bounds = (Rectangle2D) in.readObject();
+                shapes.add(new Member(shape, bounds));
+            }
         } else {
             throw new IOException("unsupported internal version: " + internalVersion);
         }
@@ -574,10 +594,10 @@ public class CompoundShape implements Shape, Serializable {
         sb.append(getClass().getSimpleName());
         sb.append("[");
 
-        Iterator<Shape> shapeIter = shapes.keySet().iterator();
+        Iterator<Member> shapeIter = shapes.iterator();
         int ctr = 0;
         while (shapeIter.hasNext()) {
-            Shape shape = shapeIter.next();
+            Shape shape = shapeIter.next().shape;
             ctr++;
             sb.append(shape.toString());
             if (shapeIter.hasNext()) {

@@ -1,11 +1,11 @@
-package com.pump.awt.geom.outline;
+package com.pump.awt.geom;
 
 import java.awt.geom.PathIterator;
 
 /**
  * This PathIterator contains no data.
  */
-class EmptyPathIterator implements PathIterator {
+public class EmptyPathIterator implements PathIterator {
 
     public static final EmptyPathIterator INSTANCE = new EmptyPathIterator();
 
