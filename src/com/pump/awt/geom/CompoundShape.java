@@ -150,30 +150,41 @@ public class CompoundShape implements Shape, Serializable {
         // add key/value pairs to the shapes map. This requires safety-checking the winding rules of
         // the existing and incoming shapes.
 
+        boolean returnValue = false;
         if (operand instanceof CompoundShape) {
             CompoundShape s = (CompoundShape) operand;
 
-            boolean returnValue = false;
             List<OutlineOperation> remainingAdds = new LinkedList<>();
+
             for (Member operandMember : s.shapes) {
-                Rectangle2D operandMemberBounds = operandMember.bounds;
-                if (contains(operandMemberBounds))
+                if (contains(operandMember.bounds))
                     continue;
 
-                returnValue = true;
-                if (intersects(operandMemberBounds)) {
-                    // we'll invoke flatten() later to make sure we get the merge correct
-                    remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMember.shape));
-                } else if (windingRule == WIND_UNKNOWN) {
-                    shapes.add(operandMember);
-                    cachedBounds.add(operandMember.bounds);
-                } else {
-                    int operandMemberWindingRule = getWindingRule(operandMember.shape);
-                    if (operandMemberWindingRule == WIND_UNKNOWN || operandMemberWindingRule == windingRule) {
-                        shapes.add(operandMember);
+                int operandMemberWindingRule = getWindingRule(operandMember.shape);
+                boolean isWindingRuleCompatible = windingRule == WIND_UNKNOWN ||
+                        operandMemberWindingRule == WIND_UNKNOWN ||
+                        operandMemberWindingRule == windingRule;
+
+                ListIterator<Member> myMembersIter = shapes.listIterator();
+                boolean isOperandMemberHandled = false;
+                while (myMembersIter.hasNext()) {
+                    Member myMember = myMembersIter.next();
+                    if (operandMember.bounds.contains(myMember.bounds) &&
+                            operandMember.shape.contains(myMember.bounds) &&
+                            isWindingRuleCompatible) {
+                        myMembersIter.set(operandMember);
                         cachedBounds.add(operandMember.bounds);
+                        isOperandMemberHandled = true;
+                        returnValue = true;
+                    }
+                }
+
+                if (!isOperandMemberHandled) {
+                    if (isWindingRuleCompatible && !intersects(operandMember.bounds)) {
+                        shapes.add(operandMember);
+                        returnValue = true;
                     } else {
-                        // conflicting winding rules require passing this to an OutlineEngine to resolve:
+                        // we'll invoke flatten() later to make sure we get the merge correct
                         remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMember.shape));
                     }
                 }
@@ -191,14 +202,27 @@ public class CompoundShape implements Shape, Serializable {
                 operandWindingRule == WIND_UNKNOWN ||
                 windingRule == operandWindingRule;
 
-        if (isOperandWindingRuleCompatible && !intersects(operandBounds)) {
-            shapes.add(new Member(operand, operandBounds));
-            cachedBounds.add(operandBounds);
-            return true;
+        if (isOperandWindingRuleCompatible) {
+            Iterator<Member> myMembersIter = shapes.listIterator();
+            boolean intersects = false;
+            while (myMembersIter.hasNext()) {
+                Member member = myMembersIter.next();
+                if (operandBounds.contains(member.bounds) && operand.contains(member.bounds)) {
+                    // this member is going to be eclipsed by the incoming shape
+                    myMembersIter.remove();
+                } else if (!intersects && member.shape.intersects(operandBounds)) {
+                    intersects = true;
+                }
+            }
+
+            if (!intersects) {
+                shapes.add(new Member(operand, operandBounds));
+                cachedBounds.add(operandBounds);
+                return true;
+            }
         }
 
         flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.ADD, operand)));
-
         return true;
     }
 
