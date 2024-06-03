@@ -2,70 +2,70 @@ This table shows how long it takes to create an outline of clip art using differ
 
 The full profiler is running, which may take over an hour.
 
-AreaOutlineFactory	CompoundOutlineFactory[ delegateFactory = AreaOutlineFactory]	LazyOperationOutlineFactory[ delegateFactory = AreaOutlineFactory]	CompoundOutlineFactory[ delegateFactory = LazyOperationOutlineFactory[ delegateFactory = AreaOutlineFactory]]	LazyOperationOutlineFactory[ delegateFactory = CompoundOutlineFactory[ delegateFactory = AreaOutlineFactory]]	Clip Art Name
-51	12	13	16	13	Broccoli
-247	224	224	287	226	Cat5
-200	230	240	278	242	CelticKnot5 x 10
-259	406	408	564	411	EasterEgg x 4
-293	287	288	436	295	ExitSign
-1095	1678	1682	2202	1684	GardenSign
-31291	21206	21124	13540	21154	GiftBox
-85	95	97	101	99	Globe3 x 5
-7664	14076	14044	20439	14131	IceCream12
-695	749	771	796	787	JackOLantern x 50
-828	866	894	1115	923	JohnLemon x 50
-112	111	112	132	113	MotherAndBaby
-284	425	474	579	523	MRIMachine x 100
-64	48	50	63	50	MysteriousCube
-741	927	973	1195	1043	OrangeJuice x 100
-145	161	162	223	168	PersonAtComputer x 5
-142	4	4	4	3	RockingChair x 5
-175	4	5	4	3	RunningDogRetro x 5
-80	90	96	117	100	RussianBulldozer x 10
-142	124	126	165	130	Salad x 4
-761	377	425	490	472	ShareRoadSign x 100
-578	362	390	407	401	SpaceTravel x 50
-140	167	172	192	178	StackOfBooks4 x 10
-47	19	20	23	20	Stew
-353	558	559	753	565	Students
-342	503	552	582	570	TeleworkGuy x 100
-173	167	168	232	167	WellDressedOwl
+Clip Art Name	AreaOutlineFactory	CompoundOutlineFactory[ delegateFactory = AreaOutlineFactory]	LazyOperationOutlineFactory[ delegateFactory = AreaOutlineFactory]	CompoundOutlineFactory[ delegateFactory = LazyOperationOutlineFactory[ delegateFactory = AreaOutlineFactory]]	LazyOperationOutlineFactory[ delegateFactory = CompoundOutlineFactory[ delegateFactory = AreaOutlineFactory]]
+Broccoli	53	10	10	12	11
+Cat5	246	160	160	162	160
+CelticKnot5 x 10	208	209	216	224	217
+EasterEgg x 4	259	266	269	272	270
+ExitSign	294	161	163	164	163
+GardenSign	1103	1179	1187	1182	1179
+GiftBox	31694	18075	18572	18600	366039
+Globe3 x 5	89	96	99	101	100
+IceCream12	7751	7522	7586	7638	7655
+JackOLantern x 50	748	775	805	810	811
+JohnLemon x 50	877	728	755	771	763
+MotherAndBaby	113	93	94	94	94
+MRIMachine x 100	372	444	501	524	503
+MysteriousCube	66	36	37	37	37
+OrangeJuice x 100	822	859	915	945	933
+PersonAtComputer x 5	152	121	124	126	125
+RockingChair x 5	149	3	5	3	5
+RunningDogRetro x 5	177	4	5	3	5
+RussianBulldozer x 10	87	79	90	91	88
+Salad x 4	146	91	93	95	93
+ShareRoadSign x 100	826	390	458	485	464
+SpaceTravel x 50	620	376	417	422	417
+StackOfBooks4 x 10	146	161	168	172	170
+Stew	48	15	15	16	16
+Students	360	395	397	402	399
+TeleworkGuy x 100	432	564	633	654	634
+WellDressedOwl	172	102	103	104	103
 
 Summary execution times:
-46987	43876	44073	44935	44471	
+48010	32914	33877	34109	381454	
 
 ... and here is the same info expressed as percents:
-100%	23.529%	25.49%	31.373%	25.49%	Broccoli
-100%	90.688%	90.688%	116.194%	91.498%	Cat5
-100%	115%	120%	139%	121%	CelticKnot5 x 10
-100%	156.757%	157.529%	217.761%	158.687%	EasterEgg x 4
-100%	97.952%	98.294%	148.805%	100.683%	ExitSign
-100%	153.242%	153.607%	201.096%	153.79%	GardenSign
-100%	67.77%	67.508%	43.271%	67.604%	GiftBox
-100%	111.765%	114.118%	118.824%	116.471%	Globe3 x 5
-100%	183.664%	183.246%	266.688%	184.382%	IceCream12
-100%	107.77%	110.935%	114.532%	113.237%	JackOLantern x 50
-100%	104.589%	107.971%	134.662%	111.473%	JohnLemon x 50
-100%	99.107%	100%	117.857%	100.893%	MotherAndBaby
-100%	149.648%	166.901%	203.873%	184.155%	MRIMachine x 100
-100%	75%	78.125%	98.438%	78.125%	MysteriousCube
-100%	125.101%	131.309%	161.269%	140.756%	OrangeJuice x 100
-100%	111.034%	111.724%	153.793%	115.862%	PersonAtComputer x 5
-100%	2.817%	2.817%	2.817%	2.113%	RockingChair x 5
-100%	2.286%	2.857%	2.286%	1.714%	RunningDogRetro x 5
-100%	112.5%	120%	146.25%	125%	RussianBulldozer x 10
-100%	87.324%	88.732%	116.197%	91.549%	Salad x 4
-100%	49.54%	55.848%	64.389%	62.024%	ShareRoadSign x 100
-100%	62.63%	67.474%	70.415%	69.377%	SpaceTravel x 50
-100%	119.286%	122.857%	137.143%	127.143%	StackOfBooks4 x 10
-100%	40.426%	42.553%	48.936%	42.553%	Stew
-100%	158.074%	158.357%	213.314%	160.057%	Students
-100%	147.076%	161.404%	170.175%	166.667%	TeleworkGuy x 100
-100%	96.532%	97.11%	134.104%	96.532%	WellDressedOwl
+Broccoli	100%	18.868%	18.868%	22.642%	20.755%
+Cat5	100%	65.041%	65.041%	65.854%	65.041%
+CelticKnot5 x 10	100%	100.481%	103.846%	107.692%	104.327%
+EasterEgg x 4	100%	102.703%	103.861%	105.019%	104.247%
+ExitSign	100%	54.762%	55.442%	55.782%	55.442%
+GardenSign	100%	106.89%	107.616%	107.162%	106.89%
+GiftBox	100%	57.03%	58.598%	58.686%	1,154.916%
+Globe3 x 5	100%	107.865%	111.236%	113.483%	112.36%
+IceCream12	100%	97.046%	97.871%	98.542%	98.761%
+JackOLantern x 50	100%	103.61%	107.62%	108.289%	108.422%
+JohnLemon x 50	100%	83.01%	86.089%	87.913%	87.001%
+MotherAndBaby	100%	82.301%	83.186%	83.186%	83.186%
+MRIMachine x 100	100%	119.355%	134.677%	140.86%	135.215%
+MysteriousCube	100%	54.545%	56.061%	56.061%	56.061%
+OrangeJuice x 100	100%	104.501%	111.314%	114.964%	113.504%
+PersonAtComputer x 5	100%	79.605%	81.579%	82.895%	82.237%
+RockingChair x 5	100%	2.013%	3.356%	2.013%	3.356%
+RunningDogRetro x 5	100%	2.26%	2.825%	1.695%	2.825%
+RussianBulldozer x 10	100%	90.805%	103.448%	104.598%	101.149%
+Salad x 4	100%	62.329%	63.699%	65.068%	63.699%
+ShareRoadSign x 100	100%	47.215%	55.448%	58.717%	56.174%
+SpaceTravel x 50	100%	60.645%	67.258%	68.065%	67.258%
+StackOfBooks4 x 10	100%	110.274%	115.068%	117.808%	116.438%
+Stew	100%	31.25%	31.25%	33.333%	33.333%
+Students	100%	109.722%	110.278%	111.667%	110.833%
+TeleworkGuy x 100	100%	130.556%	146.528%	151.389%	146.759%
+WellDressedOwl	100%	59.302%	59.884%	60.465%	59.884%
 
 Summary execution times:
-100%	93.379%	93.798%	95.633%	94.645%	
+100%	68.557%	70.562%	71.046%	794.53%	
 
 Average execution percent:
-100%	98.189%	101.387%	124.943%	104.031%	
+100%	75.703%	79.331%	80.883%	120.373%	
 

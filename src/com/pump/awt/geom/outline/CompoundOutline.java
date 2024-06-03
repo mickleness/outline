@@ -32,9 +32,13 @@ public class CompoundOutline implements Outline, Serializable {
      */
     public static int WIND_UNKNOWN = -1;
 
-    record Member(Shape shape, Rectangle2D bounds) {
+    /**
+     * @param outline an optional Outline created by this CompoundOutline's OutlineFactory.
+     *                If non-null: this should be the same as the `shape` parameter
+     */
+    record Member(Outline outline, Shape shape, Rectangle2D bounds) {
         public Member(Shape shape) {
-            this(shape, ShapeUtils.getBounds2D(shape));
+            this(null, shape, ShapeUtils.getBounds2D(shape));
         }
     }
 
@@ -125,7 +129,7 @@ public class CompoundOutline implements Outline, Serializable {
             return;
         }
 
-        Rectangle2D operandBounds = operand.getBounds2D();
+        Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
         if (cachedBounds.contains(operandBounds) && contains(operandBounds)) {
             return;
         } else if (operandBounds.contains(cachedBounds) && operand.contains(cachedBounds)) {
@@ -133,11 +137,6 @@ public class CompoundOutline implements Outline, Serializable {
             return;
         }
 
-        // This method is messier than the other operations because this is the only method that can
-        // add key/value pairs to the shapes map. This requires safety-checking the winding rules of
-        // the existing and incoming shapes.
-
-        boolean returnValue = false;
         if (operand instanceof CompoundOutline s) {
             List<OutlineOperation> remainingAdds = new LinkedList<>();
 
@@ -160,14 +159,12 @@ public class CompoundOutline implements Outline, Serializable {
                         myMembersIter.set(operandMember);
                         cachedBounds.add(operandMember.bounds);
                         isOperandMemberHandled = true;
-                        returnValue = true;
                     }
                 }
 
                 if (!isOperandMemberHandled) {
                     if (isWindingRuleCompatible && !intersects(operandMember.bounds)) {
                         shapes.add(operandMember);
-                        returnValue = true;
                     } else {
                         // we'll invoke flatten() later to make sure we get the merge correct
                         remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMember.shape));
@@ -185,20 +182,28 @@ public class CompoundOutline implements Outline, Serializable {
                     windingRule == operandWindingRule;
 
             if (isOperandWindingRuleCompatible) {
-                Iterator<Member> myMembersIter = shapes.listIterator();
-                boolean intersects = false;
+                ListIterator<Member> myMembersIter = shapes.listIterator();
                 while (myMembersIter.hasNext()) {
                     Member member = myMembersIter.next();
-                    if (operandBounds.contains(member.bounds) && operand.contains(member.bounds)) {
+                    if (operandBounds.contains(member.bounds) &&
+                            operand.contains(member.bounds)) {
                         // this member is going to be eclipsed by the incoming shape
                         myMembersIter.remove();
-                    } else if (!intersects && member.shape.intersects(operandBounds)) {
+                    }
+                }
+
+                boolean intersects = false;
+                while (myMembersIter.hasPrevious()) {
+                    Member member = myMembersIter.previous();
+                    if (ShapeUtils.intersects(member.bounds, operandBounds) &&
+                            member.shape.intersects(operandBounds)) {
                         intersects = true;
+                        break;
                     }
                 }
 
                 if (!intersects) {
-                    shapes.add(new Member(operand, operandBounds));
+                    shapes.add(new Member(null, operand, operandBounds));
                     cachedBounds.add(operandBounds);
                     return;
                 }
@@ -304,7 +309,7 @@ public class CompoundOutline implements Outline, Serializable {
                 windingRule = WIND_UNKNOWN;
             } else {
                 Rectangle2D clippedShapeBounds = ShapeUtils.getBounds2D(clippedShape);
-                shapes.add(new Member(clippedShape, clippedShapeBounds));
+                shapes.add(new Member(null, clippedShape, clippedShapeBounds));
                 cachedBounds = new Rectangle2D.Double(clippedShapeBounds.getX(), clippedShapeBounds.getY(),
                         clippedShapeBounds.getWidth(), clippedShapeBounds.getHeight());
                 windingRule = getWindingRule(clippedShape);
@@ -412,7 +417,7 @@ public class CompoundOutline implements Outline, Serializable {
         for(Shape clippedShape : clippedShapes) {
             if (!ShapeUtils.isEmpty(clippedShape)) {
                 Rectangle2D clippedShapeRect = ShapeUtils.getBounds2D(clippedShape);
-                shapes.add(new Member(clippedShape, clippedShapeRect));
+                shapes.add(new Member(null, clippedShape, clippedShapeRect));
 
                 if (cachedBounds == null) {
                     cachedBounds = new Rectangle2D.Double(clippedShapeRect.getMinX(), clippedShapeRect.getMinY(), clippedShapeRect.getWidth(), clippedShapeRect.getHeight());
@@ -425,31 +430,34 @@ public class CompoundOutline implements Outline, Serializable {
     }
 
     /**
-     * Collapse the {@link #shapes} map into one element and apply the argument ops. This also updates
+     * Collapse the {@link #shapes} list into one element and apply the argument ops. This also updates
      * the cachedBounds and windingRule fields.
      */
     private void flatten(List<OutlineOperation> additionalOps) {
-        List<OutlineOperation> opsToProcess = new ArrayList<>(1 + additionalOps.size());
-        if (shapes.isEmpty()) {
-            // this shouldn't happen... but if somehow it does this case is harmless
-        } else if (shapes.size() == 1) {
-            // use the raw shape if possible. This may offer a performance boost if that shape
-            // is an Area, because other code may perform an instanceof check against it later
-            opsToProcess.add(new OutlineOperation(OutlineOperation.Type.ADD, shapes.get(0).shape));
+        Outline newFlattenedShape;
+        if (shapes.size() == 1 && shapes.get(0).outline != null) {
+            newFlattenedShape = shapes.get(0).outline;
+            for (OutlineOperation additionalOp : additionalOps) {
+                additionalOp.execute(newFlattenedShape);
+            }
         } else {
-            opsToProcess.add(new OutlineOperation(OutlineOperation.Type.ADD, this));
+            newFlattenedShape = factory.create();
+            if (shapes.size() == 1) {
+                // Area#add is more performant if the arg is an Area
+                newFlattenedShape.add(shapes.get(0).shape);
+            } else if (shapes.size() > 1) {
+                newFlattenedShape.add(this);
+            }
+            newFlattenedShape.execute(additionalOps);
         }
-
-        opsToProcess.addAll(additionalOps);
-
-        Outline newFlattenedShape = factory.create();
-        newFlattenedShape.execute(opsToProcess);
 
         windingRule = getWindingRule(newFlattenedShape);
         shapes.clear();
         if (!ShapeUtils.isEmpty(newFlattenedShape)) {
-            shapes.add(new Member(newFlattenedShape));
-            cachedBounds = ShapeUtils.getBounds2D(getPathIterator(null));
+            Member newMember = new Member(newFlattenedShape, newFlattenedShape, newFlattenedShape.getBounds2D());
+            shapes.add(newMember);
+            cachedBounds = new Rectangle2D.Double();
+            cachedBounds.setFrame(newMember.bounds);
         } else {
             cachedBounds = null;
         }
@@ -458,6 +466,8 @@ public class CompoundOutline implements Outline, Serializable {
     private int getWindingRule(Shape shape) {
         if (shape instanceof CompoundOutline cs) {
             return cs.getWindingRule();
+        } else if (shape instanceof Path2D path2D) {
+            return path2D.getWindingRule();
         } else if (shape instanceof Area ||
                 shape instanceof AbstractRectangleMask ||
                 shape instanceof Rectangle2D ||
@@ -606,7 +616,7 @@ public class CompoundOutline implements Outline, Serializable {
             for (int a = 0; a < size; a++) {
                 Shape shape = (Shape) in.readObject();
                 Rectangle2D bounds = (Rectangle2D) in.readObject();
-                shapes.add(new Member(shape, bounds));
+                shapes.add(new Member(null, shape, bounds));
             }
         } else {
             throw new IOException("unsupported internal version: " + internalVersion);
