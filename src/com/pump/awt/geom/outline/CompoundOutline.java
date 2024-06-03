@@ -383,21 +383,21 @@ public class CompoundOutline implements Outline, Serializable {
             return true;
 
         Rectangle2D shapeBounds = ShapeUtils.getBounds2D(shape);
-        if(!shapeBounds.intersects(cachedBounds)) {
+        if(!ShapeUtils.intersects(shapeBounds, cachedBounds)) {
             return true;
         }
 
         if (shape instanceof CompoundOutline otherShape) {
             for (Member entry1 : shapes) {
                 for (Member entry2 : otherShape.shapes) {
-                    if (entry1.bounds.intersects(entry2.bounds)) {
+                    if (ShapeUtils.intersects(entry1.bounds, entry2.bounds)) {
                         return false;
                     }
                 }
             }
         } else {
             for (Member entry : shapes) {
-                if (entry.bounds.intersects(shapeBounds)) {
+                if (ShapeUtils.intersects(entry.bounds, shapeBounds)) {
                     return false;
                 }
             }
