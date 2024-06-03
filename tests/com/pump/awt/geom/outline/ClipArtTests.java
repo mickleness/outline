@@ -247,13 +247,12 @@ public class ClipArtTests extends OutlineTests {
                 logWriter.write("Running as a unit test. The times shown in this table are approximate, but each engine is also being tested for accuracy.\n\n");
             }
 
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder("Clip Art Name");
             OutlineFactory[] factories = getOutlineFactories();
             for(OutlineFactory factory : factories) {
-                sb.append(factory.toString());
                 sb.append("\t");
+                sb.append(factory.toString());
             }
-            sb.append("Clip Art Name");
             logWriter.write(sb+"\n");
 
             for(ClipArtImage clipArt : getImages()) {
@@ -348,19 +347,19 @@ public class ClipArtTests extends OutlineTests {
         }
 
         public String toString(boolean asPercent) {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder(testName);
 
             Iterator<Long> timeIter = factoryTimes.values().iterator();
             while (timeIter.hasNext()) {
                 Long engineTime = timeIter.next();
+                sb.append("\t");
                 if(asPercent) {
                     double percent = engineTime.doubleValue() / ((double) baselineTime) * 100.0;
-                    sb.append(DecimalFormat.getInstance().format(percent) + "%\t");
+                    sb.append(DecimalFormat.getInstance().format(percent) + "%");
                 } else {
-                    sb.append(engineTime.longValue() + "\t");
+                    sb.append(engineTime.longValue());
                 }
             }
-            sb.append(testName);
             return sb.toString();
         }
 
