@@ -2,21 +2,15 @@ package com.pump.awt.geom.outline;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Path2D;
-import java.awt.geom.PathIterator;
 import java.io.IOException;
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
  * This represents an operation (add/subtract/etc) that alters a <code>java.awt.Shape</code>.
  * <p>
- * The {@link Outline} object collects these operations and the
- * {@link OutlineEngine} processes them.
+ * The {@link LazyOperationOutline} object collects these operations for bulk processing.
  * </p>
  * <p>
  * This object has three fields, but one of them is always null. If the type is TRANSFORM
@@ -33,27 +27,27 @@ public final class OutlineOperation implements Serializable {
 
     public enum Type {
         /**
-         * This operation originates from {@link Outline#add(Shape)}
+         * This operation relates to {@link Outline#add(Shape)}
          */
         ADD,
 
         /**
-         * This operation originates from {@link Outline#subtract(Shape)}
+         * This operation relates to {@link Outline#subtract(Shape)}
          */
         SUBTRACT,
 
         /**
-         * This operation originates from {@link Outline#clip(Shape)}
+         * This operation relates to {@link Outline#clip(Shape)}
          */
         CLIP,
 
         /**
-         * This operation originates from {@link Outline#exclusiveOr(Shape)}
+         * This operation relates to {@link Outline#exclusiveOr(Shape)}
          */
         EXCLUSIVE_OR,
 
         /**
-         * This operation originates from {@link Outline#transform(AffineTransform)}
+         * This operation relates to {@link Outline#transform(AffineTransform)}
          */
         TRANSFORM
     }
@@ -113,6 +107,29 @@ public final class OutlineOperation implements Serializable {
             in.defaultReadObject();
         } else {
             throw new UnsupportedOperationException("unsupported internal version: "+internalVersion);
+        }
+    }
+
+    /**
+     * Execute this operation on the argument.
+     */
+    public void execute(Outline outlineShape) {
+        switch(type) {
+            case ADD:
+                outlineShape.add(shape);
+                break;
+            case SUBTRACT:
+                outlineShape.subtract(shape);
+                break;
+            case EXCLUSIVE_OR:
+                outlineShape.exclusiveOr(shape);
+                break;
+            case CLIP:
+                outlineShape.clip(shape);
+                break;
+            case TRANSFORM:
+                outlineShape.transform(transform);
+                break;
         }
     }
 }

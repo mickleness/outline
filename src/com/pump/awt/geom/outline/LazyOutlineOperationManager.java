@@ -1,6 +1,5 @@
 package com.pump.awt.geom.outline;
 
-import com.pump.awt.geom.CompoundShape;
 import com.pump.awt.geom.ShapeUtils;
 import com.pump.awt.geom.clip.RectangularClipperFactory;
 
@@ -8,10 +7,6 @@ import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
 import java.awt.geom.Rectangle2D;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serial;
 import java.util.*;
 import java.util.List;
 
@@ -19,45 +14,23 @@ import java.util.List;
  * This OutlineEngine optimizes some operations before passing them
  * to a delegate engine.
  */
-public class OptimizedEngine implements OutlineEngine {
+class LazyOutlineOperationManager {
 
-    @Serial
-    private static final long serialVersionUID = 1L;
-
-    private OutlineEngine delegateEngine;
-
-    /**
-     * Create an OptimizedEngine that delegates work to a {@link AreaOutlineEngine}.
-     */
-    public OptimizedEngine() {
-        this(new AreaOutlineEngine());
-    }
-
-    /**
-     * Create an OptimizedEngine that delegates work to the argument engine.
-     */
-    public OptimizedEngine(OutlineEngine delegateEngine) {
-        Objects.requireNonNull(delegateEngine);
-        this.delegateEngine = delegateEngine;
-    }
-
-    @Override
-    public Shape calculate(List<OutlineOperation> operationQueue) {
-        // remove transforms by propagating them across all the ops they affected
-        removeTransforms(operationQueue);
+    public Shape execute(OutlineFactory outlineFactory, List<OutlineOperation> operationQueue) {
+        removeAndPropagateTransforms(operationQueue);
         removeOperationsOutsideOfClipping(operationQueue);
         removeSubtractionsAndReplaceXors(operationQueue);
 
         removeRectangularClipping(operationQueue);
 
-        consolidateOperationsWithSameType(operationQueue);
+        consolidateOperationsWithSameType(outlineFactory, operationQueue);
 
         if (operationQueue.size() == 1) {
             OutlineOperation op = operationQueue.get(0);
             return op.shape;
         }
 
-        CompoundShape result = new CompoundShape(delegateEngine);
+        CompoundOutline result = new CompoundOutline(outlineFactory);
         for (OutlineOperation op : operationQueue) {
             switch (op.type) {
                 case ADD:
@@ -70,7 +43,7 @@ public class OptimizedEngine implements OutlineEngine {
                     result.clip(op.shape);
                     break;
                 case EXCLUSIVE_OR:
-                    result.xor(op.shape);
+                    result.exclusiveOr(op.shape);
                     break;
             }
         }
@@ -208,7 +181,7 @@ public class OptimizedEngine implements OutlineEngine {
      * So after this method is run: the queue will not contain any TRANSFORM
      * operations, and some shape-based operations in the queue may be replaced.
      */
-    public void removeTransforms(List<OutlineOperation> operationQueue) {
+    public void removeAndPropagateTransforms(List<OutlineOperation> operationQueue) {
         ListIterator<OutlineOperation> iter = operationQueue.listIterator();
         AffineTransform currentTx = null;
         while (iter.hasNext()) {
@@ -246,7 +219,7 @@ public class OptimizedEngine implements OutlineEngine {
      * Consolidate all consecutive operations of the same type. For example: 5 consecutive add operations
      * can be consolidated into 1 add operation. 5 clip operations can become 1 clip, etc.
      */
-    private void consolidateOperationsWithSameType(List<OutlineOperation> operationQueue) {
+    private void consolidateOperationsWithSameType(OutlineFactory outlineFactory, List<OutlineOperation> operationQueue) {
         ListIterator<OutlineOperation> listIter = operationQueue.listIterator();
         while (listIter.hasNext()) {
             OutlineOperation runStart = listIter.next();
@@ -261,11 +234,11 @@ public class OptimizedEngine implements OutlineEngine {
                         break;
 
                     if (runStart.type == OutlineOperation.Type.ADD || runStart.type == OutlineOperation.Type.SUBTRACT) {
-                        newOpShape = add(newOpShape, op.shape);
+                        newOpShape = add(outlineFactory, newOpShape, op.shape);
                     } else if (runStart.type == OutlineOperation.Type.CLIP) {
-                        newOpShape = clip(newOpShape, op.shape);
+                        newOpShape = clip(outlineFactory, newOpShape, op.shape);
                     } else if (op.type == OutlineOperation.Type.EXCLUSIVE_OR) {
-                        newOpShape = xor(newOpShape, op.shape);
+                        newOpShape = xor(outlineFactory, newOpShape, op.shape);
                     } else {
                         // this shouldn't be possible; was a new type added?
                         throw new IllegalStateException("op.type = " + runStart.type);
@@ -286,19 +259,19 @@ public class OptimizedEngine implements OutlineEngine {
         }
     }
 
-    private CompoundShape add(Shape shape1, Shape shape2) {
-        CompoundShape baseShape;
-        if (shape1 instanceof CompoundShape) {
-            baseShape = (CompoundShape) shape1;
+    private CompoundOutline add(OutlineFactory outlineFactory, Shape shape1, Shape shape2) {
+        CompoundOutline baseShape;
+        if (shape1 instanceof CompoundOutline compoundOutline && compoundOutline.factory == outlineFactory) {
+            baseShape = compoundOutline;
         } else {
-            baseShape = new CompoundShape(delegateEngine, shape1);
+            baseShape = new CompoundOutline(outlineFactory, shape1);
         }
         baseShape.add(shape2);
 
         return baseShape;
     }
 
-    private Shape clip(Shape shape1, Shape shape2) {
+    private Shape clip(OutlineFactory outlineFactory, Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
         if (empty1)
             return shape1;
@@ -313,12 +286,12 @@ public class OptimizedEngine implements OutlineEngine {
         if (!r1.intersects(r2))
             return new Area();
 
-        if (shape1 instanceof CompoundShape) {
-            CompoundShape cs = (CompoundShape) shape1;
+        if (shape1 instanceof CompoundOutline compoundOutline && compoundOutline.factory == outlineFactory) {
+            CompoundOutline cs = (CompoundOutline) shape1;
             cs.clip(shape2);
             return cs;
-        } else if (shape2 instanceof CompoundShape) {
-            CompoundShape cs = (CompoundShape) shape2;
+        } else if (shape2 instanceof CompoundOutline compoundOutline && compoundOutline.factory == outlineFactory) {
+            CompoundOutline cs = compoundOutline;
             cs.clip(shape1);
             return cs;
         }
@@ -332,13 +305,12 @@ public class OptimizedEngine implements OutlineEngine {
             return RectangularClipperFactory.get().createClipper().clip(shape1, null, r2b);
         }
 
-        List<OutlineOperation> newQueue = new LinkedList<>();
-        newQueue.add(new OutlineOperation(OutlineOperation.Type.ADD, shape1));
-        newQueue.add(new OutlineOperation(OutlineOperation.Type.CLIP, shape2));
-        return delegateEngine.calculate(newQueue);
+        Outline returnValue = outlineFactory.create(shape1);
+        returnValue.clip(shape2);
+        return returnValue;
     }
 
-    private Shape xor(Shape shape1, Shape shape2) {
+    private Shape xor(OutlineFactory outlineFactory, Shape shape1, Shape shape2) {
         boolean empty1 = ShapeUtils.isEmpty(shape1);
         if (empty1)
             return shape2;
@@ -347,32 +319,9 @@ public class OptimizedEngine implements OutlineEngine {
         if (empty2)
             return shape1;
 
-        CompoundShape returnValue = new CompoundShape(delegateEngine, shape1);
-        returnValue.xor(shape2);
+        CompoundOutline returnValue = new CompoundOutline(outlineFactory, shape1);
+        returnValue.exclusiveOr(shape2);
 
         return returnValue;
-    }
-
-    @Override
-    public String toString() {
-        return getClass().getSimpleName();
-    }
-
-    @Serial
-    private void writeObject(ObjectOutputStream out)
-            throws IOException {
-        out.writeInt(0);
-        out.writeObject(delegateEngine);
-    }
-
-    @Serial
-    private void readObject(ObjectInputStream in)
-            throws IOException, ClassNotFoundException {
-        int internalVersion = in.readInt();
-        if (internalVersion == 0) {
-            delegateEngine = (OutlineEngine) in.readObject();
-        } else {
-            throw new IOException("Unsupported internal version: " + internalVersion);
-        }
     }
 }

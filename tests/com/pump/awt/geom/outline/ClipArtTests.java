@@ -156,22 +156,22 @@ public class ClipArtTests extends OutlineTests {
 
 
     interface TestScript {
-        Result run(OutlineEngine[] engines,ClipArtImage clipArt);
+        Result run(OutlineFactory[] factories, ClipArtImage clipArt);
     }
 
     @Test
     public void testAdd() throws Exception {
         TestScript script = new TestScript() {
             @Override
-            public Result run(OutlineEngine[] engines, ClipArtImage clipArt) {
+            public Result run(OutlineFactory[] factories, ClipArtImage clipArt) {
                 Result result = new Result(clipArt.name);
                 List<Shape> shapes = clipArt.getShapes();
 
-                for(OutlineEngine engine : engines) {
+                for(OutlineFactory factory : factories) {
                     int sampleCount = OutlineTests.RUN_OVERNIGHT ? 20 : 1;
 
                     long[] times = new long[sampleCount];
-                    Outline lastSum = null;
+                    Outline lastOutline = null;
 
                     for (int a = 0; a < times.length; a++) {
                         long totalTime = 0;
@@ -185,14 +185,17 @@ public class ClipArtTests extends OutlineTests {
                             System.runFinalization();
 
                             long startTime = System.currentTimeMillis();
-                            Outline sum = new Outline(engine);
+                            Outline outline = factory.create();
                             for (Shape shape : shapes) {
-                                sum.add(shape);
+                                outline.add(shape);
                             }
-                            sum.flush();
+
+                            // the LazyOperationOutline doesn't fully process everything until a call like getPathIterator
+                            outline.getPathIterator(null);
+
                             long elapsedTime = System.currentTimeMillis() - startTime;
 
-                            lastSum = sum;
+                            lastOutline = outline;
                             totalTime += elapsedTime;
                         }
                         times[a] = totalTime;
@@ -201,16 +204,16 @@ public class ClipArtTests extends OutlineTests {
                     long medianTime = times[times.length/2];
 
                     if (!result.isBaselineDefined()) {
-                        result.setBaseline(engine, lastSum, medianTime);
+                        result.setBaseline(factory, lastOutline, medianTime);
                     } else {
-                        result.addEngineTime(engine, medianTime);
+                        result.addFactoryTime(factory, medianTime);
                         String expectedName = clipArt.name;
-                        String actualName = clipArt.name+"-"+engine.toString();
+                        String actualName = clipArt.name+"-"+factory.toString();
                         boolean highPrecision = true;
-                        if (engine instanceof ScaledMaskOutlineEngine)
+                        if (factory instanceof RectangleMaskOutlineFactory)
                             highPrecision = false;
 
-                        ShapeUtilsTest.testEquals(expectedName, actualName, result.baselineShape, lastSum, highPrecision);
+                        ShapeUtilsTest.testEquals(expectedName, actualName, result.baselineShape, lastOutline, highPrecision);
                     }
                 }
                 return result;
@@ -245,22 +248,22 @@ public class ClipArtTests extends OutlineTests {
             }
 
             StringBuilder sb = new StringBuilder();
-            OutlineEngine[] engines = getEngines();
-            for(OutlineEngine engine : engines) {
-                sb.append(engine.toString());
+            OutlineFactory[] factories = getOutlineFactories();
+            for(OutlineFactory factory : factories) {
+                sb.append(factory.toString());
                 sb.append("\t");
             }
             sb.append("Clip Art Name");
             logWriter.write(sb+"\n");
 
             for(ClipArtImage clipArt : getImages()) {
-                Result result = script.run(engines, clipArt);
+                Result result = script.run(factories, clipArt);
                 logWriter.write(result.toString(false)+"\n");
                 results.add(result);
             }
 
             logWriter.write("\nSummary execution times:\n");
-            logWriter.write(getTotalSummary(engines, results, false)+"\n\n");
+            logWriter.write(getTotalSummary(factories, results, false)+"\n\n");
 
             logWriter.write("... and here is the same info expressed as percents:\n");
             for(Result result : results) {
@@ -268,28 +271,28 @@ public class ClipArtTests extends OutlineTests {
             }
 
             logWriter.write("\nSummary execution times:\n");
-            logWriter.write(getTotalSummary(engines, results, true)+"\n");
+            logWriter.write(getTotalSummary(factories, results, true)+"\n");
             logWriter.write("\nAverage execution percent:\n");
-            logWriter.write(getAverageSummary(engines, results)+"\n\n");
+            logWriter.write(getAverageSummary(factories, results)+"\n\n");
         }
     }
 
     /**
      * Describe the total time it took to execute all tests.
      *
-     * @param engines
+     * @param factories
      * @param results
      * @param asPercent
      * @return
      */
-    private String getTotalSummary(OutlineEngine[] engines, List<Result> results, boolean asPercent) {
-        Map<OutlineEngine, Double> totalEngineTimes = new HashMap<>();
+    private String getTotalSummary(OutlineFactory[] factories, List<Result> results, boolean asPercent) {
+        Map<OutlineFactory, Double> totalEngineTimes = new HashMap<>();
         long baselineTotalTime = -1;
         StringBuilder sb = new StringBuilder();
-        for(OutlineEngine engine : engines) {
+        for(OutlineFactory factory : factories) {
             long totalTime = 0;
             for(Result addResult : results) {
-                totalTime += addResult.engineTimes.get(engine);
+                totalTime += addResult.factoryTimes.get(factory);
             }
 
             if (baselineTotalTime == -1) {
@@ -309,17 +312,17 @@ public class ClipArtTests extends OutlineTests {
     /**
      * Describe the average time it took to execute all tests.
      *
-     * @param engines
+     * @param factories
      * @param results
      * @return
      */
-    private String getAverageSummary(OutlineEngine[] engines, List<Result> results) {
+    private String getAverageSummary(OutlineFactory[] factories, List<Result> results) {
         long baselineTotalTime = -1;
         StringBuilder sb = new StringBuilder();
-        for(OutlineEngine engine : engines) {
+        for(OutlineFactory factory : factories) {
             double avg = 0;
             for(Result addResult : results) {
-                avg += addResult.engineTimes.get(engine) * 100.0 / addResult.baselineTime;
+                avg += addResult.factoryTimes.get(factory) * 100.0 / addResult.baselineTime;
             }
             avg = avg / results.size();
 
@@ -332,7 +335,7 @@ public class ClipArtTests extends OutlineTests {
     class Result {
         Outline baselineShape;
         long baselineTime;
-        LinkedHashMap<OutlineEngine, Long> engineTimes = new LinkedHashMap<>();
+        LinkedHashMap<OutlineFactory, Long> factoryTimes = new LinkedHashMap<>();
         String testName;
 
         public Result(String testName) {
@@ -347,7 +350,7 @@ public class ClipArtTests extends OutlineTests {
         public String toString(boolean asPercent) {
             StringBuilder sb = new StringBuilder();
 
-            Iterator<Long> timeIter = engineTimes.values().iterator();
+            Iterator<Long> timeIter = factoryTimes.values().iterator();
             while (timeIter.hasNext()) {
                 Long engineTime = timeIter.next();
                 if(asPercent) {
@@ -361,18 +364,18 @@ public class ClipArtTests extends OutlineTests {
             return sb.toString();
         }
 
-        public void setBaseline(OutlineEngine baselineEngine, Outline baselineShape, long baselineTime) {
+        public void setBaseline(OutlineFactory baselineFactory, Outline baselineShape, long baselineTime) {
             this.baselineShape = baselineShape;
             this.baselineTime = baselineTime;
-            engineTimes.put(baselineEngine, baselineTime);
+            factoryTimes.put(baselineFactory, baselineTime);
         }
 
         public boolean isBaselineDefined() {
             return baselineShape != null;
         }
 
-        public void addEngineTime(OutlineEngine engine, long medianTime) {
-            engineTimes.put(engine, medianTime);
+        public void addFactoryTime(OutlineFactory factory, long medianTime) {
+            factoryTimes.put(factory, medianTime);
         }
     }
 
@@ -380,11 +383,11 @@ public class ClipArtTests extends OutlineTests {
     public void testClip() throws Exception {
         TestScript script = new TestScript() {
             @Override
-            public Result run(OutlineEngine[] engines, ClipArtImage clipArt) {
+            public Result run(OutlineFactory[] engines, ClipArtImage clipArt) {
                 Result result = new Result(clipArt.name);
                 List<Shape> shapes = clipArt.getShapes();
 
-                Outline outline = new Outline(new AreaOutlineEngine());
+                Outline outline = new AreaOutlineFactory().create();
                 for (Shape shape : shapes) {
                     outline.add(shape);
                 }
@@ -398,7 +401,7 @@ public class ClipArtTests extends OutlineTests {
                         outlineBounds.getWidth() / 2.0,
                         outlineBounds.getHeight() / 2.0 );
 
-                for(OutlineEngine engine : engines) {
+                for(OutlineFactory factory : getOutlineFactories()) {
                     int sampleCount = OutlineTests.RUN_OVERNIGHT ? 20 : 1;
 
                     long[] times = new long[sampleCount];
@@ -418,10 +421,11 @@ public class ClipArtTests extends OutlineTests {
                             long startTime = System.currentTimeMillis();
 
                             for(int b = 0; b < (OutlineTests.RUN_OVERNIGHT ? 10 : 1); b++) {
-                                outline = new Outline(engine);
+                                outline = factory.create();
                                 outline.add(baseShape);
                                 outline.clip(clipRect);
-                                outline.flush();
+                                // make sure the LazyOperationOutline processes its ops
+                                outline.getPathIterator(null);
                             }
 
                             long elapsedTime = System.currentTimeMillis() - startTime;
@@ -435,13 +439,13 @@ public class ClipArtTests extends OutlineTests {
                     long medianTime = times[times.length/2];
 
                     if (!result.isBaselineDefined()) {
-                        result.setBaseline(engine, lastOutline, medianTime);
+                        result.setBaseline(factory, lastOutline, medianTime);
                     } else {
-                        result.addEngineTime(engine, medianTime);
+                        result.addFactoryTime(factory, medianTime);
                         String expectedName = clipArt.name;
-                        String actualName = clipArt.name+"-"+engine.toString();
+                        String actualName = clipArt.name+"-"+factory.toString();
                         boolean highPrecision = true;
-                        if (engine instanceof ScaledMaskOutlineEngine)
+                        if (factory instanceof RectangleMaskOutlineFactory)
                             highPrecision = false;
 
                         ShapeUtilsTest.testEquals(expectedName, actualName, result.baselineShape, lastOutline, highPrecision);

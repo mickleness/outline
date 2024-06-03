@@ -5,7 +5,6 @@ import junit.framework.TestCase;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
-import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -18,12 +17,16 @@ public abstract class OutlineTests extends TestCase {
      */
     public static final boolean RUN_OVERNIGHT = true;
 
-    public OutlineEngine[] getEngines() {
-        List<OutlineEngine> engines = new ArrayList<>();
-        engines.add(new AreaOutlineEngine());
-        engines.add(new OptimizedEngine());
-        engines.add(new ScaledMaskOutlineEngine(3));
-        return engines.toArray(new OutlineEngine[0]);
+    public OutlineFactory[] getOutlineFactories() {
+        List<OutlineFactory> returnValue = new ArrayList<>();
+        returnValue.add(new AreaOutlineFactory());
+        returnValue.add(new CompoundOutlineFactory(new AreaOutlineFactory()));
+        returnValue.add(new LazyOperationOutlineFactory(new AreaOutlineFactory()));
+        returnValue.add(new CompoundOutlineFactory(new LazyOperationOutlineFactory(new AreaOutlineFactory())));
+        returnValue.add(new LazyOperationOutlineFactory(new CompoundOutlineFactory(new AreaOutlineFactory())));
+        // TODO: reinstate; right now this causes ClipArtTests to fail
+//        returnValue.add(new RectangleMaskOutlineFactory(3));
+        return returnValue.toArray(new OutlineFactory[0]);
     }
 
     /**

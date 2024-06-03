@@ -10,16 +10,26 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.text.NumberFormat;
-import java.util.Arrays;
-import java.util.LinkedList;
+import java.util.*;
 import java.util.List;
-import java.util.Random;
 
 /**
  * This confirms that other OutlineEngines produce visual results that
  * resemble the AreaOutlineEngine.
  */
 public class EngineAccuracyTests extends OutlineTests {
+
+    @Override
+    public OutlineFactory[] getOutlineFactories() {
+        List<OutlineFactory> returnValue = new LinkedList<>();
+        returnValue.addAll(Arrays.asList(super.getOutlineFactories()));
+        Iterator<OutlineFactory> iter = returnValue.iterator();
+        while (iter.hasNext()) {
+            if (iter.next() instanceof RectangleMaskOutlineFactory)
+                iter.remove();
+        }
+        return returnValue.toArray(new OutlineFactory[0]);
+    }
 
     abstract class RedundancyTest {
         String name;
@@ -32,26 +42,26 @@ public class EngineAccuracyTests extends OutlineTests {
             Outline baselineShape = null;
             String description = null;
             List<OutlineOperation> ops = null;
-            for (OutlineEngine engine : getEngines()) {
+            for (OutlineFactory factory : getOutlineFactories()) {
                 Outline outline = null;
 
-                outline = new Outline(engine);
+                outline = factory.create();
                 description = populate(outline);
-                if (ops == null) {
+                if (outline instanceof LazyOperationOutline lazyOperationOutline) {
                     ops = new LinkedList<>();
-                    ops.addAll(outline.operationQueue);
-
-                    new OptimizedEngine().removeTransforms(ops);
+                    ops.addAll(lazyOperationOutline.operationQueue);
+                    new LazyOutlineOperationManager().removeAndPropagateTransforms(ops);
                 }
-                outline.flush();
 
                 if (baselineShape == null) {
                     baselineShape = outline;
                 } else {
                     try {
+                        // if it's a LazyOperationOutline: force it to flush every operation
+                        outline.getPathIterator(null);
                         ShapeUtilsTest.testEquals(name+"-expected", name+"-actual", baselineShape, outline, true);
                     } catch (RuntimeException | Error e) {
-                        System.err.println("engine: " + engine.toString());
+                        System.err.println("factory: " + factory.toString());
                         System.err.println(description);
                         try {
                             ShapeUtilsTest.testEquals(name+"-expected", name+"-actual", baselineShape, outline, true);
@@ -129,12 +139,6 @@ public class EngineAccuracyTests extends OutlineTests {
          * @return an optional String to print if there is an error
          */
         protected abstract String populate(Outline outline);
-    }
-
-    @Override
-    public OutlineEngine[] getEngines() {
-        return new OutlineEngine[]{new AreaOutlineEngine(),
-                new OptimizedEngine(), new CompoundShapeEngine()};
     }
 
     /**
@@ -219,7 +223,7 @@ public class EngineAccuracyTests extends OutlineTests {
             max = 5_000_000;
         }
 
-        System.out.println("Testing accuracy of "+ Arrays.toString(getEngines())+"...");
+        System.out.println("Testing accuracy of "+ Arrays.toString(getOutlineFactories())+"...");
 
         int errorCtr = 0;
         for (int ctr = 0; ctr <= max; ctr++) {
@@ -256,8 +260,8 @@ public class EngineAccuracyTests extends OutlineTests {
      * forget what they are now...)
      */
     public void testMemoryFailure() {
-        for(OutlineEngine engine : getEngines()) {
-            Outline outline = new Outline(engine);
+        for(OutlineFactory factory : getOutlineFactories()) {
+            LazyOperationOutline outline = new LazyOperationOutline(factory);
             outline.add(createEllipse(0, 2, .9, .9));
             outline.exclusiveOr(createTriangle(0, 2, .9, .9));
             outline.exclusiveOr(createEllipse(0, 2, .9, .9));
@@ -269,7 +273,7 @@ public class EngineAccuracyTests extends OutlineTests {
             outline.add(createEllipse(2, 0, .9, .9));
             outline.subtract(createEllipse(1, 0, .9, .9));
 
-            boolean expectFailure = engine instanceof AreaOutlineEngine;
+            boolean expectFailure = factory instanceof AreaOutlineFactory;
             try {
                 outline.flush();
                 if (expectFailure) {

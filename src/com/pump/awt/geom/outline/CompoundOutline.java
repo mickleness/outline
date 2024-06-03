@@ -1,10 +1,8 @@
-package com.pump.awt.geom;
+package com.pump.awt.geom.outline;
 
+import com.pump.awt.geom.ShapeUtils;
 import com.pump.awt.geom.clip.RectangularClipperFactory;
 import com.pump.awt.geom.mask.AbstractRectangleMask;
-import com.pump.awt.geom.outline.OutlineEngine;
-import com.pump.awt.geom.outline.OutlineOperation;
-import com.pump.awt.geom.outline.AreaOutlineEngine;
 
 import java.awt.*;
 import java.awt.geom.*;
@@ -18,20 +16,13 @@ import java.util.List;
 /**
  * This shape is composed of several member shapes.
  * <p>
- * This object lazily flattens member shapes as needed (using an OutlineEngine) to execute
- * complex operations. But in some cases if shapes do not touch (or if one shape contains another): this
- * object just keeps a running list of member shapes.
- * </p>
- * <p>
- * This object assumes once a Shape object is added that it is not going to change, or that
- * this object is free to change the member Shapes (for ex: by growing an Area
- * or Rectangle2D). If this is not a good assumption then the caller needs to clone the
- * member Shapes before they are passed to this object as operands.
- * </p>
+ * This object lazily tries to avoid computing intersections as much as possible. For example: when this
+ * object adds shapes it will check to see (based on their bounding boxes) if they obviously cannot overlap, or
+ * if one shape obviously contains another.
  * <p>
  * This object is not thread-safe.
  */
-public class CompoundShape implements Shape, Serializable {
+public class CompoundOutline implements Outline, Serializable {
 
     /**
      * This is an alternative winding rule indicating that the winding rule isn't
@@ -67,27 +58,27 @@ public class CompoundShape implements Shape, Serializable {
      */
     private int windingRule = WIND_UNKNOWN;
 
-    private OutlineEngine engine;
+    OutlineFactory factory;
 
-    public CompoundShape() {
-        this( (OutlineEngine) null);
+    public CompoundOutline() {
+        this( (OutlineFactory) null);
     }
 
     /**
      * Create a new CompoundShape that combines the argument shapes.
      */
-    public CompoundShape(Shape... shapes) {
+    public CompoundOutline(Shape... shapes) {
         this(null, shapes);
     }
 
     /**
      * Create a new CompoundShape that combines the argument shapes.
      *
-     * @param engine the optional engine to use when this shape needs to perform a complex operation.
+     * @param factory the optional factory to use when this shape needs to perform a complex operation.
      *               If this is null then this object uses an AreaOutlineEngine.
      */
-    public CompoundShape(OutlineEngine engine, Shape... shapes)  {
-        this.engine = engine == null ?  new AreaOutlineEngine() : engine;
+    public CompoundOutline(OutlineFactory factory, Shape... shapes)  {
+        this.factory = factory == null ? OutlineFactory.getDefault() : factory;
 
         for(Shape shape : shapes) {
             add(shape);
@@ -102,17 +93,12 @@ public class CompoundShape implements Shape, Serializable {
         return windingRule;
     }
 
-    public void reset() {
-        reset(null);
-    }
-
     public void reset(Shape operand) {
         shapes.clear();
         if (operand == null) {
             cachedBounds = null;
             windingRule = WIND_UNKNOWN;
-        } else if (operand instanceof CompoundShape) {
-            CompoundShape s = (CompoundShape) operand;
+        } else if (operand instanceof CompoundOutline s) {
             shapes.addAll(s.shapes);
             cachedBounds = new Rectangle2D.Double(s.cachedBounds.getX(), s.cachedBounds.getY(), s.cachedBounds.getWidth(), s.cachedBounds.getHeight());
             windingRule = s.getWindingRule();
@@ -130,20 +116,21 @@ public class CompoundShape implements Shape, Serializable {
      * @return false if this call definitely did not modify this object. This method returns true if
      * this call may have modified this object.
      */
-    public boolean add(Shape operand) {
+    @Override
+    public void add(Shape operand) {
         if (operand == null || ShapeUtils.isEmpty(operand)) {
-            return false;
+            return;
         } else if (isEmpty()) {
             reset(operand);
-            return true;
+            return;
         }
 
         Rectangle2D operandBounds = operand.getBounds2D();
         if (cachedBounds.contains(operandBounds) && contains(operandBounds)) {
-            return false;
+            return;
         } else if (operandBounds.contains(cachedBounds) && operand.contains(cachedBounds)) {
             reset(operand);
-            return true;
+            return;
         }
 
         // This method is messier than the other operations because this is the only method that can
@@ -151,9 +138,7 @@ public class CompoundShape implements Shape, Serializable {
         // the existing and incoming shapes.
 
         boolean returnValue = false;
-        if (operand instanceof CompoundShape) {
-            CompoundShape s = (CompoundShape) operand;
-
+        if (operand instanceof CompoundOutline s) {
             List<OutlineOperation> remainingAdds = new LinkedList<>();
 
             for (Member operandMember : s.shapes) {
@@ -193,37 +178,34 @@ public class CompoundShape implements Shape, Serializable {
             if (!remainingAdds.isEmpty()) {
                 flatten(remainingAdds);
             }
+        } else {
+            int operandWindingRule = getWindingRule(operand);
+            boolean isOperandWindingRuleCompatible = windingRule == WIND_UNKNOWN ||
+                    operandWindingRule == WIND_UNKNOWN ||
+                    windingRule == operandWindingRule;
 
-            return returnValue;
-        }
+            if (isOperandWindingRuleCompatible) {
+                Iterator<Member> myMembersIter = shapes.listIterator();
+                boolean intersects = false;
+                while (myMembersIter.hasNext()) {
+                    Member member = myMembersIter.next();
+                    if (operandBounds.contains(member.bounds) && operand.contains(member.bounds)) {
+                        // this member is going to be eclipsed by the incoming shape
+                        myMembersIter.remove();
+                    } else if (!intersects && member.shape.intersects(operandBounds)) {
+                        intersects = true;
+                    }
+                }
 
-        int operandWindingRule = getWindingRule(operand);
-        boolean isOperandWindingRuleCompatible = windingRule == WIND_UNKNOWN ||
-                operandWindingRule == WIND_UNKNOWN ||
-                windingRule == operandWindingRule;
-
-        if (isOperandWindingRuleCompatible) {
-            Iterator<Member> myMembersIter = shapes.listIterator();
-            boolean intersects = false;
-            while (myMembersIter.hasNext()) {
-                Member member = myMembersIter.next();
-                if (operandBounds.contains(member.bounds) && operand.contains(member.bounds)) {
-                    // this member is going to be eclipsed by the incoming shape
-                    myMembersIter.remove();
-                } else if (!intersects && member.shape.intersects(operandBounds)) {
-                    intersects = true;
+                if (!intersects) {
+                    shapes.add(new Member(operand, operandBounds));
+                    cachedBounds.add(operandBounds);
+                    return;
                 }
             }
 
-            if (!intersects) {
-                shapes.add(new Member(operand, operandBounds));
-                cachedBounds.add(operandBounds);
-                return true;
-            }
+            flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.ADD, operand)));
         }
-
-        flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.ADD, operand)));
-        return true;
     }
 
     /**
@@ -245,19 +227,18 @@ public class CompoundShape implements Shape, Serializable {
      * @return false if this call definitely did not modify this object. This method returns true if
      * this call may have modified this object.
      */
-    public boolean clip(Shape operand) {
+    @Override
+    public void clip(Shape operand) {
         boolean isEmpty = isEmpty();
-        if (isEmpty())
-            return false;
+        if (isEmpty)
+            return;
 
         if (isNotIntersecting(operand)) {
             reset();
-            return !isEmpty;
+            return;
         }
 
-        if (operand instanceof CompoundShape) {
-            CompoundShape s = (CompoundShape) operand;
-
+        if (operand instanceof CompoundOutline s) {
             // identify which parts of the operand are relevant, and ignore other parts
             List<Member> relevantOperandMembers = new LinkedList<>();
             for (Member operandMember : s.shapes) {
@@ -270,10 +251,10 @@ public class CompoundShape implements Shape, Serializable {
 
             if (relevantOperandMembers.isEmpty()) {
                 reset();
-                return !isEmpty;
+                return;
             } else if (relevantOperandMembers.size() != s.shapes.size()) {
                 // create a new simpler operand with just the parts we're interested in:
-                CompoundShape newOperand = new CompoundShape();
+                CompoundOutline newOperand = new CompoundOutline(s.factory);
                 newOperand.windingRule = s.getWindingRule();
                 for (Member relevantOperandMember : relevantOperandMembers) {
                     newOperand.shapes.add(relevantOperandMember);
@@ -290,14 +271,12 @@ public class CompoundShape implements Shape, Serializable {
             }
         }
 
-        boolean returnValue = false;
         Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
         Iterator<Member> myIter = shapes.iterator();
         while (myIter.hasNext()) {
             Member entry = myIter.next();
             if (!entry.shape.intersects(operandBounds)) {
                 myIter.remove();
-                returnValue = true;
             }
         }
 
@@ -311,7 +290,8 @@ public class CompoundShape implements Shape, Serializable {
         }
 
         if (operandAsRect != null) {
-            return clipRect(operandAsRect) || returnValue;
+            clipRect(operandAsRect);
+            return;
         }
 
         Rectangle2D meAsRect = toRectangle2D();
@@ -330,7 +310,7 @@ public class CompoundShape implements Shape, Serializable {
                 windingRule = getWindingRule(clippedShape);
             }
 
-            return true;
+            return;
         }
 
         //// end of special rect clipping
@@ -338,38 +318,55 @@ public class CompoundShape implements Shape, Serializable {
         if (shapes.size() == 0) {
             cachedBounds = null;
             windingRule = WIND_UNKNOWN;
-            return true;
+            return;
         }
 
         flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.CLIP, operand)));
-
-        return true;
     }
 
     /**
      * @return false if this call definitely did not modify this object. This method returns true if
      * this call may have modified this object.
      */
-    public boolean subtract(Shape operand) {
+    @Override
+    public void subtract(Shape operand) {
         if (isNotIntersecting(operand)) {
-            return false;
+            return;
         }
 
         flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.SUBTRACT, operand)));
-        return true;
     }
 
     /**
      * @return false if this call definitely did not modify this object. This method returns true if
      * this call may have modified this object.
      */
-    public boolean xor(Shape operand) {
+    @Override
+    public void exclusiveOr(Shape operand) {
         if (isNotIntersecting(operand)) {
-            return add(operand);
+            add(operand);
+            return;
         }
 
         flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.EXCLUSIVE_OR, operand)));
-        return true;
+    }
+
+    @Override
+    public void transform(AffineTransform transform) {
+        ListIterator<Member> listIter = shapes.listIterator();
+        cachedBounds = null;
+        while (listIter.hasNext()) {
+            Member untransformedMember = listIter.next();
+            Shape transformedShape = transform.createTransformedShape(untransformedMember.shape);
+            Member transformedMember = new Member(transformedShape);
+            listIter.set(transformedMember);
+            if (cachedBounds == null) {
+                cachedBounds = new Rectangle2D.Double();
+                cachedBounds.setFrame(transformedMember.bounds);
+            } else {
+                cachedBounds.add(transformedMember.bounds);
+            }
+        }
     }
 
     /**
@@ -385,8 +382,7 @@ public class CompoundShape implements Shape, Serializable {
             return true;
         }
 
-        if (shape instanceof CompoundShape) {
-            CompoundShape otherShape = (CompoundShape) shape;
+        if (shape instanceof CompoundOutline otherShape) {
             for (Member entry1 : shapes) {
                 for (Member entry2 : otherShape.shapes) {
                     if (entry1.bounds.intersects(entry2.bounds)) {
@@ -446,7 +442,8 @@ public class CompoundShape implements Shape, Serializable {
 
         opsToProcess.addAll(additionalOps);
 
-        Shape newFlattenedShape = engine.calculate(opsToProcess);
+        Outline newFlattenedShape = factory.create();
+        newFlattenedShape.execute(opsToProcess);
 
         windingRule = getWindingRule(newFlattenedShape);
         shapes.clear();
@@ -459,8 +456,8 @@ public class CompoundShape implements Shape, Serializable {
     }
 
     private int getWindingRule(Shape shape) {
-        if (shape instanceof CompoundShape) {
-            return ((CompoundShape)shape).getWindingRule();
+        if (shape instanceof CompoundOutline cs) {
+            return cs.getWindingRule();
         } else if (shape instanceof Area ||
                 shape instanceof AbstractRectangleMask ||
                 shape instanceof Rectangle2D ||
@@ -505,6 +502,11 @@ public class CompoundShape implements Shape, Serializable {
      */
     public boolean isEmpty() {
         return shapes.isEmpty();
+    }
+
+    @Override
+    public void clear() {
+        reset(null);
     }
 
     @Override

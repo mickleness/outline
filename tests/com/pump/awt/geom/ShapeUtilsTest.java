@@ -1,6 +1,5 @@
 package com.pump.awt.geom;
 
-import com.pump.awt.geom.outline.Outline;
 import junit.framework.TestCase;
 
 import javax.imageio.ImageIO;

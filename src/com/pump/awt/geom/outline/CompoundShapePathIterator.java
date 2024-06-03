@@ -1,4 +1,4 @@
-package com.pump.awt.geom;
+package com.pump.awt.geom.outline;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -23,7 +23,7 @@ public class CompoundShapePathIterator implements PathIterator {
         this.flatness = flatness;
 
         // When winding rule is UNKNOWN: we can pick either.
-        this.windingRule = windingRule == CompoundShape.WIND_UNKNOWN ? PathIterator.WIND_NON_ZERO : windingRule;
+        this.windingRule = windingRule == CompoundOutline.WIND_UNKNOWN ? PathIterator.WIND_NON_ZERO : windingRule;
 
         next();
     }

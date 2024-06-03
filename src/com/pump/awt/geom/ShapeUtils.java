@@ -1,5 +1,7 @@
 package com.pump.awt.geom;
 
+import com.pump.awt.geom.outline.CompoundOutline;
+import com.pump.awt.geom.outline.Outline;
 import com.pump.util.RangeDouble;
 
 import java.awt.*;
@@ -470,10 +472,10 @@ public class ShapeUtils {
      * Return true if a shape has no path segment data to iterate over.
      */
     public static boolean isEmpty(Shape shape) {
-        if (shape instanceof Area)
-            return ((Area)shape).isEmpty();
-        if (shape instanceof CompoundShape)
-            return ((CompoundShape)shape).isEmpty();
+        if (shape instanceof Area area)
+            return area.isEmpty();
+        if (shape instanceof Outline outline)
+            return outline.isEmpty();
 
         PathIterator pi = shape.getPathIterator(null);
         return pi.isDone();
@@ -487,7 +489,7 @@ public class ShapeUtils {
      * </p>
      */
     public static Rectangle2D getBounds2D(Shape shape) {
-        if (shape instanceof Area || shape instanceof CompoundShape || shape instanceof RectangularShape) {
+        if (shape instanceof Area || shape instanceof CompoundOutline || shape instanceof RectangularShape) {
             // these shapes are known to have accurate getBounds2D() methods
             return shape.getBounds2D();
         }
