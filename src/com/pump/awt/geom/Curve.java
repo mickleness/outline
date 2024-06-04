@@ -8,6 +8,363 @@ package com.pump.awt.geom;
 import java.awt.geom.*;
 
 public abstract class Curve {
+    static class RectCrossingsCounter {
+        final double rxmin, rxmax, rymin, rymax;
+        int crossings = 0;
+
+        RectCrossingsCounter(PathIterator pi, double rxmin, double rymin,
+                                     double rxmax, double rymax) {
+            this.rxmin = rxmin;
+            this.rymin = rymin;
+            this.rxmax = rxmax;
+            this.rymax = rymax;
+
+            if (rxmax <= rxmin || rymax <= rymin || pi.isDone()) {
+                return;
+            }
+
+            double[] coords = new double[6];
+            if (pi.currentSegment(coords) != PathIterator.SEG_MOVETO) {
+                throw new IllegalPathStateException("missing initial moveto "+
+                        "in path definition");
+            }
+            pi.next();
+            double curx, cury, movx, movy, endx, endy;
+            curx = movx = coords[0];
+            cury = movy = coords[1];
+            while (crossings != RECT_INTERSECTS && !pi.isDone()) {
+                switch (pi.currentSegment(coords)) {
+                    case PathIterator.SEG_MOVETO:
+                        if (curx != movx || cury != movy) {
+                            rectCrossingsForLine(
+                                    curx, cury,
+                                    movx, movy);
+                        }
+                        // Count should always be a multiple of 2 here.
+                        // assert((crossings & 1) != 0);
+                        movx = curx = coords[0];
+                        movy = cury = coords[1];
+                        break;
+                    case PathIterator.SEG_LINETO:
+                        endx = coords[0];
+                        endy = coords[1];
+                        rectCrossingsForLine(
+                                curx, cury,
+                                endx, endy);
+                        curx = endx;
+                        cury = endy;
+                        break;
+                    case PathIterator.SEG_QUADTO:
+                        endx = coords[2];
+                        endy = coords[3];
+                        rectCrossingsForQuad(
+                                curx, cury,
+                                coords[0], coords[1],
+                                endx, endy, 0);
+                        curx = endx;
+                        cury = endy;
+                        break;
+                    case PathIterator.SEG_CUBICTO:
+                        endx = coords[4];
+                        endy = coords[5];
+                        rectCrossingsForCubic(
+                                curx, cury,
+                                coords[0], coords[1],
+                                coords[2], coords[3],
+                                endx, endy, 0);
+                        curx = endx;
+                        cury = endy;
+                        break;
+                    case PathIterator.SEG_CLOSE:
+                        if (curx != movx || cury != movy) {
+                            rectCrossingsForLine(
+                                    curx, cury,
+                                    movx, movy);
+                        }
+                        curx = movx;
+                        cury = movy;
+                        // Count should always be a multiple of 2 here.
+                        // assert((crossings & 1) != 0);
+                        break;
+                }
+                pi.next();
+            }
+            if (crossings != RECT_INTERSECTS && (curx != movx || cury != movy)) {
+                rectCrossingsForLine(
+                        curx, cury,
+                        movx, movy);
+            }
+        }
+
+        /**
+         * Accumulate the number of times the line crosses the shadow
+         * extending to the right of the rectangle.  See the comment
+         * for the RECT_INTERSECTS constant for more complete details.
+         */
+        void rectCrossingsForLine(double x0, double y0,
+                                          double x1, double y1)
+        {
+            if (y0 >= rymax && y1 >= rymax) return;
+            if (y0 <= rymin && y1 <= rymin) return;
+            if (x0 <= rxmin && x1 <= rxmin) return;
+            if (x0 >= rxmax && x1 >= rxmax) {
+                // Line is entirely to the right of the rect
+                // and the vertical ranges of the two overlap by a non-empty amount
+                // Thus, this line segment is partially in the "right-shadow"
+                // Path may have done a complete crossing
+                // Or path may have entered or exited the right-shadow
+                if (y0 < y1) {
+                    // y-increasing line segment...
+                    // We know that y0 < rymax and y1 > rymin
+                    if (y0 <= rymin) crossings++;
+                    if (y1 >= rymax) crossings++;
+                } else if (y1 < y0) {
+                    // y-decreasing line segment...
+                    // We know that y1 < rymax and y0 > rymin
+                    if (y1 <= rymin) crossings--;
+                    if (y0 >= rymax) crossings--;
+                }
+                return;
+            }
+            // Remaining case:
+            // Both x and y ranges overlap by a non-empty amount
+            // First do trivial INTERSECTS rejection of the cases
+            // where one of the endpoints is inside the rectangle.
+            if ((x0 > rxmin && x0 < rxmax && y0 > rymin && y0 < rymax) ||
+                    (x1 > rxmin && x1 < rxmax && y1 > rymin && y1 < rymax))
+            {
+                crossings = RECT_INTERSECTS;
+                return;
+            }
+            // Otherwise calculate the y intercepts and see where
+            // they fall with respect to the rectangle
+            double xi0 = x0;
+            if (y0 < rymin) {
+                xi0 += ((rymin - y0) * (x1 - x0) / (y1 - y0));
+            } else if (y0 > rymax) {
+                xi0 += ((rymax - y0) * (x1 - x0) / (y1 - y0));
+            }
+            double xi1 = x1;
+            if (y1 < rymin) {
+                xi1 += ((rymin - y1) * (x0 - x1) / (y0 - y1));
+            } else if (y1 > rymax) {
+                xi1 += ((rymax - y1) * (x0 - x1) / (y0 - y1));
+            }
+            if (xi0 <= rxmin && xi1 <= rxmin) return;
+            if (xi0 >= rxmax && xi1 >= rxmax) {
+                if (y0 < y1) {
+                    // y-increasing line segment...
+                    // We know that y0 < rymax and y1 > rymin
+                    if (y0 <= rymin) crossings++;
+                    if (y1 >= rymax) crossings++;
+                } else if (y1 < y0) {
+                    // y-decreasing line segment...
+                    // We know that y1 < rymax and y0 > rymin
+                    if (y1 <= rymin) crossings--;
+                    if (y0 >= rymax) crossings--;
+                }
+                return;
+            }
+            crossings = RECT_INTERSECTS;
+        }
+
+        /**
+         * Accumulate the number of times the quad crosses the shadow
+         * extending to the right of the rectangle.  See the comment
+         * for the RECT_INTERSECTS constant for more complete details.
+         */
+        void rectCrossingsForQuad(double x0, double y0,
+                                               double xc, double yc,
+                                               double x1, double y1,
+                                               int level)
+        {
+            if (y0 >= rymax && yc >= rymax && y1 >= rymax) return;
+            if (y0 <= rymin && yc <= rymin && y1 <= rymin) return;
+            if (x0 <= rxmin && xc <= rxmin && x1 <= rxmin) return;
+            if (x0 >= rxmax && xc >= rxmax && x1 >= rxmax) {
+                // Quad is entirely to the right of the rect
+                // and the vertical range of the 3 Y coordinates of the quad
+                // overlaps the vertical range of the rect by a non-empty amount
+                // We now judge the crossings solely based on the line segment
+                // connecting the endpoints of the quad.
+                // Note that we may have 0, 1, or 2 crossings as the control
+                // point may be causing the Y range intersection while the
+                // two endpoints are entirely above or below.
+                if (y0 < y1) {
+                    // y-increasing line segment...
+                    if (y0 <= rymin && y1 >  rymin) crossings++;
+                    if (y0 <  rymax && y1 >= rymax) crossings++;
+                } else if (y1 < y0) {
+                    // y-decreasing line segment...
+                    if (y1 <= rymin && y0 >  rymin) crossings--;
+                    if (y1 <  rymax && y0 >= rymax) crossings--;
+                }
+                return;
+            }
+            if (level == 0) {
+                // The intersection of ranges is more complicated
+                // First do trivial INTERSECTS rejection of the cases
+                // where one of the endpoints is inside the rectangle.
+                if ((x0 < rxmax && x0 > rxmin && y0 < rymax && y0 > rymin) ||
+                        (x1 < rxmax && x1 > rxmin && y1 < rymax && y1 > rymin)) {
+                    crossings = RECT_INTERSECTS;
+                    return;
+                }
+
+//                double curveMinX = Math.min(Math.min(x0, x1), xc);
+//                double curveMaxX = Math.max(Math.max(x0, x1), xc);
+//                double curveMinY = Math.min(Math.min(y0, y1), yc);
+//                double curveMaxY = Math.max(Math.max(y0, y1), yc);
+//                if (rymin < curveMinY && rymax > curveMaxY && rxmin > curveMinX && rxmax < curveMaxX) {
+//                    crossings = RECT_INTERSECTS;
+//                    return;
+//                }
+//                if (rxmin < curveMinX && rxmax > curveMaxX && rymin > curveMinY && rymax < curveMaxY) {
+//                    crossings = RECT_INTERSECTS;
+//                    return;
+//                }
+            }
+            // Otherwise, subdivide and look for one of the cases above.
+            // double precision only has 52 bits of mantissa
+            if (level > 52) {
+                rectCrossingsForLine(x0, y0, x1, y1);
+            } else {
+                double x0c = (x0 + xc) / 2;
+                double y0c = (y0 + yc) / 2;
+                double xc1 = (xc + x1) / 2;
+                double yc1 = (yc + y1) / 2;
+                xc = (x0c + xc1) / 2;
+                yc = (y0c + yc1) / 2;
+                if (Double.isNaN(xc) || Double.isNaN(yc)) {
+                    // [xy]c are NaN if any of [xy]0c or [xy]c1 are NaN
+                    // [xy]0c or [xy]c1 are NaN if any of [xy][0c1] are NaN
+                    // These values are also NaN if opposing infinities are added
+                    crossings = 0;
+                    return;
+                }
+
+                if (xc < rxmax && xc > rxmin && yc < rymax && yc > rymin) {
+                    crossings = RECT_INTERSECTS;
+                    return;
+                }
+
+                rectCrossingsForQuad(
+                        x0, y0, x0c, y0c, xc, yc,
+                        level + 1);
+                if (crossings != RECT_INTERSECTS) {
+                    rectCrossingsForQuad(
+                            xc, yc, xc1, yc1, x1, y1,
+                            level + 1);
+                }
+            }
+        }
+
+        /**
+         * Accumulate the number of times the cubic crosses the shadow
+         * extending to the right of the rectangle.  See the comment
+         * for the RECT_INTERSECTS constant for more complete details.
+         */
+        void rectCrossingsForCubic(double x0,  double y0,
+                                           double xc0, double yc0,
+                                           double xc1, double yc1,
+                                           double x1,  double y1,
+                                           int level)
+        {
+            if (y0 >= rymax && yc0 >= rymax && yc1 >= rymax && y1 >= rymax) {
+                return;
+            }
+            if (y0 <= rymin && yc0 <= rymin && yc1 <= rymin && y1 <= rymin) {
+                return;
+            }
+            if (x0 <= rxmin && xc0 <= rxmin && xc1 <= rxmin && x1 <= rxmin) {
+                return;
+            }
+            if (x0 >= rxmax && xc0 >= rxmax && xc1 >= rxmax && x1 >= rxmax) {
+                // Cubic is entirely to the right of the rect
+                // and the vertical range of the 4 Y coordinates of the cubic
+                // overlaps the vertical range of the rect by a non-empty amount
+                // We now judge the crossings solely based on the line segment
+                // connecting the endpoints of the cubic.
+                // Note that we may have 0, 1, or 2 crossings as the control
+                // points may be causing the Y range intersection while the
+                // two endpoints are entirely above or below.
+                if (y0 < y1) {
+                    // y-increasing line segment...
+                    if (y0 <= rymin && y1 >  rymin) crossings++;
+                    if (y0 <  rymax && y1 >= rymax) crossings++;
+                } else if (y1 < y0) {
+                    // y-decreasing line segment...
+                    if (y1 <= rymin && y0 >  rymin) crossings--;
+                    if (y1 <  rymax && y0 >= rymax) crossings--;
+                }
+                return;
+            }
+
+            if (level == 0) {
+                // The intersection of ranges is more complicated
+                // First do trivial INTERSECTS rejection of the cases
+                // where one of the endpoints is inside the rectangle.
+                if ((x0 > rxmin && x0 < rxmax && y0 > rymin && y0 < rymax) ||
+                        (x1 > rxmin && x1 < rxmax && y1 > rymin && y1 < rymax))
+                {
+                    crossings = RECT_INTERSECTS;
+                    return;
+                }
+
+//                double curveMinX = Math.min(Math.min(x0, xc0), Math.min(xc1, x1));
+//                double curveMaxX = Math.max(Math.max(x0, xc0), Math.max(xc1, x1));
+//                double curveMinY = Math.min(Math.min(y0, yc0), Math.min(yc1, x1));
+//                double curveMaxY = Math.max(Math.max(y0, yc0), Math.max(yc1, x1));
+//                if (rymin < curveMinY && rymax > curveMaxY && rxmin > curveMinX && rxmax < curveMaxX) {
+//                    crossings = RECT_INTERSECTS;
+//                    return;
+//                }
+//                if (rxmin < curveMinX && rxmax > curveMaxX && rymin > curveMinY && rymax < curveMaxY) {
+//                    crossings = RECT_INTERSECTS;
+//                    return;
+//                }
+            }
+            // Otherwise, subdivide and look for one of the cases above.
+            // double precision only has 52 bits of mantissa
+            if (level > 52) {
+                rectCrossingsForLine(x0, y0, x1, y1);
+            } else {
+                double xmid = (xc0 + xc1) / 2;
+                double ymid = (yc0 + yc1) / 2;
+                xc0 = (x0 + xc0) / 2;
+                yc0 = (y0 + yc0) / 2;
+                xc1 = (xc1 + x1) / 2;
+                yc1 = (yc1 + y1) / 2;
+                double xc0m = (xc0 + xmid) / 2;
+                double yc0m = (yc0 + ymid) / 2;
+                double xmc1 = (xmid + xc1) / 2;
+                double ymc1 = (ymid + yc1) / 2;
+                xmid = (xc0m + xmc1) / 2;
+                ymid = (yc0m + ymc1) / 2;
+                if (Double.isNaN(xmid) || Double.isNaN(ymid)) {
+                    // [xy]mid are NaN if any of [xy]c0m or [xy]mc1 are NaN
+                    // [xy]c0m or [xy]mc1 are NaN if any of [xy][c][01] are NaN
+                    // These values are also NaN if opposing infinities are added
+                    crossings = 0;
+                    return;
+                }
+
+                if (xmid > rxmin && xmid < rxmax && ymid > rymin && ymid < rymax) {
+                    crossings = RECT_INTERSECTS;
+                    return;
+                }
+
+                rectCrossingsForCubic(
+                        x0, y0, xc0, yc0,
+                        xc0m, yc0m, xmid, ymid, level + 1);
+                if (crossings != RECT_INTERSECTS) {
+                    rectCrossingsForCubic(
+                            xmid, ymid, xmc1, ymc1,
+                            xc1, yc1, x1, y1, level + 1);
+                }
+            }
+        }
+    }
 
     /**
      * Calculates the number of times the given path
@@ -280,374 +637,7 @@ public abstract class Curve {
                                            double rxmin, double rymin,
                                            double rxmax, double rymax)
     {
-        if (rxmax <= rxmin || rymax <= rymin) {
-            return 0;
-        }
-        if (pi.isDone()) {
-            return 0;
-        }
-        double[] coords = new double[6];
-        if (pi.currentSegment(coords) != PathIterator.SEG_MOVETO) {
-            throw new IllegalPathStateException("missing initial moveto "+
-                    "in path definition");
-        }
-        pi.next();
-        double curx, cury, movx, movy, endx, endy;
-        curx = movx = coords[0];
-        cury = movy = coords[1];
-        int crossings = 0;
-        while (crossings != RECT_INTERSECTS && !pi.isDone()) {
-            switch (pi.currentSegment(coords)) {
-                case PathIterator.SEG_MOVETO:
-                    if (curx != movx || cury != movy) {
-                        crossings = rectCrossingsForLine(crossings,
-                                rxmin, rymin,
-                                rxmax, rymax,
-                                curx, cury,
-                                movx, movy);
-                    }
-                    // Count should always be a multiple of 2 here.
-                    // assert((crossings & 1) != 0);
-                    movx = curx = coords[0];
-                    movy = cury = coords[1];
-                    break;
-                case PathIterator.SEG_LINETO:
-                    endx = coords[0];
-                    endy = coords[1];
-                    crossings = rectCrossingsForLine(crossings,
-                            rxmin, rymin,
-                            rxmax, rymax,
-                            curx, cury,
-                            endx, endy);
-                    curx = endx;
-                    cury = endy;
-                    break;
-                case PathIterator.SEG_QUADTO:
-                    endx = coords[2];
-                    endy = coords[3];
-                    crossings = rectCrossingsForQuad(crossings,
-                            rxmin, rymin,
-                            rxmax, rymax,
-                            curx, cury,
-                            coords[0], coords[1],
-                            endx, endy, 0);
-                    curx = endx;
-                    cury = endy;
-                    break;
-                case PathIterator.SEG_CUBICTO:
-                    endx = coords[4];
-                    endy = coords[5];
-                    crossings = rectCrossingsForCubic(crossings,
-                            rxmin, rymin,
-                            rxmax, rymax,
-                            curx, cury,
-                            coords[0], coords[1],
-                            coords[2], coords[3],
-                            endx, endy, 0);
-                    curx = endx;
-                    cury = endy;
-                    break;
-                case PathIterator.SEG_CLOSE:
-                    if (curx != movx || cury != movy) {
-                        crossings = rectCrossingsForLine(crossings,
-                                rxmin, rymin,
-                                rxmax, rymax,
-                                curx, cury,
-                                movx, movy);
-                    }
-                    curx = movx;
-                    cury = movy;
-                    // Count should always be a multiple of 2 here.
-                    // assert((crossings & 1) != 0);
-                    break;
-            }
-            pi.next();
-        }
-        if (crossings != RECT_INTERSECTS && (curx != movx || cury != movy)) {
-            crossings = rectCrossingsForLine(crossings,
-                    rxmin, rymin,
-                    rxmax, rymax,
-                    curx, cury,
-                    movx, movy);
-        }
-        // Count should always be a multiple of 2 here.
-        // assert((crossings & 1) != 0);
-        return crossings;
-    }
-
-    /**
-     * Accumulate the number of times the line crosses the shadow
-     * extending to the right of the rectangle.  See the comment
-     * for the RECT_INTERSECTS constant for more complete details.
-     */
-    public static int rectCrossingsForLine(int crossings,
-                                           double rxmin, double rymin,
-                                           double rxmax, double rymax,
-                                           double x0, double y0,
-                                           double x1, double y1)
-    {
-        if (y0 >= rymax && y1 >= rymax) return crossings;
-        if (y0 <= rymin && y1 <= rymin) return crossings;
-        if (x0 <= rxmin && x1 <= rxmin) return crossings;
-        if (x0 >= rxmax && x1 >= rxmax) {
-            // Line is entirely to the right of the rect
-            // and the vertical ranges of the two overlap by a non-empty amount
-            // Thus, this line segment is partially in the "right-shadow"
-            // Path may have done a complete crossing
-            // Or path may have entered or exited the right-shadow
-            if (y0 < y1) {
-                // y-increasing line segment...
-                // We know that y0 < rymax and y1 > rymin
-                if (y0 <= rymin) crossings++;
-                if (y1 >= rymax) crossings++;
-            } else if (y1 < y0) {
-                // y-decreasing line segment...
-                // We know that y1 < rymax and y0 > rymin
-                if (y1 <= rymin) crossings--;
-                if (y0 >= rymax) crossings--;
-            }
-            return crossings;
-        }
-        // Remaining case:
-        // Both x and y ranges overlap by a non-empty amount
-        // First do trivial INTERSECTS rejection of the cases
-        // where one of the endpoints is inside the rectangle.
-        if ((x0 > rxmin && x0 < rxmax && y0 > rymin && y0 < rymax) ||
-                (x1 > rxmin && x1 < rxmax && y1 > rymin && y1 < rymax))
-        {
-            return RECT_INTERSECTS;
-        }
-        // Otherwise calculate the y intercepts and see where
-        // they fall with respect to the rectangle
-        double xi0 = x0;
-        if (y0 < rymin) {
-            xi0 += ((rymin - y0) * (x1 - x0) / (y1 - y0));
-        } else if (y0 > rymax) {
-            xi0 += ((rymax - y0) * (x1 - x0) / (y1 - y0));
-        }
-        double xi1 = x1;
-        if (y1 < rymin) {
-            xi1 += ((rymin - y1) * (x0 - x1) / (y0 - y1));
-        } else if (y1 > rymax) {
-            xi1 += ((rymax - y1) * (x0 - x1) / (y0 - y1));
-        }
-        if (xi0 <= rxmin && xi1 <= rxmin) return crossings;
-        if (xi0 >= rxmax && xi1 >= rxmax) {
-            if (y0 < y1) {
-                // y-increasing line segment...
-                // We know that y0 < rymax and y1 > rymin
-                if (y0 <= rymin) crossings++;
-                if (y1 >= rymax) crossings++;
-            } else if (y1 < y0) {
-                // y-decreasing line segment...
-                // We know that y1 < rymax and y0 > rymin
-                if (y1 <= rymin) crossings--;
-                if (y0 >= rymax) crossings--;
-            }
-            return crossings;
-        }
-        return RECT_INTERSECTS;
-    }
-
-    /**
-     * Accumulate the number of times the quad crosses the shadow
-     * extending to the right of the rectangle.  See the comment
-     * for the RECT_INTERSECTS constant for more complete details.
-     */
-    public static int rectCrossingsForQuad(int crossings,
-                                           double rxmin, double rymin,
-                                           double rxmax, double rymax,
-                                           double x0, double y0,
-                                           double xc, double yc,
-                                           double x1, double y1,
-                                           int level)
-    {
-        if (y0 >= rymax && yc >= rymax && y1 >= rymax) return crossings;
-        if (y0 <= rymin && yc <= rymin && y1 <= rymin) return crossings;
-        if (x0 <= rxmin && xc <= rxmin && x1 <= rxmin) return crossings;
-        if (x0 >= rxmax && xc >= rxmax && x1 >= rxmax) {
-            // Quad is entirely to the right of the rect
-            // and the vertical range of the 3 Y coordinates of the quad
-            // overlaps the vertical range of the rect by a non-empty amount
-            // We now judge the crossings solely based on the line segment
-            // connecting the endpoints of the quad.
-            // Note that we may have 0, 1, or 2 crossings as the control
-            // point may be causing the Y range intersection while the
-            // two endpoints are entirely above or below.
-            if (y0 < y1) {
-                // y-increasing line segment...
-                if (y0 <= rymin && y1 >  rymin) crossings++;
-                if (y0 <  rymax && y1 >= rymax) crossings++;
-            } else if (y1 < y0) {
-                // y-decreasing line segment...
-                if (y1 <= rymin && y0 >  rymin) crossings--;
-                if (y1 <  rymax && y0 >= rymax) crossings--;
-            }
-            return crossings;
-        }
-        if (level == 0) {
-            // The intersection of ranges is more complicated
-            // First do trivial INTERSECTS rejection of the cases
-            // where one of the endpoints is inside the rectangle.
-            if ((x0 < rxmax && x0 > rxmin && y0 < rymax && y0 > rymin) ||
-                    (x1 < rxmax && x1 > rxmin && y1 < rymax && y1 > rymin)) {
-                return RECT_INTERSECTS;
-            }
-
-            double curveMinX = Math.min(Math.min(x0, x1), xc);
-            double curveMaxX = Math.max(Math.max(x0, x1), xc);
-            double curveMinY = Math.min(Math.min(y0, y1), yc);
-            double curveMaxY = Math.max(Math.max(y0, y1), yc);
-            if (rymin < curveMinY && rymax > curveMaxY && rxmin > curveMinX && rxmax < curveMaxX) {
-                return RECT_INTERSECTS;
-            }
-            if (rxmin < curveMinX && rxmax > curveMaxX && rymin > curveMinY && rymax < curveMaxY) {
-                return RECT_INTERSECTS;
-            }
-        }
-        // Otherwise, subdivide and look for one of the cases above.
-        // double precision only has 52 bits of mantissa
-        if (level > 52) {
-            return rectCrossingsForLine(crossings,
-                    rxmin, rymin, rxmax, rymax,
-                    x0, y0, x1, y1);
-        }
-        double x0c = (x0 + xc) / 2;
-        double y0c = (y0 + yc) / 2;
-        double xc1 = (xc + x1) / 2;
-        double yc1 = (yc + y1) / 2;
-        xc = (x0c + xc1) / 2;
-        yc = (y0c + yc1) / 2;
-        if (Double.isNaN(xc) || Double.isNaN(yc)) {
-            // [xy]c are NaN if any of [xy]0c or [xy]c1 are NaN
-            // [xy]0c or [xy]c1 are NaN if any of [xy][0c1] are NaN
-            // These values are also NaN if opposing infinities are added
-            return 0;
-        }
-
-        if (xc < rxmax && xc > rxmin && yc < rymax && yc > rymin) {
-            return RECT_INTERSECTS;
-        }
-
-        crossings = rectCrossingsForQuad(crossings,
-                rxmin, rymin, rxmax, rymax,
-                x0, y0, x0c, y0c, xc, yc,
-                level+1);
-        if (crossings != RECT_INTERSECTS) {
-            crossings = rectCrossingsForQuad(crossings,
-                    rxmin, rymin, rxmax, rymax,
-                    xc, yc, xc1, yc1, x1, y1,
-                    level+1);
-        }
-        return crossings;
-    }
-
-    /**
-     * Accumulate the number of times the cubic crosses the shadow
-     * extending to the right of the rectangle.  See the comment
-     * for the RECT_INTERSECTS constant for more complete details.
-     */
-    public static int rectCrossingsForCubic(int crossings,
-                                            double rxmin, double rymin,
-                                            double rxmax, double rymax,
-                                            double x0,  double y0,
-                                            double xc0, double yc0,
-                                            double xc1, double yc1,
-                                            double x1,  double y1,
-                                            int level)
-    {
-        if (y0 >= rymax && yc0 >= rymax && yc1 >= rymax && y1 >= rymax) {
-            return crossings;
-        }
-        if (y0 <= rymin && yc0 <= rymin && yc1 <= rymin && y1 <= rymin) {
-            return crossings;
-        }
-        if (x0 <= rxmin && xc0 <= rxmin && xc1 <= rxmin && x1 <= rxmin) {
-            return crossings;
-        }
-        if (x0 >= rxmax && xc0 >= rxmax && xc1 >= rxmax && x1 >= rxmax) {
-            // Cubic is entirely to the right of the rect
-            // and the vertical range of the 4 Y coordinates of the cubic
-            // overlaps the vertical range of the rect by a non-empty amount
-            // We now judge the crossings solely based on the line segment
-            // connecting the endpoints of the cubic.
-            // Note that we may have 0, 1, or 2 crossings as the control
-            // points may be causing the Y range intersection while the
-            // two endpoints are entirely above or below.
-            if (y0 < y1) {
-                // y-increasing line segment...
-                if (y0 <= rymin && y1 >  rymin) crossings++;
-                if (y0 <  rymax && y1 >= rymax) crossings++;
-            } else if (y1 < y0) {
-                // y-decreasing line segment...
-                if (y1 <= rymin && y0 >  rymin) crossings--;
-                if (y1 <  rymax && y0 >= rymax) crossings--;
-            }
-            return crossings;
-        }
-
-        if (level == 0) {
-            // The intersection of ranges is more complicated
-            // First do trivial INTERSECTS rejection of the cases
-            // where one of the endpoints is inside the rectangle.
-            if ((x0 > rxmin && x0 < rxmax && y0 > rymin && y0 < rymax) ||
-                    (x1 > rxmin && x1 < rxmax && y1 > rymin && y1 < rymax))
-            {
-                return RECT_INTERSECTS;
-            }
-
-            double curveMinX = Math.min(Math.min(x0, xc0), Math.min(xc1, x1));
-            double curveMaxX = Math.max(Math.max(x0, xc0), Math.max(xc1, x1));
-            double curveMinY = Math.min(Math.min(y0, yc0), Math.min(yc1, x1));
-            double curveMaxY = Math.max(Math.max(y0, yc0), Math.max(yc1, x1));
-            if (rymin < curveMinY && rymax > curveMaxY && rxmin > curveMinX && rxmax < curveMaxX) {
-                return RECT_INTERSECTS;
-            }
-            if (rxmin < curveMinX && rxmax > curveMaxX && rymin > curveMinY && rymax < curveMaxY) {
-                return RECT_INTERSECTS;
-            }
-        }
-        // Otherwise, subdivide and look for one of the cases above.
-        // double precision only has 52 bits of mantissa
-        if (level > 52) {
-            return rectCrossingsForLine(crossings,
-                    rxmin, rymin, rxmax, rymax,
-                    x0, y0, x1, y1);
-        }
-        double xmid = (xc0 + xc1) / 2;
-        double ymid = (yc0 + yc1) / 2;
-        xc0 = (x0 + xc0) / 2;
-        yc0 = (y0 + yc0) / 2;
-        xc1 = (xc1 + x1) / 2;
-        yc1 = (yc1 + y1) / 2;
-        double xc0m = (xc0 + xmid) / 2;
-        double yc0m = (yc0 + ymid) / 2;
-        double xmc1 = (xmid + xc1) / 2;
-        double ymc1 = (ymid + yc1) / 2;
-        xmid = (xc0m + xmc1) / 2;
-        ymid = (yc0m + ymc1) / 2;
-        if (Double.isNaN(xmid) || Double.isNaN(ymid)) {
-            // [xy]mid are NaN if any of [xy]c0m or [xy]mc1 are NaN
-            // [xy]c0m or [xy]mc1 are NaN if any of [xy][c][01] are NaN
-            // These values are also NaN if opposing infinities are added
-            return 0;
-        }
-
-        if (xmid > rxmin && xmid < rxmax && ymid > rymin && ymid < rymax)
-        {
-            return RECT_INTERSECTS;
-        }
-
-        crossings = rectCrossingsForCubic(crossings,
-                rxmin, rymin, rxmax, rymax,
-                x0, y0, xc0, yc0,
-                xc0m, yc0m, xmid, ymid, level+1);
-        if (crossings != RECT_INTERSECTS) {
-            crossings = rectCrossingsForCubic(crossings,
-                    rxmin, rymin, rxmax, rymax,
-                    xmid, ymid, xmc1, ymc1,
-                    xc1, yc1, x1, y1, level+1);
-        }
-        return crossings;
+        RectCrossingsCounter ctr = new RectCrossingsCounter(pi, rxmin, rymin, rxmax, rymax);
+        return ctr.crossings;
     }
 }
