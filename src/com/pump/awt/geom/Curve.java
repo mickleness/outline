@@ -485,13 +485,25 @@ public abstract class Curve {
             }
             return crossings;
         }
-        // The intersection of ranges is more complicated
-        // First do trivial INTERSECTS rejection of the cases
-        // where one of the endpoints is inside the rectangle.
-        if ((x0 < rxmax && x0 > rxmin && y0 < rymax && y0 > rymin) ||
-                (x1 < rxmax && x1 > rxmin && y1 < rymax && y1 > rymin))
-        {
-            return RECT_INTERSECTS;
+        if (level == 0) {
+            // The intersection of ranges is more complicated
+            // First do trivial INTERSECTS rejection of the cases
+            // where one of the endpoints is inside the rectangle.
+            if ((x0 < rxmax && x0 > rxmin && y0 < rymax && y0 > rymin) ||
+                    (x1 < rxmax && x1 > rxmin && y1 < rymax && y1 > rymin)) {
+                return RECT_INTERSECTS;
+            }
+
+//            double curveMinX = Math.min(Math.min(x0, x1), xc);
+//            double curveMaxX = Math.max(Math.max(x0, x1), xc);
+//            double curveMinY = Math.min(Math.min(y0, y1), yc);
+//            double curveMaxY = Math.max(Math.max(y0, y1), yc);
+//            if (rymin < curveMinY && rymax > curveMaxY && rxmin > curveMinX && rxmax < curveMaxX) {
+//                return RECT_INTERSECTS;
+//            }
+//            if (rxmin < curveMinX && rxmax > curveMaxX && rymin > curveMinY && rymax < curveMaxY) {
+//                return RECT_INTERSECTS;
+//            }
         }
         // Otherwise, subdivide and look for one of the cases above.
         // double precision only has 52 bits of mantissa
@@ -512,6 +524,11 @@ public abstract class Curve {
             // These values are also NaN if opposing infinities are added
             return 0;
         }
+
+        if (xc < rxmax && xc > rxmin && yc < rymax && yc > rymin) {
+            return RECT_INTERSECTS;
+        }
+
         crossings = rectCrossingsForQuad(crossings,
                 rxmin, rymin, rxmax, rymax,
                 x0, y0, x0c, y0c, xc, yc,
@@ -568,13 +585,27 @@ public abstract class Curve {
             }
             return crossings;
         }
-        // The intersection of ranges is more complicated
-        // First do trivial INTERSECTS rejection of the cases
-        // where one of the endpoints is inside the rectangle.
-        if ((x0 > rxmin && x0 < rxmax && y0 > rymin && y0 < rymax) ||
-                (x1 > rxmin && x1 < rxmax && y1 > rymin && y1 < rymax))
-        {
-            return RECT_INTERSECTS;
+
+        if (level == 0) {
+            // The intersection of ranges is more complicated
+            // First do trivial INTERSECTS rejection of the cases
+            // where one of the endpoints is inside the rectangle.
+            if ((x0 > rxmin && x0 < rxmax && y0 > rymin && y0 < rymax) ||
+                    (x1 > rxmin && x1 < rxmax && y1 > rymin && y1 < rymax))
+            {
+                return RECT_INTERSECTS;
+            }
+
+//            double curveMinX = Math.min(Math.min(x0, xc0), Math.min(xc1, x1));
+//            double curveMaxX = Math.max(Math.max(x0, xc0), Math.max(xc1, x1));
+//            double curveMinY = Math.min(Math.min(y0, yc0), Math.min(yc1, x1));
+//            double curveMaxY = Math.max(Math.max(y0, yc0), Math.max(yc1, x1));
+//            if (rymin < curveMinY && rymax > curveMaxY && rxmin > curveMinX && rxmax < curveMaxX) {
+//                return RECT_INTERSECTS;
+//            }
+//            if (rxmin < curveMinX && rxmax > curveMaxX && rymin > curveMinY && rymax < curveMaxY) {
+//                return RECT_INTERSECTS;
+//            }
         }
         // Otherwise, subdivide and look for one of the cases above.
         // double precision only has 52 bits of mantissa
@@ -601,6 +632,12 @@ public abstract class Curve {
             // These values are also NaN if opposing infinities are added
             return 0;
         }
+
+        if (xmid > rxmin && xmid < rxmax && ymid > rymin && ymid < rymax)
+        {
+            return RECT_INTERSECTS;
+        }
+
         crossings = rectCrossingsForCubic(crossings,
                 rxmin, rymin, rxmax, rymax,
                 x0, y0, xc0, yc0,
