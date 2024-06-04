@@ -132,7 +132,7 @@ public class CompoundOutline implements Outline, Serializable {
         Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
         if (cachedBounds.contains(operandBounds) && contains(operandBounds)) {
             return;
-        } else if (operandBounds.contains(cachedBounds) && Path2D.contains(operand.getPathIterator(null), cachedBounds)) {
+        } else if (operandBounds.contains(cachedBounds) && ShapeUtils.contains(operand.getPathIterator(null), cachedBounds)) {
             reset(operand);
             return;
         }
@@ -154,7 +154,7 @@ public class CompoundOutline implements Outline, Serializable {
                 while (myMembersIter.hasNext()) {
                     Member myMember = myMembersIter.next();
                     if (operandMember.bounds.contains(myMember.bounds) &&
-                            Path2D.contains(operandMember.shape.getPathIterator(null), myMember.bounds) &&
+                            ShapeUtils.contains(operandMember.shape.getPathIterator(null), myMember.bounds) &&
                             isWindingRuleCompatible) {
                         myMembersIter.set(operandMember);
                         cachedBounds.add(operandMember.bounds);
@@ -186,7 +186,7 @@ public class CompoundOutline implements Outline, Serializable {
                 while (myMembersIter.hasNext()) {
                     Member member = myMembersIter.next();
                     if (operandBounds.contains(member.bounds) &&
-                            Path2D.contains(operand.getPathIterator(null), member.bounds)) {
+                            ShapeUtils.contains(operand.getPathIterator(null), member.bounds)) {
                         // this member is going to be eclipsed by the incoming shape
                         myMembersIter.remove();
                     }
@@ -196,7 +196,7 @@ public class CompoundOutline implements Outline, Serializable {
                 while (myMembersIter.hasPrevious()) {
                     Member member = myMembersIter.previous();
                     if (ShapeUtils.intersects(member.bounds, operandBounds) &&
-                            Path2D.intersects(member.shape.getPathIterator(null), operandBounds)) {
+                            ShapeUtils.intersects(member.shape.getPathIterator(null), operandBounds)) {
                         intersects = true;
                         break;
                     }
@@ -280,7 +280,7 @@ public class CompoundOutline implements Outline, Serializable {
         Iterator<Member> myIter = shapes.iterator();
         while (myIter.hasNext()) {
             Member entry = myIter.next();
-            if (!Path2D.intersects(entry.shape.getPathIterator(null), operandBounds)) {
+            if (!ShapeUtils.intersects(entry.shape.getPathIterator(null), operandBounds)) {
                 myIter.remove();
             }
         }
@@ -541,7 +541,7 @@ public class CompoundOutline implements Outline, Serializable {
             return false;
 
         for (Member entry : shapes) {
-            if (entry.bounds.contains(x,y) && Path2D.contains(entry.shape.getPathIterator(null), x, y))
+            if (entry.bounds.contains(x,y) && ShapeUtils.contains(entry.shape.getPathIterator(null), x, y))
                 return true;
         }
         return false;
@@ -563,7 +563,7 @@ public class CompoundOutline implements Outline, Serializable {
             return false;
 
         for (Member entry : shapes) {
-            if (ShapeUtils.intersects(entry.bounds, r) && Path2D.intersects(entry.shape.getPathIterator(null), r))
+            if (ShapeUtils.intersects(entry.bounds, r) && ShapeUtils.intersects(entry.shape.getPathIterator(null), r))
                 return true;
         }
         return false;
@@ -575,7 +575,7 @@ public class CompoundOutline implements Outline, Serializable {
             return false;
 
         for (Member entry : shapes) {
-            if (entry.bounds.contains(x, y, w, h) && Path2D.contains(entry.shape.getPathIterator(null), x, y, w, h))
+            if (entry.bounds.contains(x, y, w, h) && ShapeUtils.contains(entry.shape.getPathIterator(null), x, y, w, h))
                 return true;
         }
         return false;

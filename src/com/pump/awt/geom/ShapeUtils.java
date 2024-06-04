@@ -780,4 +780,239 @@ public class ShapeUtils {
         return r.getMinY() <= lineY && lineY <= r.getMaxY() &&
             RangeDouble.intersects(lineMinX, lineMaxX, r.getMinX(), r.getMaxX());
     }
+
+    /// the intersects & contains logic:
+
+
+    /**
+     * Copied & adapted from {@link Path2D#contains(PathIterator, double, double)}
+     * <p>
+     * Tests if the specified coordinates are inside the closed
+     * boundary of the specified {@link PathIterator}.
+     * <p>
+     * This method provides a basic facility for implementors of
+     * the {@link Shape} interface to implement support for the
+     * {@link Shape#contains(double, double)} method.
+     *
+     * @param pi the specified {@code PathIterator}
+     * @param x the specified X coordinate
+     * @param y the specified Y coordinate
+     * @return {@code true} if the specified coordinates are inside the
+     *         specified {@code PathIterator}; {@code false} otherwise
+     */
+    public static boolean contains(PathIterator pi, double x, double y) {
+        if (x * 0.0 + y * 0.0 == 0.0) {
+            /* N * 0.0 is 0.0 only if N is finite.
+             * Here we know that both x and y are finite.
+             */
+            int mask = (pi.getWindingRule() == Path2D.WIND_NON_ZERO ? -1 : 1);
+            int cross = Curve.pointCrossingsForPath(pi, x, y);
+            return ((cross & mask) != 0);
+        } else {
+            /* Either x or y was infinite or NaN.
+             * A NaN always produces a negative response to any test
+             * and Infinity values cannot be "inside" any path so
+             * they should return false as well.
+             */
+            return false;
+        }
+    }
+
+    /**
+     * Copied & adapted from {@link Path2D#contains(PathIterator, Point2D)}
+     * <p>
+     * Tests if the specified {@link Point2D} is inside the closed
+     * boundary of the specified {@link PathIterator}.
+     * <p>
+     * This method provides a basic facility for implementors of
+     * the {@link Shape} interface to implement support for the
+     * {@link Shape#contains(Point2D)} method.
+     *
+     * @param pi the specified {@code PathIterator}
+     * @param p the specified {@code Point2D}
+     * @return {@code true} if the specified coordinates are inside the
+     *         specified {@code PathIterator}; {@code false} otherwise
+     */
+    public static boolean contains(PathIterator pi, Point2D p) {
+        return contains(pi, p.getX(), p.getY());
+    }
+
+    /**
+     * Copied & adapted from {@link Path2D#contains(PathIterator, double, double, double, double)}
+     * <p>
+     * Tests if the specified rectangular area is entirely inside the
+     * closed boundary of the specified {@link PathIterator}.
+     * <p>
+     * This method provides a basic facility for implementors of
+     * the {@link Shape} interface to implement support for the
+     * {@link Shape#contains(double, double, double, double)} method.
+     * <p>
+     * This method object may conservatively return false in
+     * cases where the specified rectangular area intersects a
+     * segment of the path, but that segment does not represent a
+     * boundary between the interior and exterior of the path.
+     * Such segments could lie entirely within the interior of the
+     * path if they are part of a path with a {@link Path2D#WIND_NON_ZERO}
+     * winding rule or if the segments are retraced in the reverse
+     * direction such that the two sets of segments cancel each
+     * other out without any exterior area falling between them.
+     * To determine whether segments represent true boundaries of
+     * the interior of the path would require extensive calculations
+     * involving all of the segments of the path and the winding
+     * rule and are thus beyond the scope of this implementation.
+     *
+     * @param pi the specified {@code PathIterator}
+     * @param x the specified X coordinate
+     * @param y the specified Y coordinate
+     * @param w the width of the specified rectangular area
+     * @param h the height of the specified rectangular area
+     * @return {@code true} if the specified {@code PathIterator} contains
+     *         the specified rectangular area; {@code false} otherwise.
+     */
+    public static boolean contains(PathIterator pi,
+                                   double x, double y, double w, double h)
+    {
+        if (java.lang.Double.isNaN(x+w) || java.lang.Double.isNaN(y+h)) {
+            /* [xy]+[wh] is NaN if any of those values are NaN,
+             * or if adding the two together would produce NaN
+             * by virtue of adding opposing Infinte values.
+             * Since we need to add them below, their sum must
+             * not be NaN.
+             * We return false because NaN always produces a
+             * negative response to tests
+             */
+            return false;
+        }
+        if (w <= 0 || h <= 0) {
+            return false;
+        }
+        int mask = (pi.getWindingRule() == Path2D.WIND_NON_ZERO ? -1 : 2);
+        int crossings = Curve.rectCrossingsForPath(pi, x, y, x+w, y+h);
+        return (crossings != Curve.RECT_INTERSECTS &&
+                (crossings & mask) != 0);
+    }
+
+    /**
+     * Copied & adapted from {@link Path2D#contains(PathIterator, Rectangle2D)}
+     * <p>
+     * Tests if the specified {@link Rectangle2D} is entirely inside the
+     * closed boundary of the specified {@link PathIterator}.
+     * <p>
+     * This method provides a basic facility for implementors of
+     * the {@link Shape} interface to implement support for the
+     * {@link Shape#contains(Rectangle2D)} method.
+     * <p>
+     * This method object may conservatively return false in
+     * cases where the specified rectangular area intersects a
+     * segment of the path, but that segment does not represent a
+     * boundary between the interior and exterior of the path.
+     * Such segments could lie entirely within the interior of the
+     * path if they are part of a path with a {@link Path2D#WIND_NON_ZERO}
+     * winding rule or if the segments are retraced in the reverse
+     * direction such that the two sets of segments cancel each
+     * other out without any exterior area falling between them.
+     * To determine whether segments represent true boundaries of
+     * the interior of the path would require extensive calculations
+     * involving all of the segments of the path and the winding
+     * rule and are thus beyond the scope of this implementation.
+     *
+     * @param pi the specified {@code PathIterator}
+     * @param r a specified {@code Rectangle2D}
+     * @return {@code true} if the specified {@code PathIterator} contains
+     *         the specified {@code Rectangle2D}; {@code false} otherwise.
+     */
+    public static boolean contains(PathIterator pi, Rectangle2D r) {
+        return contains(pi, r.getX(), r.getY(), r.getWidth(), r.getHeight());
+    }
+
+    /**
+     * Copied & adapted from {@link Path2D#intersects(PathIterator, double, double, double, double)}
+     * <p>
+     * Tests if the interior of the specified {@link PathIterator}
+     * intersects the interior of a specified set of rectangular
+     * coordinates.
+     * <p>
+     * This method provides a basic facility for implementors of
+     * the {@link Shape} interface to implement support for the
+     * {@link Shape#intersects(double, double, double, double)} method.
+     * <p>
+     * This method object may conservatively return true in
+     * cases where the specified rectangular area intersects a
+     * segment of the path, but that segment does not represent a
+     * boundary between the interior and exterior of the path.
+     * Such a case may occur if some set of segments of the
+     * path are retraced in the reverse direction such that the
+     * two sets of segments cancel each other out without any
+     * interior area between them.
+     * To determine whether segments represent true boundaries of
+     * the interior of the path would require extensive calculations
+     * involving all of the segments of the path and the winding
+     * rule and are thus beyond the scope of this implementation.
+     *
+     * @param pi the specified {@code PathIterator}
+     * @param x the specified X coordinate
+     * @param y the specified Y coordinate
+     * @param w the width of the specified rectangular coordinates
+     * @param h the height of the specified rectangular coordinates
+     * @return {@code true} if the specified {@code PathIterator} and
+     *         the interior of the specified set of rectangular
+     *         coordinates intersect each other; {@code false} otherwise.
+     */
+    public static boolean intersects(PathIterator pi,
+                                     double x, double y, double w, double h)
+    {
+        if (java.lang.Double.isNaN(x+w) || java.lang.Double.isNaN(y+h)) {
+            /* [xy]+[wh] is NaN if any of those values are NaN,
+             * or if adding the two together would produce NaN
+             * by virtue of adding opposing Infinte values.
+             * Since we need to add them below, their sum must
+             * not be NaN.
+             * We return false because NaN always produces a
+             * negative response to tests
+             */
+            return false;
+        }
+        if (w <= 0 || h <= 0) {
+            return false;
+        }
+        int mask = (pi.getWindingRule() == Path2D.WIND_NON_ZERO ? -1 : 2);
+        int crossings = Curve.rectCrossingsForPath(pi, x, y, x+w, y+h);
+        return (crossings == Curve.RECT_INTERSECTS ||
+                (crossings & mask) != 0);
+    }
+
+    /**
+     * Copied & adapted from {@link Path2D#intersects(PathIterator, Rectangle2D)}
+     * <p>
+     * Tests if the interior of the specified {@link PathIterator}
+     * intersects the interior of a specified {@link Rectangle2D}.
+     * <p>
+     * This method provides a basic facility for implementors of
+     * the {@link Shape} interface to implement support for the
+     * {@link Shape#intersects(Rectangle2D)} method.
+     * <p>
+     * This method object may conservatively return true in
+     * cases where the specified rectangular area intersects a
+     * segment of the path, but that segment does not represent a
+     * boundary between the interior and exterior of the path.
+     * Such a case may occur if some set of segments of the
+     * path are retraced in the reverse direction such that the
+     * two sets of segments cancel each other out without any
+     * interior area between them.
+     * To determine whether segments represent true boundaries of
+     * the interior of the path would require extensive calculations
+     * involving all of the segments of the path and the winding
+     * rule and are thus beyond the scope of this implementation.
+     *
+     * @param pi the specified {@code PathIterator}
+     * @param r the specified {@code Rectangle2D}
+     * @return {@code true} if the specified {@code PathIterator} and
+     *         the interior of the specified {@code Rectangle2D}
+     *         intersect each other; {@code false} otherwise.
+     * @since 1.6
+     */
+    public static boolean intersects(PathIterator pi, Rectangle2D r) {
+        return intersects(pi, r.getX(), r.getY(), r.getWidth(), r.getHeight());
+    }
+
 }
