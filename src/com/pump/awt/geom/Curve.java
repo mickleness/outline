@@ -494,16 +494,16 @@ public abstract class Curve {
                 return RECT_INTERSECTS;
             }
 
-//            double curveMinX = Math.min(Math.min(x0, x1), xc);
-//            double curveMaxX = Math.max(Math.max(x0, x1), xc);
-//            double curveMinY = Math.min(Math.min(y0, y1), yc);
-//            double curveMaxY = Math.max(Math.max(y0, y1), yc);
-//            if (rymin < curveMinY && rymax > curveMaxY && rxmin > curveMinX && rxmax < curveMaxX) {
-//                return RECT_INTERSECTS;
-//            }
-//            if (rxmin < curveMinX && rxmax > curveMaxX && rymin > curveMinY && rymax < curveMaxY) {
-//                return RECT_INTERSECTS;
-//            }
+            double curveMinX = Math.min(Math.min(x0, x1), xc);
+            double curveMaxX = Math.max(Math.max(x0, x1), xc);
+            double curveMinY = Math.min(Math.min(y0, y1), yc);
+            double curveMaxY = Math.max(Math.max(y0, y1), yc);
+            if (rymin < curveMinY && rymax > curveMaxY && rxmin > curveMinX && rxmax < curveMaxX) {
+                return RECT_INTERSECTS;
+            }
+            if (rxmin < curveMinX && rxmax > curveMaxX && rymin > curveMinY && rymax < curveMaxY) {
+                return RECT_INTERSECTS;
+            }
         }
         // Otherwise, subdivide and look for one of the cases above.
         // double precision only has 52 bits of mantissa
@@ -596,16 +596,16 @@ public abstract class Curve {
                 return RECT_INTERSECTS;
             }
 
-//            double curveMinX = Math.min(Math.min(x0, xc0), Math.min(xc1, x1));
-//            double curveMaxX = Math.max(Math.max(x0, xc0), Math.max(xc1, x1));
-//            double curveMinY = Math.min(Math.min(y0, yc0), Math.min(yc1, x1));
-//            double curveMaxY = Math.max(Math.max(y0, yc0), Math.max(yc1, x1));
-//            if (rymin < curveMinY && rymax > curveMaxY && rxmin > curveMinX && rxmax < curveMaxX) {
-//                return RECT_INTERSECTS;
-//            }
-//            if (rxmin < curveMinX && rxmax > curveMaxX && rymin > curveMinY && rymax < curveMaxY) {
-//                return RECT_INTERSECTS;
-//            }
+            double curveMinX = Math.min(Math.min(x0, xc0), Math.min(xc1, x1));
+            double curveMaxX = Math.max(Math.max(x0, xc0), Math.max(xc1, x1));
+            double curveMinY = Math.min(Math.min(y0, yc0), Math.min(yc1, x1));
+            double curveMaxY = Math.max(Math.max(y0, yc0), Math.max(yc1, x1));
+            if (rymin < curveMinY && rymax > curveMaxY && rxmin > curveMinX && rxmax < curveMaxX) {
+                return RECT_INTERSECTS;
+            }
+            if (rxmin < curveMinX && rxmax > curveMaxX && rymin > curveMinY && rymax < curveMaxY) {
+                return RECT_INTERSECTS;
+            }
         }
         // Otherwise, subdivide and look for one of the cases above.
         // double precision only has 52 bits of mantissa
