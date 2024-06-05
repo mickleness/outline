@@ -437,19 +437,18 @@ public class CompoundOutline implements Outline, Serializable {
         Outline newFlattenedShape;
         if (shapes.size() == 1 && shapes.get(0).outline != null) {
             newFlattenedShape = shapes.get(0).outline;
-            for (OutlineOperation additionalOp : additionalOps) {
-                additionalOp.execute(newFlattenedShape);
-            }
         } else {
-            newFlattenedShape = factory.create();
             if (shapes.size() == 1) {
                 // Area#add is more performant if the arg is an Area
-                newFlattenedShape.add(shapes.get(0).shape);
+                newFlattenedShape = factory.create(shapes.get(0).shape);
             } else if (shapes.size() > 1) {
-                newFlattenedShape.add(this);
+                newFlattenedShape = factory.create(this);
+            } else {
+                // I'm not sure if this condition is ever reachable, but just in case:
+                newFlattenedShape = factory.create();
             }
-            newFlattenedShape.execute(additionalOps);
         }
+        newFlattenedShape.execute(additionalOps);
 
         windingRule = getWindingRule(newFlattenedShape);
         shapes.clear();
