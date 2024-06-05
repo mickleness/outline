@@ -130,8 +130,11 @@ public class CompoundOutline implements Outline, Serializable {
         }
 
         Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
-        if (cachedBounds.contains(operandBounds) && contains(operandBounds)) {
-            return;
+        if (cachedBounds.contains(operandBounds)) {
+            for (Member member : shapes) {
+                if (member.bounds.contains(operandBounds) && member.shape.contains(operandBounds))
+                    return;
+            }
         } else if (operandBounds.contains(cachedBounds) && ShapeUtils.contains(operand.getPathIterator(null), cachedBounds)) {
             reset(operand);
             return;
