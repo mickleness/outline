@@ -6,9 +6,8 @@ import com.pump.util.RangeDouble;
 
 import java.awt.*;
 import java.awt.geom.*;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
-import java.util.Objects;
 
 public class ShapeUtils {
 
@@ -515,6 +514,92 @@ public class ShapeUtils {
                 returnValue = Math.max(returnValue, 1);
             pi.next();
         }
+        return returnValue;
+    }
+
+    /**
+     * Split up a Shape into subpaths. Subpaths stay together if their bounds
+     * overlap. For example: the concentric circle paths in a bulls-eye may need to
+     * stay in the same Shape. But if you have several non-touching shapes
+     * (like glyphs in a row of text): those can be safely separated.
+     *
+     * TODO: remove this method if I don't find an application for it.
+     */
+    public static Map<Shape, Rectangle2D> getPaths(Shape shape) {
+        record Path(Path2D path, Rectangle2D bounds) {}
+
+        Deque<Path> paths = new LinkedList<>();
+
+        PathIterator pi = shape.getPathIterator(null);
+        double[] coords = new double[6];
+        int pathCtr = 0;
+        double lastX = 0;
+        double lastY = 0;
+        CubicCurve2D cubicCurve2D = new CubicCurve2D.Double();
+        QuadCurve2D quadCurve2D = new QuadCurve2D.Double();
+        int windingRule = pi.getWindingRule();
+        while (!pi.isDone()) {
+            int k = pi.currentSegment(coords);
+            switch (k) {
+                case PathIterator.SEG_MOVETO:
+                    Path2D p = new Path2D.Double(windingRule);
+                    p.moveTo(coords[0], coords[1]);
+                    Rectangle2D r = new Rectangle2D.Double(coords[0], coords[1], 0, 0);
+
+                    paths.add(new Path(p, r));
+
+                    lastX = coords[0];
+                    lastY = coords[1];
+                    break;
+                case PathIterator.SEG_LINETO:
+                    paths.getLast().path.lineTo(coords[0], coords[1]);
+                    paths.getLast().bounds.add(coords[0], coords[1]);
+                    lastX = coords[0];
+                    lastY = coords[1];
+                    break;
+                case PathIterator.SEG_QUADTO:
+                    quadCurve2D.setCurve(lastX, lastY, coords[0], coords[1], coords[2], coords[3]);
+                    paths.getLast().bounds.add(getBounds2D(quadCurve2D));
+
+                    paths.getLast().path.quadTo(coords[0], coords[1], coords[2], coords[3]);
+                    lastX = coords[2];
+                    lastY = coords[3];
+                    break;
+                case PathIterator.SEG_CUBICTO:
+                    cubicCurve2D.setCurve(lastX, lastY, coords[0], coords[1], coords[2], coords[3], coords[4], coords[5]);
+                    paths.getLast().bounds.add(getBounds2D(cubicCurve2D));
+
+                    paths.getLast().path.curveTo(coords[0], coords[1], coords[2], coords[3], coords[4], coords[5]);
+                    lastX = coords[4];
+                    lastY = coords[5];
+                    break;
+                case PathIterator.SEG_CLOSE:
+                    paths.getLast().path.closePath();
+                    break;
+            }
+            pi.next();
+        }
+
+        Path[] array = paths.toArray(new Path[0]);
+        Map<Shape, Rectangle2D> returnValue = new LinkedHashMap<>();
+        for (int a = 0; a < array.length; a++) {
+            if (array[a] == null)
+                continue;
+
+            for (int b = a + 1; b < array.length; b++) {
+                if (array[b] != null && intersects(array[a].bounds, array[b].bounds)) {
+                    array[a].path.append(array[b].path, false);
+                    array[a].bounds.add(array[b].bounds);
+                    array[b] = null;
+
+                    // rescan now that array[a].bounds grew
+                    b = a;
+                }
+            }
+
+            returnValue.put(array[a].path, array[a].bounds);
+        }
+
         return returnValue;
     }
 
