@@ -65,14 +65,18 @@ public class CompoundOutline implements Outline, Serializable {
     OutlineFactory factory;
 
     public CompoundOutline() {
-        this( (OutlineFactory) null);
+        this( (OutlineFactory) null, null);
+    }
+
+    public CompoundOutline(OutlineFactory outlineFactory) {
+        this(outlineFactory, null);
     }
 
     /**
      * Create a new CompoundShape that combines the argument shapes.
      */
-    public CompoundOutline(Shape... shapes) {
-        this(null, shapes);
+    public CompoundOutline(Shape shape) {
+        this(null, shape);
     }
 
     /**
@@ -81,11 +85,33 @@ public class CompoundOutline implements Outline, Serializable {
      * @param factory the optional factory to use when this shape needs to perform a complex operation.
      *               If this is null then this object uses an AreaOutlineEngine.
      */
-    public CompoundOutline(OutlineFactory factory, Shape... shapes)  {
+    public CompoundOutline(OutlineFactory factory, Shape shape)  {
         this.factory = factory == null ? OutlineFactory.getDefault() : factory;
 
-        for(Shape shape : shapes) {
-            add(shape);
+        if (shape == null || ShapeUtils.isEmpty(shape)) {
+            windingRule = WIND_UNKNOWN;
+            return;
+        } else if (shape instanceof CompoundOutline compoundOutline) {
+            windingRule = compoundOutline.windingRule;
+            if (compoundOutline.cachedBounds != null) {
+                cachedBounds = new Rectangle2D.Double();
+                cachedBounds.setFrame(compoundOutline.cachedBounds);
+            }
+            shapes.addAll(compoundOutline.shapes);
+            return;
+        }
+
+        windingRule = getWindingRule(shape);
+        Map<Shape, Rectangle2D> paths = ShapeUtils.getPaths(shape);
+
+        for (Map.Entry<Shape, Rectangle2D> entry : paths.entrySet()) {
+            if (cachedBounds == null) {
+                cachedBounds = new Rectangle2D.Double();
+                cachedBounds.setFrame(entry.getValue());
+            } else {
+                cachedBounds.add(entry.getValue());
+            }
+            shapes.add(new Member(null, entry.getKey(), entry.getValue()));
         }
     }
 
@@ -102,15 +128,19 @@ public class CompoundOutline implements Outline, Serializable {
         if (operand == null) {
             cachedBounds = null;
             windingRule = WIND_UNKNOWN;
-        } else if (operand instanceof CompoundOutline s) {
-            shapes.addAll(s.shapes);
-            cachedBounds = new Rectangle2D.Double(s.cachedBounds.getX(), s.cachedBounds.getY(), s.cachedBounds.getWidth(), s.cachedBounds.getHeight());
-            windingRule = s.getWindingRule();
         } else {
-            Member m = new Member(operand);
-            shapes.add(m);
-            cachedBounds = new Rectangle2D.Double(m.bounds.getX(), m.bounds.getY(), m.bounds.getWidth(), m.bounds.getHeight());
-            windingRule = getWindingRule(operand);
+            if (cachedBounds == null)
+                cachedBounds = new Rectangle2D.Double();
+            if (operand instanceof CompoundOutline s) {
+                shapes.addAll(s.shapes);
+                cachedBounds.setFrame(s.cachedBounds);
+                windingRule = s.getWindingRule();
+            } else {
+                Member m = new Member(operand);
+                shapes.add(m);
+                cachedBounds.setFrame(m.bounds);
+                windingRule = getWindingRule(operand);
+            }
         }
     }
 
@@ -122,97 +152,65 @@ public class CompoundOutline implements Outline, Serializable {
      */
     @Override
     public void add(Shape operand) {
+        if (operand instanceof CompoundOutline compoundOutline) {
+            add(compoundOutline);
+            return;
+        }
+        add(new CompoundOutline(operand));
+    }
+
+    private void add(CompoundOutline operand) {
         if (operand == null || ShapeUtils.isEmpty(operand)) {
             return;
         } else if (isEmpty()) {
             reset(operand);
             return;
         }
-
-        Rectangle2D operandBounds = ShapeUtils.getBounds2D(operand);
-        if (cachedBounds.contains(operandBounds)) {
+        if (cachedBounds.contains(operand.cachedBounds)) {
             for (Member member : shapes) {
-                if (member.bounds.contains(operandBounds) && member.shape.contains(operandBounds))
+                if (member.bounds.contains(operand.cachedBounds) && member.shape.contains(operand.cachedBounds))
                     return;
             }
-        } else if (operandBounds.contains(cachedBounds) && ShapeUtils.contains(operand.getPathIterator(null), cachedBounds)) {
+        } else if (operand.cachedBounds.contains(cachedBounds) && ShapeUtils.contains(operand.getPathIterator(null), cachedBounds)) {
             reset(operand);
             return;
         }
 
-        if (operand instanceof CompoundOutline s) {
-            List<OutlineOperation> remainingAdds = new LinkedList<>();
+        List<OutlineOperation> remainingAdds = new LinkedList<>();
 
-            for (Member operandMember : s.shapes) {
-                if (contains(operandMember.bounds))
-                    continue;
+        scanOperandMembers : for (Member operandMember : operand.shapes) {
+            for (Member myMember : shapes) {
+                if (myMember.bounds.contains(operandMember.bounds) &&
+                        ShapeUtils.contains(myMember.shape.getPathIterator(null), operandMember.bounds))
+                    continue scanOperandMembers;
+            }
 
-                int operandMemberWindingRule = getWindingRule(operandMember.shape);
-                boolean isWindingRuleCompatible = windingRule == WIND_UNKNOWN ||
-                        operandMemberWindingRule == WIND_UNKNOWN ||
-                        operandMemberWindingRule == windingRule;
+            int operandMemberWindingRule = getWindingRule(operandMember.shape);
+            boolean isWindingRuleCompatible = windingRule == WIND_UNKNOWN ||
+                    operandMemberWindingRule == WIND_UNKNOWN ||
+                    operandMemberWindingRule == windingRule;
 
-                ListIterator<Member> myMembersIter = shapes.listIterator();
-                boolean isOperandMemberHandled = false;
-                while (myMembersIter.hasNext()) {
-                    Member myMember = myMembersIter.next();
-                    if (operandMember.bounds.contains(myMember.bounds) &&
-                            ShapeUtils.contains(operandMember.shape.getPathIterator(null), myMember.bounds) &&
-                            isWindingRuleCompatible) {
-                        myMembersIter.set(operandMember);
-                        cachedBounds.add(operandMember.bounds);
-                        isOperandMemberHandled = true;
-                    }
-                }
-
-                if (!isOperandMemberHandled) {
-                    if (isWindingRuleCompatible && !intersects(operandMember.bounds)) {
-                        shapes.add(operandMember);
-                    } else {
-                        // we'll invoke flatten() later to make sure we get the merge correct
-                        remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMember.shape));
-                    }
+            ListIterator<Member> myMembersIter = shapes.listIterator();
+            while (myMembersIter.hasNext()) {
+                Member myMember = myMembersIter.next();
+                if (operandMember.bounds.contains(myMember.bounds) &&
+                        ShapeUtils.contains(operandMember.shape.getPathIterator(null), myMember.bounds) &&
+                        isWindingRuleCompatible) {
+                    myMembersIter.remove();
                 }
             }
 
-            if (!remainingAdds.isEmpty()) {
-                flatten(remainingAdds);
+            if (isWindingRuleCompatible && !intersects(operandMember.bounds)) {
+                shapes.add(operandMember);
+                cachedBounds.add(operandMember.bounds);
+            } else {
+                // we'll invoke flatten() later to make sure we get the merge correct
+                remainingAdds.add(new OutlineOperation(OutlineOperation.Type.ADD, operandMember.shape));
             }
-        } else {
-            int operandWindingRule = getWindingRule(operand);
-            boolean isOperandWindingRuleCompatible = windingRule == WIND_UNKNOWN ||
-                    operandWindingRule == WIND_UNKNOWN ||
-                    windingRule == operandWindingRule;
+        }
 
-            if (isOperandWindingRuleCompatible) {
-                ListIterator<Member> myMembersIter = shapes.listIterator();
-                while (myMembersIter.hasNext()) {
-                    Member member = myMembersIter.next();
-                    if (operandBounds.contains(member.bounds) &&
-                            ShapeUtils.contains(operand.getPathIterator(null), member.bounds)) {
-                        // this member is going to be eclipsed by the incoming shape
-                        myMembersIter.remove();
-                    }
-                }
-
-                boolean intersects = false;
-                while (myMembersIter.hasPrevious()) {
-                    Member member = myMembersIter.previous();
-                    if (ShapeUtils.intersects(member.bounds, operandBounds) &&
-                            ShapeUtils.intersects(member.shape.getPathIterator(null), operandBounds)) {
-                        intersects = true;
-                        break;
-                    }
-                }
-
-                if (!intersects) {
-                    shapes.add(new Member(null, operand, operandBounds));
-                    cachedBounds.add(operandBounds);
-                    return;
-                }
-            }
-
-            flatten(Collections.singletonList(new OutlineOperation(OutlineOperation.Type.ADD, operand)));
+        if (!remainingAdds.isEmpty()) {
+            flatten(remainingAdds);
         }
     }
 
@@ -262,7 +260,7 @@ public class CompoundOutline implements Outline, Serializable {
                 return;
             } else if (relevantOperandMembers.size() != s.shapes.size()) {
                 // create a new simpler operand with just the parts we're interested in:
-                CompoundOutline newOperand = new CompoundOutline(s.factory);
+                CompoundOutline newOperand = new CompoundOutline(s.factory, null);
                 newOperand.windingRule = s.getWindingRule();
                 for (Member relevantOperandMember : relevantOperandMembers) {
                     newOperand.shapes.add(relevantOperandMember);
@@ -441,14 +439,38 @@ public class CompoundOutline implements Outline, Serializable {
         if (shapes.size() == 1 && shapes.get(0).outline != null) {
             newFlattenedShape = shapes.get(0).outline;
         } else {
-            if (shapes.size() == 1) {
-                // Area#add is more performant if the arg is an Area
-                newFlattenedShape = factory.create(shapes.get(0).shape);
-            } else if (shapes.size() > 1) {
-                newFlattenedShape = factory.create(this);
-            } else {
+            if (shapes.isEmpty()) {
                 // I'm not sure if this condition is ever reachable, but just in case:
                 newFlattenedShape = factory.create();
+            } else if (shapes.size() == 1) {
+                newFlattenedShape = factory.create(shapes.get(0).shape);
+            } else {
+                List<Shape> shapesToAdd = new LinkedList<>();
+                Iterator<Member> iter = shapes.iterator();
+                while (iter.hasNext()) {
+                    shapesToAdd.add(iter.next().shape);
+                }
+                Iterator<OutlineOperation> opIter = additionalOps.iterator();
+                while (opIter.hasNext()) {
+                    OutlineOperation op = opIter.next();
+                    if (op.type == OutlineOperation.Type.ADD) {
+                        shapesToAdd.add(op.shape);
+                    } else {
+                        break;
+                    }
+                }
+
+                while (shapesToAdd.size() > 1) {
+                    Shape s1 = shapesToAdd.remove(0);
+                    if (!shapes.isEmpty()) {
+                        Shape s2 = shapesToAdd.remove(0);
+                        Outline outline = factory.create(s1);
+                        outline.add(s2);
+                        shapesToAdd.add(outline);
+                    }
+                }
+
+                newFlattenedShape = factory.create(shapesToAdd.get(0));
             }
         }
         newFlattenedShape.execute(additionalOps);
