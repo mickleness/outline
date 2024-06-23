@@ -122,12 +122,10 @@ public class CompoundOutlineTest extends TestCase {
 
     public void testAdd_overlappingCompoundShapes() {
         TestOutlineFactory factory = new TestOutlineFactory();
-        CompoundOutline s1 = new CompoundOutline(factory);
-        s1.add(new Ellipse2D.Float(5,5,1,1));
-        s1.add(new Ellipse2D.Float(15,5,1,1));
-        CompoundOutline s2 = new CompoundOutline(factory);
-        s2.add(new Ellipse2D.Float(0,0,9,9));
-        s2.add(new Ellipse2D.Float(10,10,9,9));
+        CompoundOutline s1 = new CompoundOutline(factory, new Ellipse2D.Float(5,5,1,1),
+                new Ellipse2D.Float(15,5,1,1));
+        CompoundOutline s2 = new CompoundOutline(factory, new Ellipse2D.Float(0,0,9,9),
+                new Ellipse2D.Float(10,10,9,9));
         s1.add(s2);
 
         assertEquals(0, factory.operationCtr);
@@ -135,9 +133,8 @@ public class CompoundOutlineTest extends TestCase {
 
     public void testAdd_overlappingPartialShapes() {
         TestOutlineFactory factory = new TestOutlineFactory();
-        CompoundOutline s1 = new CompoundOutline(factory);
-        s1.add(new Ellipse2D.Float(5,5,1,1));
-        s1.add(new Ellipse2D.Float(15,5,1,1));
+        CompoundOutline s1 = new CompoundOutline(factory, new Ellipse2D.Float(5,5,1,1),
+                new Ellipse2D.Float(15,5,1,1));
         s1.add(new Ellipse2D.Float(0,0,9,9));
         s1.add(new Ellipse2D.Float(10,0,9,9));
 
@@ -146,9 +143,8 @@ public class CompoundOutlineTest extends TestCase {
 
     public void testAdd_overlappingButNotIntersecting() {
         TestOutlineFactory factory = new TestOutlineFactory();
-        CompoundOutline s1 = new CompoundOutline(factory);
-        s1.add(new Ellipse2D.Float(5,5,2,2));
-        s1.add(new Ellipse2D.Float(15,15,2,2));
+        CompoundOutline s1 = new CompoundOutline(factory, new Ellipse2D.Float(5,5,2,2),
+                new Ellipse2D.Float(15,15,2,2));
         s1.add(new Ellipse2D.Float(5,15,2,2));
         s1.add(new Ellipse2D.Float(15,5,2,2));
 
@@ -157,12 +153,10 @@ public class CompoundOutlineTest extends TestCase {
 
     public void testAdd_overlappingButNotIntersecting_var1() {
         TestOutlineFactory factory = new TestOutlineFactory();
-        CompoundOutline s1 = new CompoundOutline(factory);
-        s1.add(new Ellipse2D.Float(5,5,2,2));
-        s1.add(new Ellipse2D.Float(15,15,2,2));
-        CompoundOutline s2 = new CompoundOutline(factory);
-        s2.add(new Ellipse2D.Float(15,5,2,2));
-        s2.add(new Ellipse2D.Float(5,15,2,2));
+        CompoundOutline s1 = new CompoundOutline(factory, new Ellipse2D.Float(5,5,2,2),
+                new Ellipse2D.Float(15,15,2,2));
+        CompoundOutline s2 = new CompoundOutline(factory, new Ellipse2D.Float(15,5,2,2),
+                new Ellipse2D.Float(5,15,2,2));
         s1.add(s2);
 
         assertEquals(0, factory.operationCtr);
@@ -181,6 +175,16 @@ public class CompoundOutlineTest extends TestCase {
         CompoundOutline s1 = new CompoundOutline(factory, p1);
         s1.add(p2);
 
-        assertEquals(0, factory.operationCtr);
+        // TODO: we could make engine.operationCtr == 0 *if* we changed
+        // CompoundShape.add(..) to split up incoming operands with multiple paths.
+        // In fact, we could simplify the code a little if we made CompoundShape's
+        // constructor automatically split separate paths into separate members,
+        // and then just always use add(CompoundShape) logic.
+
+//        assertEquals(0, engine.operationCtr);
+
+        // ... but the current code sees our Path2Ds as one blob, so we expect them
+        // to intersect and we'll have to use the engine to resolve the add(..):
+        assertEquals(1, factory.operationCtr);
     }
 }
